@@ -68,7 +68,7 @@ Once submitted, records become read-only until reviewed by the Secretary.
 
 ---
 
-## 🥾 Village Extension Officer (VEO)
+## 🥾Panchayath section Clerk
 
 Designed for onsite inspections and surveys.
 
