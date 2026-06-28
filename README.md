@@ -1,56 +1,189 @@
-🏛️ LSGD Chakkittapara Panchayat GIS License Compliance Portal
-An enterprise e-governance spatial monitoring dashboard and licensing workflow built for Chakkittapara Grama Panchayat, Kerala. The system manages trade license compliance audits, field surveys, and registry updates using role-based access control and integrated GIS mapping.
+# 🏛️ LSGD Chakkittapara Panchayat GIS License Compliance Portal
 
-👥 Stakeholders & Role-Based Access Control (RBAC)
-Every official accesses a unique interface tailored specifically to their administrative responsibilities:
+An enterprise-grade e-Governance platform for monitoring trade license compliance using GIS mapping, role-based access control, and digital field inspection workflows. The system enables Chakkittapara Grama Panchayat officials to identify licensed and unlicensed commercial establishments, conduct inspections, manage licensing workflows, and monitor revenue through an integrated spatial dashboard.
 
-1. 🥇 Panchayat Secretary (Executive Authority)
-Scope: Overall monitoring, dashboard tracking, GIS Map analytics, ward statistics, reports, and administrative setups.
-Actions: Verify field surveys, approve/reject license files, return files to data entry operators for correction, track revenue, and issue notices/reminders.
-2. 🗳️ Ward Member (Report Unlicensed)
-Scope: Restricted strictly to their assigned ward. Hides all global dashboards and maps.
-Actions: Input-only interface to report unlicensed commercial activity in their ward. Submitted reports automatically file as unlicensed building drafts in the verification queue.
-3. 📝 Panchayat Staff (Data Entry Operator)
-Scope: A dedicated office entry portal. Hides maps and global statistics.
-Actions: Register existing commercial units, manage attachments (tax deeds, NOCs, photos), save local drafts, and submit records to the Secretary's queue for license issuance (submitting locks the record to read-only).
-4. 🥾 VEO (Village Extension Officer)
-Scope: Onsite field inspector survey terminal. Hides global analytics.
-Actions: View assigned inspection targets, log GPS coordinates, add inspect descriptions/remarks, cache local drafts offline, and submit reports to the Secretary.
-🔑 Authentication & Firestore Profile Sync
-Google Authentication: Authenticates securely using Firebase Auth.
-Firestore Synchronization: On first login, a user profile is automatically generated inside Firestore (defaulting to Secretary role). If the Google account's email matches pre-seeded personnel, it inherits their specific role and ward scope permissions.
-Credentials Fallback (Development): You can type any mock email in the standard email/password fields with any password to load respective stakeholder interfaces.
-🛠️ Tech Stack & Architecture
-Core: React, Vite 8, TypeScript, Tailwind CSS
-Mapping: Leaflet GIS Maps (OpenStreetMap tiles, custom Kerala Grama Panchayat geoJSON boundaries, measurement calipers)
-Database: Firebase Firestore, Storage, and Authentication (with integrated offline-caching fallback)
-State & Forms: React Hook Form, Zod validation schemas, Recharts area and bar charts
-🚀 Running the Project
-1. Install Dependencies
-bash
+---
 
+## ✨ Key Features
+
+* 🗺️ Interactive GIS map with geotagged commercial establishments
+* 🔐 Role-Based Access Control (RBAC)
+* 📍 GPS-enabled field inspection and survey management
+* 📄 Digital license application and verification workflow
+* 📊 Real-time analytics and revenue dashboard
+* 📱 Offline field data collection with synchronization
+* 📂 Document and image attachment support
+* 🔔 Automated reminders and compliance monitoring
+
+---
+
+# 👥 User Roles
+
+## 🥇 Panchayat Secretary
+
+The Secretary acts as the primary administrator and monitoring authority.
+
+### Responsibilities
+
+* Monitor overall licensing status
+* View GIS compliance dashboard
+* Review ward-wise statistics
+* Approve or reject license applications
+* Return applications for correction
+* Verify field inspection reports
+* Generate reports and notices
+* Monitor revenue collection
+* Configure administrative settings
+
+---
+
+## 🗳️ Ward Member
+
+Ward Members are restricted to their assigned ward.
+
+### Responsibilities
+
+* Report unlicensed commercial establishments
+* Submit new commercial activity reports
+* View submitted reports
+* Track report status
+
+Submitted reports automatically enter the verification queue for Secretary approval.
+
+---
+
+## 📝 Panchayat Staff (Data Entry Operator)
+
+Provides office-based data entry functionality.
+
+### Responsibilities
+
+* Register commercial establishments
+* Upload tax receipts and supporting documents
+* Attach photographs
+* Save draft records
+* Submit applications for approval
+
+Once submitted, records become read-only until reviewed by the Secretary.
+
+---
+
+## 🥾 Village Extension Officer (VEO)
+
+Designed for onsite inspections and surveys.
+
+### Responsibilities
+
+* View assigned inspection tasks
+* Capture GPS coordinates
+* Upload inspection photographs
+* Record field observations
+* Save offline drafts
+* Submit inspection reports
+
+---
+
+# 🔐 Authentication
+
+## Google Authentication
+
+Users can securely sign in using Firebase Authentication.
+
+## Firestore Profile Synchronization
+
+On first login:
+
+* User profile is automatically created
+* Role is assigned from preconfigured personnel records
+* Ward permissions are automatically applied
+
+## Development Login
+
+For development purposes, any password can be used with the demo email accounts below.
+
+---
+
+# 🛠️ Technology Stack
+
+| Category       | Technology                |
+| -------------- | ------------------------- |
+| Frontend       | React + Vite + TypeScript |
+| Styling        | Tailwind CSS              |
+| Mapping        | Leaflet + OpenStreetMap   |
+| Database       | Firebase Firestore        |
+| Storage        | Firebase Storage          |
+| Authentication | Firebase Authentication   |
+| Forms          | React Hook Form           |
+| Validation     | Zod                       |
+| Charts         | Recharts                  |
+
+---
+
+# 🚀 Getting Started
+
+## Install Dependencies
+
+```bash
 npm install
-2. Run Development Server
-bash
+```
 
+## Start Development Server
+
+```bash
 npm run dev
-Open http://localhost:5173/ in your web browser.
+```
 
-3. Build for Production (Zero-Warning Code Splitting)
-bash
+Open:
 
+```
+http://localhost:5173
+```
+
+---
+
+## Production Build
+
+```bash
 npm run build
-This splits large dependency files (maps, charts, icons, db drivers) into optimized, cached chunks under 500 kB:
+```
 
-vendor-charts: Recharts
-vendor-maps: Leaflet
-vendor-icons: Lucide Icons
-vendor-db: Firebase Firestore / Auth drivers
-🧪 Developer Demo Accounts
-Use these official emails on the login screen to simulate different views:
+The production build automatically performs code splitting for improved performance.
 
-Panchayat Secretary: mini.secretary@kerala.gov.in
-Panchayat Staff (DEO): sajesh.deo@kerala.gov.in
-Ward Member: thomas.ward1@kerala.gov.in
-VEO (Village Extension Officer): suresh.surveyor@kerala.gov.in
-Administrator: balan.administrator@kerala.gov.in
+Optimized bundles include:
+
+* vendor-maps (Leaflet)
+* vendor-db (Firebase)
+* vendor-icons (Lucide)
+* vendor-charts (Recharts)
+
+---
+
+# 🧪 Demo Accounts
+
+| Role                      | Email                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| Panchayat Secretary       | [mini.secretary@kerala.gov.in](mailto:mini.secretary@kerala.gov.in)           |
+| Panchayat Staff (DEO)     | [sajesh.deo@kerala.gov.in](mailto:sajesh.deo@kerala.gov.in)                   |
+| Ward Member               | [thomas.ward1@kerala.gov.in](mailto:thomas.ward1@kerala.gov.in)               |
+| Village Extension Officer | [suresh.surveyor@kerala.gov.in](mailto:suresh.surveyor@kerala.gov.in)         |
+| Administrator             | [balan.administrator@kerala.gov.in](mailto:balan.administrator@kerala.gov.in) |
+
+Use any password while running in development mode.
+
+---
+
+# 📌 Project Objectives
+
+* Digitize trade license management
+* Improve identification of unlicensed establishments
+* Enable GIS-based monitoring
+* Reduce manual paperwork
+* Improve transparency and accountability
+* Increase Panchayat revenue through compliance monitoring
+* Support efficient field inspections
+
+---
+
+# 📄 License
+
+This project was developed as an enterprise e-Governance solution for **Chakkittapara Grama Panchayat, Kerala**, demonstrating modern GIS-based municipal license compliance monitoring using React, Firebase, and Leaflet.
