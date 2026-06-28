@@ -120,7 +120,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <div>
               <div className="text-xs uppercase tracking-wider font-semibold text-slate-300">Government of Kerala</div>
               <h1 className="text-lg font-bold leading-tight">Chakkittapara Grama Panchayat</h1>
-              <div className="text-[10px] text-slate-400 font-mono">License Compliance GIS Monitor Portal</div>
+              <div className="text-[10px] text-slate-400 font-mono">LSG Track Compliance Monitor</div>
             </div>
           </div>
 

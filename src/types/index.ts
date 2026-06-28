@@ -26,7 +26,7 @@ export interface WardRecord {
   assignedOfficer: string; // Name of assigned field officer
 }
 
-export type BuildingStatus = 'licensed' | 'unlicensed' | 'pending' | 'govt' | 'inactive';
+export type BuildingStatus = 'licensed' | 'unlicensed' | 'pending' | 'govt' | 'ngo' | 'inactive';
 
 export interface BuildingRecord {
   id: string;

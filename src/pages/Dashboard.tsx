@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, CheckCircle2, AlertTriangle, Clock, 
-  CircleDollarSign 
+  CircleDollarSign, Users 
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -60,13 +60,14 @@ export const Dashboard: React.FC = () => {
   const unlicensedBldgs = scopedBuildings.filter(b => b.status === 'unlicensed').length;
   const pendingBldgs = scopedBuildings.filter(b => b.status === 'pending').length;
   const govtBldgs = scopedBuildings.filter(b => b.status === 'govt').length;
+  const ngoBldgs = scopedBuildings.filter(b => b.status === 'ngo').length;
   
   const expiredLicenses = scopedLicenses.filter(l => l.status === 'expired').length;
   const activeLicenses = scopedLicenses.filter(l => l.status === 'active').length;
   const totalRevenue = scopedLicenses.reduce((sum, lic) => sum + lic.feePaid, 0);
 
-  // compliance rate overall (excluding government buildings)
-  const nonGovCount = totalBldgs - govtBldgs;
+  // compliance rate overall (excluding government and NGO buildings which don't need licenses)
+  const nonGovCount = totalBldgs - govtBldgs - ngoBldgs;
   const complianceRate = nonGovCount > 0 
     ? Math.round((licensedBldgs / nonGovCount) * 100) 
     : 100;
@@ -111,7 +112,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Statistics Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
         
         {/* Card 1: Total Buildings */}
         <div className="bg-white border border-gov-border rounded p-4 flex flex-col justify-between shadow-sm">
@@ -121,7 +122,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="mt-2">
             <span className="text-2xl font-bold text-slate-900">{totalBldgs}</span>
-            <span className="text-[10px] block text-slate-500 mt-0.5">{govtBldgs} Government Buildings</span>
+            <span className="text-[10px] block text-slate-500 mt-0.5">{govtBldgs} Gov | {ngoBldgs} NGO</span>
           </div>
         </div>
 
@@ -145,11 +146,23 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="mt-2">
             <span className="text-2xl font-bold text-status-unlicensed">{unlicensedBldgs}</span>
-            <span className="text-[10px] block text-slate-500 mt-0.5">Enforcement notices generated</span>
+            <span className="text-[10px] block text-slate-500 mt-0.5">Enforcement notices pending</span>
           </div>
         </div>
 
-        {/* Card 4: Pending */}
+        {/* Card 4: NGO / Exempt */}
+        <div className="bg-white border border-gov-border rounded p-4 flex flex-col justify-between shadow-sm border-l-4 border-l-purple-600">
+          <div className="flex justify-between items-start text-slate-500">
+            <span className="text-[10px] uppercase font-bold tracking-wider leading-tight">NGO / Exempt</span>
+            <Users size={16} className="text-purple-600" />
+          </div>
+          <div className="mt-2">
+            <span className="text-2xl font-bold text-purple-600">{ngoBldgs}</span>
+            <span className="text-[10px] block text-slate-500 mt-0.5">License not required</span>
+          </div>
+        </div>
+
+        {/* Card 5: Pending */}
         <div className="bg-white border border-gov-border rounded p-4 flex flex-col justify-between shadow-sm border-l-4 border-l-status-pending">
           <div className="flex justify-between items-start text-slate-500">
             <span className="text-[10px] uppercase font-bold tracking-wider leading-tight">Pending Verification</span>
@@ -161,7 +174,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 5: Expired */}
+        {/* Card 6: Expired */}
         <div className="bg-white border border-gov-border rounded p-4 flex flex-col justify-between shadow-sm border-l-4 border-l-amber-600">
           <div className="flex justify-between items-start text-slate-500">
             <span className="text-[10px] uppercase font-bold tracking-wider leading-tight">Expired Licences</span>
@@ -173,7 +186,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 6: Revenue */}
+        {/* Card 7: Revenue */}
         <div className="bg-white border border-gov-border rounded p-4 flex flex-col justify-between shadow-sm">
           <div className="flex justify-between items-start text-slate-500">
             <span className="text-[10px] uppercase font-bold tracking-wider leading-tight">License Dues Collected</span>

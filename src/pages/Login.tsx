@@ -65,7 +65,7 @@ export const Login: React.FC = () => {
           <span className="font-extrabold text-emerald-800 text-lg">LSGD</span>
         </div>
         <h2 className="text-white text-lg font-bold">Local Self Government Department</h2>
-        <p className="text-slate-400 text-xs mt-1">Government of Kerala - e-Governance Portal</p>
+        <p className="text-slate-400 text-xs mt-1">LSG Track - Chakkittapara Panchayat GIS Compliance Portal</p>
       </div>
 
       {/* Main Login Card */}

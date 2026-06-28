@@ -1,4 +1,4 @@
-# 🏛️ LSGD Chakkittapara Panchayat GIS License Compliance Portal
+# 🏛️ LSG Track - GIS License Compliance Portal
 
 An enterprise-grade e-Governance platform for monitoring trade license compliance using GIS mapping, role-based access control, and digital field inspection workflows. The system enables Chakkittapara Grama Panchayat officials to identify licensed and unlicensed commercial establishments, conduct inspections, manage licensing workflows, and monitor revenue through an integrated spatial dashboard.
 

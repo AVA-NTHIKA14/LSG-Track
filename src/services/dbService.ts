@@ -357,6 +357,20 @@ export const dbService = {
     );
   },
 
+  async addHistoricalLicense(license: LicenseRecord): Promise<void> {
+    if (isFirebaseEnabled && db) {
+      const { setDoc, doc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'licenses', license.id), license);
+    } else {
+      const licenses = JSON.parse(localStorage.getItem(KEYS.LICENSES) || '[]');
+      licenses.push(license);
+      localStorage.setItem(KEYS.LICENSES, JSON.stringify(licenses));
+      notifySubscribers('licenses', licenses);
+    }
+    await this.updateBuildingStatus(license.buildingId, 'licensed', license.id, `Historical license imported. ID: ${license.id}`);
+    await this.addAuditLog('CREATE', `Imported historical Trade License #${license.id} for Building ID: ${license.buildingId}.`);
+  },
+
   async renewLicense(licenseId: string): Promise<void> {
     if (isFirebaseEnabled && db) {
       // Firebase update

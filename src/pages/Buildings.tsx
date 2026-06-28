@@ -47,6 +47,14 @@ export const Buildings: React.FC = () => {
 
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
+  // Previous License Data Entry Import State
+  const [showPrevLicense, setShowPrevLicense] = useState(false);
+  const [prevLicenseNum, setPrevLicenseNum] = useState('');
+  const [prevLicenseIssue, setPrevLicenseIssue] = useState('');
+  const [prevLicenseExpiry, setPrevLicenseExpiry] = useState('');
+  const [prevLicenseFee, setPrevLicenseFee] = useState('1000');
+  const [isNgoStatus, setIsNgoStatus] = useState(false);
+
   // Initialize DB Subscriptions
   useEffect(() => {
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
@@ -91,6 +99,10 @@ export const Buildings: React.FC = () => {
   // --- SUBMIT NEW BUILDING WORKFLOWS (DEO ONLY) ---
   const saveBuildingDraft = async (data: BuildingFormData) => {
     try {
+      let bldgStatus: any = 'unlicensed';
+      if (isNgoStatus) bldgStatus = 'ngo';
+      else if (showPrevLicense) bldgStatus = 'licensed';
+
       const bldgRecord: Omit<BuildingRecord, 'history'> = {
         id: data.id,
         ownerName: data.ownerName,
@@ -98,15 +110,35 @@ export const Buildings: React.FC = () => {
         category: data.category,
         wardNumber: data.wardNumber,
         coordinates: { lat: data.lat, lng: data.lng },
-        status: 'unlicensed', // Draft status
+        status: bldgStatus,
         remarks: data.remarks || '',
         attachments: [],
         isReturnedForCorrection: false
       };
       
       await dbService.addBuilding(bldgRecord);
+
+      if (showPrevLicense) {
+        const licId = prevLicenseNum || ('LIC-HIST-' + Math.floor(1000 + Math.random() * 9000));
+        await dbService.addHistoricalLicense({
+          id: licId,
+          buildingId: data.id,
+          licenseType: 'Imported Legacy D&O License',
+          issueDate: prevLicenseIssue || new Date().toISOString().split('T')[0],
+          expiryDate: prevLicenseExpiry || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+          status: new Date(prevLicenseExpiry) > new Date() ? 'active' : 'expired',
+          feePaid: parseInt(prevLicenseFee) || 1000
+        });
+      }
+
       setFormSuccess(`Draft "${data.businessName}" saved successfully.`);
       reset();
+      setShowPrevLicense(false);
+      setPrevLicenseNum('');
+      setPrevLicenseIssue('');
+      setPrevLicenseExpiry('');
+      setIsNgoStatus(false);
+
       setTimeout(() => {
         setFormSuccess(null);
         setActiveTab('directory');
@@ -118,6 +150,10 @@ export const Buildings: React.FC = () => {
 
   const submitBuildingForVerification = async (data: BuildingFormData) => {
     try {
+      let bldgStatus: any = 'pending';
+      if (isNgoStatus) bldgStatus = 'ngo';
+      else if (showPrevLicense) bldgStatus = 'licensed';
+
       const bldgRecord: Omit<BuildingRecord, 'history'> = {
         id: data.id,
         ownerName: data.ownerName,
@@ -125,7 +161,7 @@ export const Buildings: React.FC = () => {
         category: data.category,
         wardNumber: data.wardNumber,
         coordinates: { lat: data.lat, lng: data.lng },
-        status: 'pending', // Directly submitted to Secretary
+        status: bldgStatus,
         remarks: data.remarks || '',
         attachments: [],
         submittedAt: new Date().toISOString().split('T')[0],
@@ -134,17 +170,36 @@ export const Buildings: React.FC = () => {
 
       await dbService.addBuilding(bldgRecord);
 
-      // Trigger verification survey automatically
-      await dbService.addSurvey({
-        buildingId: data.id,
-        gps: { lat: data.lat, lng: data.lng },
-        status: 'submitted',
-        remarks: `[DEO System Submit] Submitted for official compliance review.`,
-        isSynced: true
-      });
+      if (showPrevLicense) {
+        const licId = prevLicenseNum || ('LIC-HIST-' + Math.floor(1000 + Math.random() * 9000));
+        await dbService.addHistoricalLicense({
+          id: licId,
+          buildingId: data.id,
+          licenseType: 'Imported Legacy D&O License',
+          issueDate: prevLicenseIssue || new Date().toISOString().split('T')[0],
+          expiryDate: prevLicenseExpiry || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+          status: new Date(prevLicenseExpiry) > new Date() ? 'active' : 'expired',
+          feePaid: parseInt(prevLicenseFee) || 1000
+        });
+      } else {
+        // Trigger verification survey automatically
+        await dbService.addSurvey({
+          buildingId: data.id,
+          gps: { lat: data.lat, lng: data.lng },
+          status: 'submitted',
+          remarks: `[DEO System Submit] Submitted for official compliance review.`,
+          isSynced: true
+        });
+      }
 
-      setFormSuccess(`Building "${data.businessName}" submitted for Secretary Verification.`);
+      setFormSuccess(`Building "${data.businessName}" submitted successfully.`);
       reset();
+      setShowPrevLicense(false);
+      setPrevLicenseNum('');
+      setPrevLicenseIssue('');
+      setPrevLicenseExpiry('');
+      setIsNgoStatus(false);
+
       setTimeout(() => {
         setFormSuccess(null);
         setActiveTab('directory');
@@ -788,10 +843,85 @@ export const Buildings: React.FC = () => {
               </div>
               
               <div>
-                <label className="block font-bold text-slate-500 uppercase mb-1">Initial Status</label>
-                <span className="block font-bold text-slate-500 py-2">Draft (Save Draft) or Pending (Submit for Verification)</span>
+                <label className="block font-bold text-slate-500 uppercase mb-1">Obligation / Import Option</label>
+                <div className="flex space-x-4 py-2">
+                  <label className="flex items-center space-x-1.5 font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isNgoStatus}
+                      disabled={showPrevLicense}
+                      onChange={(e) => setIsNgoStatus(e.target.checked)}
+                      className="rounded text-gov-green focus:ring-gov-green"
+                    />
+                    <span>NGO / Charitable Exempt</span>
+                  </label>
+                  <label className="flex items-center space-x-1.5 font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showPrevLicense}
+                      disabled={isNgoStatus}
+                      onChange={(e) => setShowPrevLicense(e.target.checked)}
+                      className="rounded text-gov-green focus:ring-gov-green"
+                    />
+                    <span>Import Historical License</span>
+                  </label>
+                </div>
               </div>
             </div>
+
+            {/* Historical License Data Import Form */}
+            {showPrevLicense && (
+              <div className="bg-emerald-50/40 border border-emerald-100 rounded p-4 space-y-3">
+                <div className="font-bold text-gov-navy uppercase text-[10px] tracking-wider border-b pb-1.5 flex items-center space-x-1">
+                  <span>Legacy / Previous Trade License Data Input</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Historical License Number *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. LIC-CP-2024-X45"
+                      value={prevLicenseNum}
+                      onChange={(e) => setPrevLicenseNum(e.target.value)}
+                      className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-slate-800 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">License Fee Paid (₹) *</label>
+                    <input
+                      type="number"
+                      required
+                      value={prevLicenseFee}
+                      onChange={(e) => setPrevLicenseFee(e.target.value)}
+                      className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-slate-800 bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Issue Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={prevLicenseIssue}
+                      onChange={(e) => setPrevLicenseIssue(e.target.value)}
+                      className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-slate-800 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Expiry Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={prevLicenseExpiry}
+                      onChange={(e) => setPrevLicenseExpiry(e.target.value)}
+                      className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-slate-800 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Geotags */}
             <div className="bg-slate-50 p-4 border rounded space-y-3">

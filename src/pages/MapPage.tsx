@@ -159,6 +159,7 @@ export const MapPage: React.FC = () => {
       else if (building.status === 'unlicensed') color = '#B91C1C'; // red
       else if (building.status === 'pending') color = '#B45309'; // amber
       else if (building.status === 'govt') color = '#1D4ED8'; // blue
+      else if (building.status === 'ngo') color = '#7C3AED'; // purple
 
       const customIcon = L.divIcon({
         html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1.5px 3.5px rgba(0,0,0,0.5)"></div>`,
@@ -300,6 +301,7 @@ export const MapPage: React.FC = () => {
               <option value="unlicensed">Unlicensed (Red)</option>
               <option value="pending">Pending Verification (Amber)</option>
               <option value="govt">Government Buildings (Blue)</option>
+              <option value="ngo">NGO / Exempt (Purple)</option>
             </select>
           </div>
 
@@ -361,6 +363,10 @@ export const MapPage: React.FC = () => {
             <div className="flex items-center space-x-2">
               <span className="w-3.5 h-3.5 rounded-full border border-white shadow bg-status-govt inline-block"></span>
               <span className="text-slate-700">Government building (Exempt)</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="w-3.5 h-3.5 rounded-full border border-white shadow bg-purple-600 inline-block"></span>
+              <span className="text-slate-700">NGO / Charitable trust (Exempt)</span>
             </div>
           </div>
 

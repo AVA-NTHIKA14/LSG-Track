@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
 import type { BuildingRecord, SurveyRecord } from '../types';
 import { 
   ClipboardCheck, Save, CheckCircle, WifiOff, 
-  RefreshCw, ShieldAlert, MapPin, Check, Play 
+  RefreshCw, ShieldAlert, MapPin, Check, Play, Search, Plus 
 } from 'lucide-react';
 
 interface LocalReportDraft {
@@ -30,8 +31,12 @@ export const Survey: React.FC = () => {
   const [ownerName, setOwnerName] = useState('');
   const [category, setCategory] = useState('');
   
-  // --- FIELD OFFICER STATE ---
+  // --- VEO STATE ---
   const [activeBuilding, setActiveBuilding] = useState<BuildingRecord | null>(null);
+  const [veoSearchQuery, setVeoSearchQuery] = useState('');
+  const [licenseExemptStatus, setLicenseExemptStatus] = useState<'needs-license' | 'ngo-exempt' | 'govt-exempt'>('needs-license');
+  const veoMapContainerRef = useRef<HTMLDivElement>(null);
+  const veoMapRef = useRef<L.Map | null>(null);
 
   // --- SHARED STATE ---
   const [remarks, setRemarks] = useState('');
@@ -56,12 +61,57 @@ export const Survey: React.FC = () => {
     };
   }, []);
 
+  // VEO Local Field Map Initialization
+  useEffect(() => {
+    if (role !== 'VEO' || !activeBuilding || !veoMapContainerRef.current) return;
+
+    // Destroy existing map instance
+    if (veoMapRef.current) {
+      veoMapRef.current.remove();
+      veoMapRef.current = null;
+    }
+
+    try {
+      const map = L.map(veoMapContainerRef.current, {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([lat, lng], 15);
+      
+      veoMapRef.current = map;
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+      L.marker([lat, lng]).addTo(map)
+        .bindPopup(activeBuilding.businessName)
+        .openPopup();
+    } catch (err) {
+      console.warn("Leaflet field map initialization failed: ", err);
+    }
+
+    return () => {
+      if (veoMapRef.current) {
+        veoMapRef.current.remove();
+        veoMapRef.current = null;
+      }
+    };
+  }, [activeBuilding, lat, lng, role]);
+
   // Filter reported buildings in this member's ward (Ward Member view)
   const myWardBuildings = buildings.filter(b => b.wardNumber === assignedWard);
   const unlicensedReported = myWardBuildings.filter(b => b.status === 'unlicensed' || b.status === 'pending');
 
-  // Filter survey targets (Field Officer / Admin view)
-  const surveyTargets = buildings.filter(b => b.status === 'unlicensed');
+  // Filter survey targets (VEO view)
+  const surveyTargets = buildings.filter(b => {
+    const matchQuery = 
+      b.businessName.toLowerCase().includes(veoSearchQuery.toLowerCase()) ||
+      b.ownerName.toLowerCase().includes(veoSearchQuery.toLowerCase()) ||
+      b.id.toLowerCase().includes(veoSearchQuery.toLowerCase());
+      
+    if (veoSearchQuery) {
+      return matchQuery;
+    }
+    return b.status === 'unlicensed' && matchQuery;
+  });
 
   const handleGetGPS = () => {
     const offsetLat = +(Math.random() * 0.006 - 0.003).toFixed(5);
@@ -173,16 +223,26 @@ export const Survey: React.FC = () => {
       return;
     }
 
+    let nextStatus: any = 'pending';
+    if (licenseExemptStatus === 'ngo-exempt') nextStatus = 'ngo';
+    else if (licenseExemptStatus === 'govt-exempt') nextStatus = 'govt';
+
     const surveyData: Omit<SurveyRecord, 'id' | 'officerId' | 'officerName' | 'surveyDate'> = {
       buildingId: activeBuilding.id,
       gps: { lat, lng },
       status: 'submitted',
-      remarks: `[VEO Survey] ${remarks}`,
+      remarks: `[VEO Survey] [Obligation: ${licenseExemptStatus}] ${remarks}`,
       isSynced: true
     };
 
+    // Update building status and GPS coordinates in the database
+    await dbService.updateBuilding(activeBuilding.id, {
+      status: nextStatus,
+      coordinates: { lat, lng }
+    });
+
     await dbService.addSurvey(surveyData);
-    setSuccessMsg(`Survey report successfully submitted for Building ID ${activeBuilding.id}. Sent to Secretary queue.`);
+    setSuccessMsg(`Survey report submitted successfully. Building status updated to ${nextStatus}.`);
     clearForm();
   };
 
@@ -307,8 +367,30 @@ export const Survey: React.FC = () => {
             <div className="bg-white border border-gov-border rounded p-4 shadow-sm">
               <h3 className="text-xs font-bold text-gov-navy uppercase tracking-wider mb-3.5 border-b pb-2 flex items-center space-x-2">
                 <ClipboardCheck size={16} className="text-gov-green" />
-                <span>My Ward Submissions (Ward {assignedWard})</span>
+                <span>My Ward Monitoring (Ward {assignedWard})</span>
               </h3>
+
+              {/* Mini Ward-based Performance Stats */}
+              <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+                <div className="bg-emerald-50/50 border border-emerald-100 rounded p-2 text-xs">
+                  <span className="block text-[9px] uppercase font-bold text-slate-500">Licensed</span>
+                  <span className="block text-base font-bold text-status-licensed">
+                    {myWardBuildings.filter(b => b.status === 'licensed').length}
+                  </span>
+                </div>
+                <div className="bg-red-50/30 border border-red-100 rounded p-2 text-xs">
+                  <span className="block text-[9px] uppercase font-bold text-slate-500">Unlicensed</span>
+                  <span className="block text-base font-bold text-status-unlicensed">
+                    {myWardBuildings.filter(b => b.status === 'unlicensed' || b.status === 'pending').length}
+                  </span>
+                </div>
+                <div className="bg-purple-50/30 border border-purple-100 rounded p-2 text-xs">
+                  <span className="block text-[9px] uppercase font-bold text-slate-500">NGO / Exempt</span>
+                  <span className="block text-base font-bold text-purple-600">
+                    {myWardBuildings.filter(b => b.status === 'ngo').length}
+                  </span>
+                </div>
+              </div>
 
               {unlicensedReported.length === 0 ? (
                 <p className="text-xs text-slate-400 italic py-2">No unlicensed reports submitted or pending inside your ward boundary.</p>
@@ -344,8 +426,44 @@ export const Survey: React.FC = () => {
                 <span>Inspection Survey Targets ({surveyTargets.length})</span>
               </h3>
 
+              {/* VEO SEARCH BAR */}
+              <div className="relative mb-4">
+                <input
+                  type="text"
+                  placeholder="Search existing buildings by name, owner, ID..."
+                  value={veoSearchQuery}
+                  onChange={(e) => setVeoSearchQuery(e.target.value)}
+                  className="w-full border border-slate-300 rounded pl-8 pr-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-gov-green"
+                />
+                <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+              </div>
+
               {surveyTargets.length === 0 ? (
-                <p className="text-xs text-slate-400 italic py-2">No unlicensed targets awaiting field survey inspections.</p>
+                <div className="text-center py-6">
+                  <p className="text-xs text-slate-400 italic mb-3">No matching buildings found in local records.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tempId = 'BLDG-FIELD-' + Math.floor(1000 + Math.random() * 9000);
+                      const tempBldg: BuildingRecord = {
+                        id: tempId,
+                        businessName: veoSearchQuery || 'New Field Activity',
+                        ownerName: 'To be verified',
+                        category: 'Commercial',
+                        wardNumber: assignedWard,
+                        coordinates: { lat: 11.57547, lng: 75.81649 },
+                        status: 'unlicensed'
+                      };
+                      setActiveBuilding(tempBldg);
+                      setRemarks('');
+                      setSuccessMsg(null);
+                    }}
+                    className="bg-gov-green hover:bg-gov-green-light text-white text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded flex items-center space-x-1.5 mx-auto"
+                  >
+                    <Plus size={12} />
+                    <span>Report Unregistered Building</span>
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {surveyTargets.map((b) => (
@@ -353,7 +471,14 @@ export const Survey: React.FC = () => {
                       <div>
                         <div className="flex items-center space-x-1.5 mb-1">
                           <span className="font-mono text-[10px] font-bold text-slate-400">ID: {b.id}</span>
-                          <span className="px-1.5 py-0.5 bg-red-100 text-status-unlicensed text-[9px] uppercase font-bold rounded">Unlicensed</span>
+                          <span className={`px-1.5 py-0.5 text-[9px] uppercase font-bold rounded ${
+                            b.status === 'licensed' ? 'bg-emerald-100 text-status-licensed' :
+                            b.status === 'ngo' ? 'bg-purple-100 text-purple-700' :
+                            b.status === 'govt' ? 'bg-blue-100 text-blue-700' :
+                            b.status === 'pending' ? 'bg-amber-100 text-status-pending' : 'bg-red-100 text-status-unlicensed'
+                          }`}>
+                            {b.status}
+                          </span>
                           <span className="text-slate-400 font-mono">| Ward {b.wardNumber}</span>
                         </div>
                         <h4 className="font-bold text-slate-800">{b.businessName}</h4>
@@ -580,6 +705,29 @@ export const Survey: React.FC = () => {
                         <span className="block font-mono bg-white border rounded px-1.5 py-1 text-slate-800">{lng}</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Local map container */}
+                  <div className="mt-2 space-y-1">
+                    <span className="block text-[9px] font-bold text-slate-400 uppercase">Field Verification Map</span>
+                    <div 
+                      ref={veoMapContainerRef} 
+                      className="h-32 w-full rounded border border-slate-200 z-10"
+                    ></div>
+                  </div>
+
+                  {/* License Obligation Status */}
+                  <div>
+                    <label className="block font-bold text-slate-500 uppercase mb-1">License Need / Exemption Status *</label>
+                    <select
+                      value={licenseExemptStatus}
+                      onChange={(e) => setLicenseExemptStatus(e.target.value as any)}
+                      className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-gov-green"
+                    >
+                      <option value="needs-license">Requires Trade License (Commercial Unit)</option>
+                      <option value="ngo-exempt">Exempt (NGO / Charitable Trust / NGO Activity)</option>
+                      <option value="govt-exempt">Exempt (Government Building)</option>
+                    </select>
                   </div>
 
                   <div>

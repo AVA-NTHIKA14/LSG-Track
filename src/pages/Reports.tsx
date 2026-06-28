@@ -227,7 +227,8 @@ export const Reports: React.FC = () => {
                     <th className="px-3 py-2">Classification</th>
                     <th className="px-3 py-2">Date Issued</th>
                     <th className="px-3 py-2">Expiry Date</th>
-                    <th className="px-3 py-2 text-right">Status</th>
+                    <th className="px-3 py-2 text-right">License Status</th>
+                    <th className="px-3 py-2 text-right">SMS Reminders</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-slate-700">
@@ -247,7 +248,24 @@ export const Reports: React.FC = () => {
                           <td className="px-3 py-2 font-mono">{l.issueDate}</td>
                           <td className="px-3 py-2 font-mono text-red-700 font-semibold">{l.expiryDate}</td>
                           <td className="px-3 py-2 text-right">
-                            <span className="font-bold uppercase text-[9px]">{l.status}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
+                              l.status === 'active' ? 'bg-emerald-100 text-status-licensed' : 'bg-red-100 text-status-unlicensed'
+                            }`}>{l.status}</span>
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const phoneNum = `+91 944${Math.floor(1000000 + Math.random() * 9000000)}`;
+                                const alertMsg = `[SMS DISPATCHED] To: Proprietor of ${b?.businessName || 'Establishment'} (Phone: ${phoneNum}).\n\nMessage: Your D&O Trade License #${l.id} is expiring on ${l.expiryDate}. Please submit your renewal draft immediately at the Chakkittapara Panchayat portal.`;
+                                alert(alertMsg);
+                                await dbService.addAuditLog('NOTIFICATION', `Dispatched SMS renewal reminder to owner of ${b?.businessName || 'Establishment'} (License ID: ${l.id}, Phone: ${phoneNum}) regarding expiry date ${l.expiryDate}.`);
+                              }}
+                              className="bg-gov-navy hover:bg-gov-navy-light text-white text-[9px] font-bold uppercase px-2 py-0.75 rounded flex items-center space-x-1 ml-auto transition shadow-sm"
+                            >
+                              <Clock size={10} />
+                              <span>Send Alert</span>
+                            </button>
                           </td>
                         </tr>
                       );
