@@ -1,0 +1,126 @@
+{
+  "type": "FeatureCollection",
+  "name": "chakkittapara_wards",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ward_number": "1",
+        "ward_name": "Chakkittapara Town"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [75.810, 11.570],
+            [75.820, 11.570],
+            [75.820, 11.580],
+            [75.810, 11.580],
+            [75.810, 11.570]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ward_number": "2",
+        "ward_name": "Kulathuvayal"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [75.820, 11.580],
+            [75.830, 11.580],
+            [75.830, 11.590],
+            [75.820, 11.590],
+            [75.820, 11.580]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ward_number": "3",
+        "ward_name": "Peruvannamuzhi"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [75.800, 11.560],
+            [75.815, 11.560],
+            [75.815, 11.570],
+            [75.800, 11.570],
+            [75.800, 11.560]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ward_number": "4",
+        "ward_name": "Chembanoda"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [75.810, 11.580],
+            [75.820, 11.580],
+            [75.820, 11.595],
+            [75.810, 11.595],
+            [75.810, 11.580]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ward_number": "5",
+        "ward_name": "Muthukad"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [75.820, 11.565],
+            [75.835, 11.565],
+            [75.835, 11.578],
+            [75.820, 11.578],
+            [75.820, 11.565]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ward_number": "6",
+        "ward_name": "Kattippara Road"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [75.820, 11.578],
+            [75.835, 11.578],
+            [75.835, 11.585],
+            [75.820, 11.585],
+            [75.820, 11.578]
+          ]
+        ]
+      }
+    }
+  ]
+}

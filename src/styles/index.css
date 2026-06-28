@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gov-light text-gov-text font-sans antialiased;
+  }
+}
+
+/* High Contrast Mode Styling */
+.high-contrast {
+  --tw-bg-opacity: 1;
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+}
+
+.high-contrast * {
+  background-color: transparent !important;
+  color: #FFFFFF !important;
+  border-color: #FFFFFF !important;
+}
+
+.high-contrast button, 
+.high-contrast a, 
+.high-contrast select, 
+.high-contrast input, 
+.high-contrast textarea {
+  background-color: #000000 !important;
+  color: #FFFF00 !important; /* Yellow text for interactive elements in high contrast */
+  border: 2px solid #FFFFFF !important;
+}
+
+.high-contrast button:hover, 
+.high-contrast a:hover {
+  background-color: #FFFF00 !important;
+  color: #000000 !important;
+}
+
+/* Leaflet map styles */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Custom Marker Styling */
+.custom-leaflet-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  font-weight: bold;
+  color: white;
+  font-size: 10px;
+}
+
+/* Print-friendly layouts */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-card {
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+}
