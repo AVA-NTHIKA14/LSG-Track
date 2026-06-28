@@ -82,7 +82,7 @@ export const Login: React.FC = () => {
 
         <h3 className="text-slate-800 text-sm font-bold uppercase tracking-wider mb-4 border-b pb-2 flex items-center space-x-2">
           <KeyRound size={16} className="text-emerald-800" />
-          <span>Personnel Authentication</span>
+          <span>User Authentication</span>
         </h3>
 
         {error && (
