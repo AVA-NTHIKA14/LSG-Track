@@ -32,7 +32,7 @@ export const Profile: React.FC = () => {
       case 'Ward Member':
         return 'Assigned ward boundary supervisor, unlicensed building monitoring, field survey entries submission, and ward performance statistics review.';
       case 'VEO':
-        return 'Village Extension Officer (VEO) - Physical asset inspections supervisor, GPS coordinate tags capture, field verification data logs submission, and local survey drafts offline caching.';
+        return 'Panchayath Section Officer - Physical asset inspections supervisor, GPS coordinate tags capture, field verification data logs submission, and local survey drafts offline caching.';
       case 'Data Entry Operator':
         return 'Manual asset registers digitizer, commercial building metadata registry entry, documentation upload, and file properties modifications.';
       default:
