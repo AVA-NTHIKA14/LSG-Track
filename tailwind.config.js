@@ -30,6 +30,19 @@ export default {
           inactive: '#4B5563' // Gray
         }
       },
+      brand: {
+          DEFAULT: '#0F6E4F', 
+          dark: '#004B24',   
+          button: '#006633',  
+          subtle: '#336F50',  
+          dot: '#E2E8F8',    
+          footer: '#9FC5B9'   
+        },
+        ink: {
+          DEFAULT: '#151C27', 
+          muted: '#3F4940'    
+        }
+      },
       fontFamily: {
         sans: ['Inter', 'Noto Sans', 'ui-sans-serif', 'system-ui'],
       }
