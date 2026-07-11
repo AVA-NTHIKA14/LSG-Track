@@ -1,31 +1,147 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
-import { BrandMark } from '../components/BrandMark';
+import { 
+  ArrowRight, 
+  ArrowLeft,
+  ChevronRight, 
+  RefreshCw, 
+  Search, 
+  Calendar, 
+  ShieldCheck, 
+  Smartphone, 
+  MapPin, 
+  AlertTriangle, 
+  History, 
+  Layers, 
+  Filter, 
+  Flame, 
+  LayoutDashboard
+} from 'lucide-react';
+
+// Custom SVG Icons matching the design screenshot
+const KSmartIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" className="w-8 h-8 text-[#0F6E4F]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l.73-.73" />
+    <path d="M12 8a3 3 0 1 0 3 3" />
+  </svg>
+);
+
+const LsgTrackIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" className="w-8 h-8 text-[#0F6E4F]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <line x1="9" y1="17" x2="9" y2="10" />
+    <line x1="12" y1="17" x2="12" y2="7" />
+    <line x1="15" y1="17" x2="15" y2="13" />
+  </svg>
+);
+
+const GisMapIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" className="w-8 h-8 text-[#0F6E4F]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+    <line x1="9" y1="3" x2="9" y2="18" />
+    <line x1="15" y1="6" x2="15" y2="21" />
+  </svg>
+);
+
+interface Feature {
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+}
 
 interface Slide {
   title: string;
-  subtitle?: string;
-  body: string;
+  description: string;
+  features: Feature[];
+  activeCard: 'K-SMART' | 'LSG TRACK' | 'GIS MAP';
+  statusText: string;
 }
 
-// Slide 1 copy and layout come directly from the shared Figma frame.
-// Slides 2-3 are placeholders so the carousel mechanics (dots, Skip, Next)
-// are fully working now — swap the copy below once those frames arrive.
 const slides: Slide[] = [
   {
-    title: 'Welcome to LSG Track',
-    subtitle: 'A GIS-based Trade License Compliance Portal for Kerala Grama Panchayats.',
-    body: 'Monitor licensed and unlicensed commercial establishments, manage inspections, and improve trade license compliance using spatial intelligence and real-time GIS mapping.',
+    title: 'Integrated with K-SMART',
+    description: 'Licensed trade establishments are synchronized from K-SMART, reducing manual data entry and ensuring up-to-date records.',
+    activeCard: 'K-SMART',
+    statusText: 'Live Data Synchronization Active',
+    features: [
+      {
+        title: 'Automatic license synchronization',
+        description: 'Real-time updates from the state database.',
+        icon: RefreshCw
+      },
+      {
+        title: 'Business search',
+        description: 'Instant lookup of any registered entity by ID or name.',
+        icon: Search
+      },
+      {
+        title: 'Renewal monitoring',
+        description: 'Automated alerts for expiring trade licenses.',
+        icon: Calendar
+      },
+      {
+        title: 'Compliance tracking',
+        description: 'Unified view of field verification vs official records.',
+        icon: ShieldCheck
+      }
+    ]
   },
   {
-    title: 'Slide 2 — placeholder title',
-    body: 'Placeholder copy. Replace once the slide 2 design is shared.',
+    title: 'Field Surveys & Geo-tagging',
+    description: 'Conduct door-to-door validation, verify business credentials, and capture precise GPS locations of structures in the field.',
+    activeCard: 'LSG TRACK',
+    statusText: 'Real-time Field Auditing Active',
+    features: [
+      {
+        title: 'Mobile field surveys',
+        description: 'Collect structure, owner, and license data on-site.',
+        icon: Smartphone
+      },
+      {
+        title: 'Geo-tagging structures',
+        description: 'Pinpoint exact coordinates for spatial mapping.',
+        icon: MapPin
+      },
+      {
+        title: 'Discrepancy reporting',
+        description: 'Flag unlicensed operations or mismatching categories.',
+        icon: AlertTriangle
+      },
+      {
+        title: 'Audit logs',
+        description: 'Complete historical trace of field officer verifications.',
+        icon: History
+      }
+    ]
   },
   {
-    title: 'Slide 3 — placeholder title',
-    body: 'Placeholder copy. Replace once the slide 3 design is shared.',
-  },
+    title: 'GIS Map & Spatial Analytics',
+    description: 'Visualize trade distribution across wards, identify compliance gaps, and access smart reporting layers on an interactive map.',
+    activeCard: 'GIS MAP',
+    statusText: 'Interactive GIS Layers Active',
+    features: [
+      {
+        title: 'Ward-wise compliance',
+        description: 'Color-coded buildings showing license compliance status.',
+        icon: Layers
+      },
+      {
+        title: 'Spatial search filters',
+        description: 'Search and filter businesses by industry type and location.',
+        icon: Filter
+      },
+      {
+        title: 'Density heatmaps',
+        description: 'Identify concentration of businesses and potential violations.',
+        icon: Flame
+      },
+      {
+        title: 'Executive dashboards',
+        description: 'Get overview metrics and progress reports for panchayats.',
+        icon: LayoutDashboard
+      }
+    ]
+  }
 ];
 
 export const Welcome: React.FC = () => {
@@ -45,69 +161,207 @@ export const Welcome: React.FC = () => {
     }
   };
 
+  const handlePrev = () => {
+    if (step > 0) {
+      setStep((s) => s - 1);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-brand flex flex-col justify-center items-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-lg p-10 shadow-xl relative overflow-hidden">
+    <div className="min-h-screen bg-[#F4F9F6] flex flex-col justify-between items-center p-4 md:p-8 font-sans">
+      
+      {/* Spacer to push content down on larger viewports */}
+      <div className="flex-grow flex items-center justify-center w-full">
+        
+        {/* Main Onboarding Modal Container */}
+        <div className="w-full max-w-5xl bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col md:flex-row min-h-[620px] transition-all duration-500">
+          
+          {/* Left Pane - Green background with flowchart graphic */}
+          <div className="w-full md:w-[42%] bg-[#0F6E4F] p-8 md:p-10 flex flex-col justify-between text-white relative overflow-hidden">
+            
+            {/* Top Brand Mark */}
+            <div className="flex items-center space-x-2.5 z-10">
+              <svg viewBox="0 0 20 25" className="w-5 h-6 text-white" fill="currentColor">
+                <path d="M10 12.5C10.6875 12.5 11.276 12.2552 11.7656 11.7656C12.2552 11.276 12.5 10.6875 12.5 10C12.5 9.3125 12.2552 8.72396 11.7656 8.23438C11.276 7.74479 10.6875 7.5 10 7.5C9.3125 7.5 8.72396 7.74479 8.23438 8.23438C7.74479 8.72396 7.5 9.3125 7.5 10C7.5 10.6875 7.74479 11.276 8.23438 11.7656C8.72396 12.2552 9.3125 12.5 10 12.5ZM10 25C6.64583 22.1458 4.14062 19.4948 2.48438 17.0469C0.828125 14.599 0 12.3333 0 10.25C0 7.125 1.00521 4.63542 3.01562 2.78125C5.02604 0.927083 7.35417 0 10 0C12.6458 0 14.974 0.927083 16.9844 2.78125C18.9948 4.63542 20 7.125 20 10.25C20 12.3333 19.1719 14.599 17.5156 17.0469C15.8594 19.4948 13.3542 22.1458 10 25Z" />
+              </svg>
+              <span className="font-bold text-lg text-white tracking-wide">LSG Track</span>
+            </div>
 
-        <BrandMark />
+            {/* Decorative background shapes for texture */}
+            <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full bg-white/5 pointer-events-none" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-white/5 pointer-events-none" />
 
-        {/* Decorative rings behind the headline — purely visual, matches Figma */}
-        <div
-          aria-hidden="true"
-          className="absolute left-1/2 top-24 -translate-x-1/2 w-72 h-72 rounded-full border border-slate-100"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute left-1/2 top-36 -translate-x-1/2 w-52 h-52 rounded-full border border-slate-100"
-        />
+            {/* Flowchart Graphic */}
+            <div className="flex items-center justify-center space-x-2 md:space-x-3 my-12 z-10">
+              
+              {/* Card 1: K-SMART */}
+              <div className="flex flex-col items-center space-y-2">
+                <div className={`w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center transition-all duration-500 ${
+                  slide.activeCard === 'K-SMART' 
+                    ? 'ring-4 ring-emerald-300 scale-110' 
+                    : 'opacity-60 scale-90'
+                }`}>
+                  <KSmartIcon />
+                </div>
+                <span className={`text-[10px] md:text-xs font-bold tracking-wider transition-opacity duration-500 uppercase ${
+                  slide.activeCard === 'K-SMART' ? 'opacity-100 font-extrabold' : 'opacity-60'
+                }`}>K-SMART</span>
+              </div>
 
-        <div className="relative text-center mt-32">
-          <h1 className="text-3xl font-bold text-ink mb-4">{slide.title}</h1>
-          {slide.subtitle && (
-            <p className="text-lg font-semibold text-brand-subtle mb-4">{slide.subtitle}</p>
-          )}
-          <p className="text-sm text-ink-muted leading-relaxed max-w-md mx-auto">{slide.body}</p>
+              {/* Arrow 1 */}
+              <ChevronRight className={`text-white w-4 h-4 md:w-5 md:h-5 transition-opacity duration-500 ${
+                slide.activeCard === 'K-SMART' || slide.activeCard === 'LSG TRACK' ? 'opacity-100' : 'opacity-30'
+              }`} />
+
+              {/* Card 2: LSG TRACK */}
+              <div className="flex flex-col items-center space-y-2">
+                <div className={`w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center transition-all duration-500 ${
+                  slide.activeCard === 'LSG TRACK' 
+                    ? 'ring-4 ring-emerald-300 scale-110' 
+                    : 'opacity-60 scale-90'
+                }`}>
+                  <LsgTrackIcon />
+                </div>
+                <span className={`text-[10px] md:text-xs font-bold tracking-wider transition-opacity duration-500 uppercase ${
+                  slide.activeCard === 'LSG TRACK' ? 'opacity-100 font-extrabold' : 'opacity-60'
+                }`}>LSG TRACK</span>
+              </div>
+
+              {/* Arrow 2 */}
+              <ChevronRight className={`text-white w-4 h-4 md:w-5 md:h-5 transition-opacity duration-500 ${
+                slide.activeCard === 'LSG TRACK' || slide.activeCard === 'GIS MAP' ? 'opacity-100' : 'opacity-30'
+              }`} />
+
+              {/* Card 3: GIS MAP */}
+              <div className="flex flex-col items-center space-y-2">
+                <div className={`w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center transition-all duration-500 ${
+                  slide.activeCard === 'GIS MAP' 
+                    ? 'ring-4 ring-emerald-300 scale-110' 
+                    : 'opacity-60 scale-90'
+                }`}>
+                  <GisMapIcon />
+                </div>
+                <span className={`text-[10px] md:text-xs font-bold tracking-wider transition-opacity duration-500 uppercase ${
+                  slide.activeCard === 'GIS MAP' ? 'opacity-100 font-extrabold' : 'opacity-60'
+                }`}>GIS MAP</span>
+              </div>
+            </div>
+
+            {/* Bottom Status Pill */}
+            <div className="bg-white/15 text-white rounded-full px-5 py-2.5 text-xs font-medium flex items-center space-x-2 backdrop-blur-sm self-center shadow-inner z-10 select-none transition-all duration-500">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+              </span>
+              <span className="tracking-wide">{slide.statusText}</span>
+            </div>
+
+          </div>
+
+          {/* Right Pane - White background with slide copy */}
+          <div className="w-full md:w-[58%] p-8 md:p-10 flex flex-col justify-between bg-white">
+            
+            {/* Top Pagination Dots and Layout */}
+            <div>
+              <div className="flex space-x-1.5 mb-6">
+                {slides.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setStep(i)}
+                    aria-label={`Go to slide ${i + 1} of ${slides.length}`}
+                    aria-current={i === step}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      i === step ? 'w-8 bg-[#0F6E4F]' : 'w-2.5 bg-slate-200 hover:bg-slate-300'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Heading and Description */}
+              <div className="transition-all duration-500">
+                <h1 className="text-2xl font-bold text-[#0F6E4F] md:text-3xl leading-tight tracking-tight">
+                  {slide.title}
+                </h1>
+                <p className="text-sm text-slate-600 leading-relaxed mt-3 mb-6">
+                  {slide.description}
+                </p>
+              </div>
+
+              {/* Features List */}
+              <div className="space-y-4 my-6">
+                {slide.features.map((item, idx) => (
+                  <div key={idx} className="flex items-start space-x-4 transition-all duration-500">
+                    <div className="w-10 h-10 bg-[#0F6E4F] rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm transition-transform hover:scale-105">
+                      <item.icon size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[#0F6E4F] leading-tight">{item.title}</h3>
+                      <p className="text-xs text-slate-500 mt-0.5 leading-normal">{item.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Bottom Actions and separator */}
+            <div>
+              <div className="border-t border-slate-100 my-6" />
+              <div className="flex justify-between items-center">
+                
+                {/* Previous Button */}
+                <button
+                  type="button"
+                  disabled={step === 0}
+                  onClick={handlePrev}
+                  className={`flex items-center space-x-1.5 border border-slate-200 rounded-xl px-5 py-2 text-sm font-semibold transition ${
+                    step === 0 
+                      ? 'opacity-30 cursor-not-allowed text-slate-400' 
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Previous</span>
+                </button>
+
+                {/* Skip Button */}
+                <button
+                  type="button"
+                  onClick={goToLogin}
+                  className="text-sm font-semibold text-slate-400 hover:text-slate-600 transition"
+                >
+                  Skip
+                </button>
+
+                {/* Next Button */}
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="flex items-center space-x-1.5 bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white rounded-xl px-5 py-2 text-sm font-semibold transition shadow-md shadow-emerald-900/10 hover:opacity-95"
+                >
+                  <span>{isLastSlide ? 'Get started' : 'Next'}</span>
+                  <ArrowRight size={16} />
+                </button>
+
+              </div>
+            </div>
+
+          </div>
+          
         </div>
-
-        {/* Pagination dots — clickable to jump directly to a slide */}
-        <div className="flex justify-center items-center space-x-2 mt-10 mb-8">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setStep(i)}
-              aria-label={`Go to slide ${i + 1} of ${slides.length}`}
-              aria-current={i === step}
-              className={`h-1.5 rounded-full transition-all ${
-                i === step ? 'w-8 bg-brand-dark' : 'w-4 bg-brand-dot'
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="flex justify-between items-center">
-          <button
-            type="button"
-            onClick={goToLogin}
-            className="text-sm font-semibold text-ink-muted hover:text-ink transition"
-          >
-            Skip
-          </button>
-          <button
-            type="button"
-            onClick={handleNext}
-            className="flex items-center space-x-2 bg-brand-button hover:opacity-90 text-white rounded-full px-6 py-2.5 text-sm font-semibold transition"
-          >
-            <span>{isLastSlide ? 'Get started' : 'Next'}</span>
-            <ArrowRight size={16} />
-          </button>
-        </div>
-
+        
       </div>
 
-      <div className="mt-8 text-brand-footer text-[11px] uppercase font-mono tracking-wider text-center">
-        © 2026 LSG Track Kerala · Department of Local Self Government
+      {/* Footer Branding Links */}
+      <div className="w-full max-w-5xl mt-6 px-4 flex flex-col md:flex-row justify-between items-center text-[10px] md:text-[11px] text-[#0F6E4F]/60 font-sans tracking-wide space-y-2 md:space-y-0">
+        <div>© 2026 LSG Track Kerala • Panchayat GIS Portal</div>
+        <div className="flex space-x-4">
+          <a href="#" className="hover:underline hover:text-[#0F6E4F] transition">Privacy Policy</a>
+          <a href="#" className="hover:underline hover:text-[#0F6E4F] transition">Terms of Service</a>
+          <a href="#" className="hover:underline hover:text-[#0F6E4F] transition">Department of Local Self Government</a>
+        </div>
       </div>
+
     </div>
   );
 };
