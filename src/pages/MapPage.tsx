@@ -25,7 +25,7 @@ export const MapPage: React.FC = () => {
   
   // Measurement state
   const [isMeasuring, setIsMeasuring] = useState(false);
-  const [measurePoints, setMeasurePoints] = useState<L.LatLng[]>([]);
+  const [, setMeasurePoints] = useState<L.LatLng[]>([]);
   const [measureLine, setMeasureLine] = useState<L.Polyline | null>(null);
   const [measuredDistance, setMeasuredDistance] = useState<number | null>(null);
 
@@ -73,9 +73,11 @@ export const MapPage: React.FC = () => {
     markersGroupRef.current = markersGroup;
 
     // Load Ward Boundaries GeoJSON
+    let isMounted = true;
     fetch('/data/chakkittapara_wards.geojson')
       .then(res => res.json())
       .then(geoJsonData => {
+        if (!isMounted || !mapRef.current) return;
         const geoJsonLayer = L.geoJSON(geoJsonData, {
           filter: (feature) => {
             return !isWardMember || feature?.properties?.ward_number === assignedWard;
@@ -104,23 +106,44 @@ export const MapPage: React.FC = () => {
               setSelectedWard(props.ward_number);
             });
           }
-        }).addTo(map);
+        }).addTo(mapRef.current);
         geoJsonLayerRef.current = geoJsonLayer;
         
         // Auto zoom to Panchayat extent
-        map.fitBounds(geoJsonLayer.getBounds());
+        mapRef.current.fitBounds(geoJsonLayer.getBounds());
       })
       .catch(err => console.error('Failed to load ward boundaries GeoJSON:', err));
 
-    // Handle measurement clicks on map
+    return () => {
+      isMounted = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [isWardMember, assignedWard]);
+
+  // Handle measurement clicks on map
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    map.off('click');
+
+    if (!isMeasuring) {
+      if (measureLine) {
+        map.removeLayer(measureLine);
+        setMeasureLine(null);
+      }
+      setMeasurePoints([]);
+      setMeasuredDistance(null);
+      return;
+    }
+
     map.on('click', (e: L.LeafletMouseEvent) => {
-      if (!isMeasuring) return;
-
-      const newPoints = [...measurePoints, e.latlng];
-      setMeasurePoints(newPoints);
-
-      if (newPoints.length > 1) {
-        // Draw line
+      setMeasurePoints((prevPoints) => {
+        const newPoints = [...prevPoints, e.latlng];
+        
         if (measureLine) {
           measureLine.setLatLngs(newPoints);
         } else {
@@ -128,22 +151,20 @@ export const MapPage: React.FC = () => {
           setMeasureLine(line);
         }
 
-        // Calculate cumulative distance
         let totalDist = 0;
         for (let i = 1; i < newPoints.length; i++) {
           totalDist += newPoints[i-1].distanceTo(newPoints[i]);
         }
         setMeasuredDistance(totalDist);
-      }
+
+        return newPoints;
+      });
     });
 
     return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      map.off('click');
     };
-  }, [isMeasuring, measurePoints, isWardMember, assignedWard]);
+  }, [isMeasuring, measureLine]);
 
   // Refresh Markers on Data/Filter Changes
   useEffect(() => {
