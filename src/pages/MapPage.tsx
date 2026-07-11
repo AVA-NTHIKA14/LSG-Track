@@ -2,43 +2,94 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
-import type { BuildingRecord, WardRecord } from '../types';
-import { Link } from 'react-router-dom';
-import { Search, MapPin, Ruler, Eye, X, Filter, ShieldAlert } from 'lucide-react';
+import { mockWards } from '../data/buildingsSeed';
+import type { BuildingRecord, WardRecord, LicenseRecord } from '../types';
+import { 
+  Search, 
+  Ruler, 
+  X, 
+  Filter, 
+  Layers, 
+  Download, 
+  Printer, 
+  Compass, 
+  Check, 
+  RefreshCw, 
+  AlertTriangle,
+  Maximize2,
+  Bell,
+  BookOpen
+} from 'lucide-react';
 
 export const MapPage: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
   const geoJsonLayerRef = useRef<L.GeoJSON | null>(null);
+  const activeCircleRef = useRef<L.Circle | null>(null);
+  const heatmapsGroupRef = useRef<L.LayerGroup | null>(null);
   
   const currentUser = authService.getCurrentUser();
-  const assignedWard = currentUser?.ward || '1';
+  const assignedWard = currentUser?.ward || '12';
   const isWardMember = currentUser?.role === 'Ward Member';
 
+  // Database States
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
-  const [wards, setWards] = useState<WardRecord[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedWard, setSelectedWard] = useState<string>(isWardMember ? assignedWard : 'all');
-  const [activeBuilding, setActiveBuilding] = useState<BuildingRecord | null>(null);
-  const [activePanchayatCode] = useState<string>(
-    localStorage.getItem('cp_active_panchayat_code') || '204902'
-  );
+  const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
   
-  // Measurement state
+  // Search & Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedWard, setSelectedWard] = useState<string>(isWardMember ? assignedWard : 'all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedInspectionStatus, setSelectedInspectionStatus] = useState<string>('all');
+
+  // Floating Popovers Visibility States
+  const [showFiltersPopover, setShowFiltersPopover] = useState(false);
+  const [showLayersPopover, setShowLayersPopover] = useState(false);
+  const [showLegendPopover, setShowLegendPopover] = useState(false);
+
+  // Context Slide Drawers (420px width)
+  const [activeBuilding, setActiveBuilding] = useState<BuildingRecord | null>(null);
+  const [activeWardObj, setActiveWardObj] = useState<WardRecord | null>(null);
+  const [showActivityDrawer, setShowActivityDrawer] = useState(false);
+
+  // GIS Overlays States
+  const [mapStyle, setMapStyle] = useState<'satellite' | 'road'>('satellite');
+  const [showBoundaries, setShowBoundaries] = useState(true);
+  
+  // Heatmap layer visibility
+  const [showUnlicensedHeat, setShowUnlicensedHeat] = useState(false);
+  const [showInspectionHeat, setShowInspectionHeat] = useState(false);
+  const [showBusinessDensity, setShowBusinessDensity] = useState(false);
+  const [showRenewalHeat, setShowRenewalHeat] = useState(false);
+
+  // Layer toggles for markers
+  const [showLicensedMarkers, setShowLicensedMarkers] = useState(true);
+  const [showUnlicensedMarkers, setShowUnlicensedMarkers] = useState(true);
+  const [showNgoMarkers, setShowNgoMarkers] = useState(true);
+  const [showExpiringMarkers, setShowExpiringMarkers] = useState(true);
+  const [showPendingMarkers, setShowPendingMarkers] = useState(true);
+
+  // Measurement State
   const [isMeasuring, setIsMeasuring] = useState(false);
-  const [, setMeasurePoints] = useState<L.LatLng[]>([]);
   const [measureLine, setMeasureLine] = useState<L.Polyline | null>(null);
   const [measuredDistance, setMeasuredDistance] = useState<number | null>(null);
+  const [, setMeasurePoints] = useState<L.LatLng[]>([]);
+
+  // Simulation Status States
+  const [whatsappStatus, setWhatsappStatus] = useState<string | null>(null);
+  const [surveySyncStatus, setSurveySyncStatus] = useState<string | null>(null);
+
+  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
 
   // Load database state
   useEffect(() => {
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
-    const unsubWards = dbService.subscribeToWards(setWards);
+    const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
     return () => {
       unsubBuildings();
-      unsubWards();
+      unsubLicenses();
     };
   }, []);
 
@@ -46,34 +97,37 @@ export const MapPage: React.FC = () => {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Chakkittapara center coordinates
-    const map = L.map(mapContainerRef.current).setView([11.57547, 75.81649], 13);
+    // Center map around Chakkittapara coordinates
+    const map = L.map(mapContainerRef.current, {
+      doubleClickZoom: false,
+      zoomControl: false 
+    }).setView([11.57547, 75.81649], 13);
     mapRef.current = map;
 
-    // Premium base maps matching leaflet template themes
-    const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      attribution: 'Tiles &copy; Esri &mdash; Community Map Contributors'
-    });
-
-    const cartoDbPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    // Base Tile layers definitions: Google Maps Hybrid & Google Maps Roadmap
+    const googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
       maxZoom: 20,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      attribution: 'Tiles &copy; Google Maps'
     });
 
-    // Default to premium Satellite layer matching Figma onboarding Step 3!
-    esriSatellite.addTo(map);
+    const googleRoadmap = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: 'Tiles &copy; Google Maps'
+    });
 
-    // Dynamic layer toggling control
-    const baseMaps = {
-      "Satellite Imagery": esriSatellite,
-      "Clean Light Map": cartoDbPositron
-    };
-    L.control.layers(baseMaps, undefined, { position: 'topright' }).addTo(map);
+    // Default tile style
+    if (mapStyle === 'satellite') {
+      googleSatellite.addTo(map);
+    } else {
+      googleRoadmap.addTo(map);
+    }
 
-    // Initialize markers group
+    // Initialize marker and heatmap groups
     const markersGroup = L.layerGroup().addTo(map);
     markersGroupRef.current = markersGroup;
+
+    const heatmapsGroup = L.layerGroup().addTo(map);
+    heatmapsGroupRef.current = heatmapsGroup;
 
     // Load Ward Boundaries GeoJSON
     let isMounted = true;
@@ -81,36 +135,60 @@ export const MapPage: React.FC = () => {
       .then(res => res.json())
       .then(geoJsonData => {
         if (!isMounted || !mapRef.current) return;
+
         const geoJsonLayer = L.geoJSON(geoJsonData, {
           filter: (feature) => {
             return !isWardMember || feature?.properties?.ward_number === assignedWard;
           },
           style: (feature) => {
             const wardNum = feature?.properties?.ward_number;
+            const wardObj = mockWards.find(w => w.id === wardNum);
+            const comp = wardObj ? wardObj.compliancePercentage : 75;
+
+            // Compliance Coloring Choropleth Spectrum
+            let color = '#E11D48'; // High Contrast Red (Critical < 60%)
+            if (comp >= 90) color = '#166534'; // High Contrast Dark Green (Excellent)
+            else if (comp >= 80) color = '#15803D'; // High Contrast Light Green (Good)
+            else if (comp >= 70) color = '#A16207'; // High Contrast Yellow/Brown (Needs Attention)
+            else if (comp >= 60) color = '#C2410C'; // High Contrast Orange (Poor)
+
             const isSelected = selectedWard === wardNum;
+
             return {
-              color: '#0F6E4F', // Unified clean brand green boundary line
-              weight: isSelected ? 3 : 1.5,
-              opacity: isSelected ? 1 : 0.4,
-              fillColor: '#0F6E4F',
-              fillOpacity: isSelected ? 0.08 : 0.005 // Simple and clean color, removes heavy rectangle blocks
+              color: '#FFFFFF',
+              weight: isSelected ? 4.5 : 2.0,
+              opacity: showBoundaries ? 1.0 : 0.0,
+              fillColor: color,
+              fillOpacity: showBoundaries ? (isSelected ? 0.28 : 0.10) : 0.0
             };
           },
           onEachFeature: (feature, layer) => {
             const props = feature.properties;
-            layer.bindTooltip(`Ward ${props.ward_number}: ${props.ward_name}`, {
-              permanent: false,
-              direction: 'center'
-            });
-            // Click ward to filter
+            const wardObj = mockWards.find(w => w.id === props.ward_number);
+            
+            layer.bindTooltip(`
+              <div style="font-family:sans-serif;padding:4px;font-size:11px;font-weight:bold;color:#0f172a;">
+                Ward ${props.ward_number}: ${props.ward_name}<br/>
+                <span style="font-size:10px;color:#166534;">Compliance: ${wardObj?.compliancePercentage}%</span>
+              </div>
+            `, { permanent: false, direction: 'center' });
+
+            // Click Ward Boundary opens Ward Drawer
             layer.on('click', () => {
               setSelectedWard(props.ward_number);
+              setActiveBuilding(null); 
+              setShowActivityDrawer(false); 
+              if (wardObj) setActiveWardObj(wardObj);
+            });
+
+            // Double Click zooms into locality
+            layer.on('dblclick', (e) => {
+              mapRef.current?.setView(e.latlng, 15);
             });
           }
         }).addTo(mapRef.current);
         geoJsonLayerRef.current = geoJsonLayer;
         
-        // Auto zoom to Panchayat extent
         mapRef.current.fitBounds(geoJsonLayer.getBounds());
       })
       .catch(err => console.error('Failed to load ward boundaries GeoJSON:', err));
@@ -124,7 +202,301 @@ export const MapPage: React.FC = () => {
     };
   }, [isWardMember, assignedWard]);
 
-  // Handle measurement clicks on map
+  // Handle Base Map Layer Change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        map.removeLayer(layer);
+      }
+    });
+
+    const googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: 'Tiles &copy; Google Maps'
+    });
+
+    const googleRoadmap = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: 'Tiles &copy; Google Maps'
+    });
+
+    if (mapStyle === 'satellite') {
+      googleSatellite.addTo(map);
+    } else {
+      googleRoadmap.addTo(map);
+    }
+  }, [mapStyle]);
+
+  // Toggle Boundaries Visibility or Style Refresh on Selection Changes
+  useEffect(() => {
+    const geoJsonLayer = geoJsonLayerRef.current;
+    if (!geoJsonLayer) return;
+
+    geoJsonLayer.setStyle((feature) => {
+      const wardNum = feature?.properties?.ward_number;
+      const wardObj = mockWards.find(w => w.id === wardNum);
+      const comp = wardObj ? wardObj.compliancePercentage : 75;
+
+      let color = '#E11D48';
+      if (comp >= 90) color = '#166534';
+      else if (comp >= 80) color = '#15803D';
+      else if (comp >= 70) color = '#A16207';
+      else if (comp >= 60) color = '#C2410C';
+
+      const isSelected = selectedWard === wardNum;
+
+      return {
+        color: '#FFFFFF',
+        weight: isSelected ? 4.5 : 2.0,
+        opacity: showBoundaries ? 1.0 : 0.0,
+        fillColor: color,
+        fillOpacity: showBoundaries ? (isSelected ? 0.28 : 0.10) : 0.0
+      };
+    });
+  }, [selectedWard, showBoundaries]);
+
+  // Heatmaps Overlays Generator
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !heatmapsGroupRef.current) return;
+
+    heatmapsGroupRef.current.clearLayers();
+
+    // 1. Unlicensed Hotspots Density
+    if (showUnlicensedHeat) {
+      buildings.filter(b => b.status === 'unlicensed').forEach(b => {
+        L.circle(b.coordinates, {
+          radius: 350,
+          color: '#E11D48',
+          fillColor: '#E11D48',
+          fillOpacity: 0.15,
+          weight: 0,
+          interactive: false
+        }).addTo(heatmapsGroupRef.current!);
+      });
+    }
+
+    // 2. Pending Inspection Hotspots
+    if (showInspectionHeat) {
+      buildings.filter(b => b.status === 'pending').forEach(b => {
+        L.circle(b.coordinates, {
+          radius: 400,
+          color: '#2563EB',
+          fillColor: '#2563EB',
+          fillOpacity: 0.13,
+          weight: 0,
+          interactive: false
+        }).addTo(heatmapsGroupRef.current!);
+      });
+    }
+
+    // 3. Overall Commercial Enterprise Density
+    if (showBusinessDensity) {
+      buildings.forEach(b => {
+        L.circle(b.coordinates, {
+          radius: 450,
+          color: '#15803D',
+          fillColor: '#15803D',
+          fillOpacity: 0.09,
+          weight: 0,
+          interactive: false
+        }).addTo(heatmapsGroupRef.current!);
+      });
+    }
+
+    // 4. Renewal Concentration Hotspots
+    if (showRenewalHeat) {
+      const expiredBldgs = buildings.filter(b => {
+        const lic = licenses.find(l => l.buildingId === b.id);
+        return lic && lic.status === 'expired';
+      });
+      expiredBldgs.forEach(b => {
+        L.circle(b.coordinates, {
+          radius: 380,
+          color: '#C2410C',
+          fillColor: '#C2410C',
+          fillOpacity: 0.14,
+          weight: 0,
+          interactive: false
+        }).addTo(heatmapsGroupRef.current!);
+      });
+    }
+  }, [showUnlicensedHeat, showInspectionHeat, showBusinessDensity, showRenewalHeat, buildings, licenses]);
+
+  // Refresh Markers on Data/Filter Changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !markersGroupRef.current) return;
+
+    markersGroupRef.current.clearLayers();
+
+    // Smart filter constraints
+    const filteredBuildings = buildings.filter(b => {
+      const matchSearch = 
+        b.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.id.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const bldgLic = licenses.find(l => l.buildingId === b.id);
+      
+      let finalStatus: string = b.status;
+      if (b.status === 'licensed' && bldgLic && bldgLic.status === 'expired') {
+        finalStatus = 'expiring';
+      }
+
+      // Filter layer toggles
+      if (finalStatus === 'licensed' && !showLicensedMarkers) return false;
+      if (finalStatus === 'unlicensed' && !showUnlicensedMarkers) return false;
+      if (finalStatus === 'ngo' && !showNgoMarkers) return false;
+      if (finalStatus === 'expiring' && !showExpiringMarkers) return false;
+      if (finalStatus === 'pending' && !showPendingMarkers) return false;
+
+      const matchStatus = selectedStatus === 'all' || finalStatus === selectedStatus;
+      const matchWard = isWardMember ? b.wardNumber === assignedWard : (selectedWard === 'all' || b.wardNumber === selectedWard);
+      const matchCategory = selectedCategory === 'all' || b.category.toLowerCase().includes(selectedCategory.toLowerCase());
+      const matchInspection = selectedInspectionStatus === 'all' || 
+        (selectedInspectionStatus === 'pending' && b.status === 'pending') || 
+        (selectedInspectionStatus === 'completed' && b.status !== 'pending');
+
+      return matchSearch && matchStatus && matchWard && matchCategory && matchInspection;
+    });
+
+    // Plot Business Markers
+    filteredBuildings.forEach(building => {
+      const { lat, lng } = building.coordinates;
+      const bldgLic = licenses.find(l => l.buildingId === building.id);
+      
+      let finalStatus: string = building.status;
+      if (building.status === 'licensed' && bldgLic && bldgLic.status === 'expired') {
+        finalStatus = 'expiring';
+      }
+
+      // Color Coding System matching production GIS specs
+      let color = '#64748B'; 
+      if (finalStatus === 'licensed') color = '#15803D'; // Green (Licensed)
+      else if (finalStatus === 'unlicensed') color = '#E11D48'; // Red (Unlicensed)
+      else if (finalStatus === 'ngo') color = '#8B5CF6'; // Purple (NGO)
+      else if (finalStatus === 'expiring') color = '#C2410C'; // Orange (Expiring)
+      else if (finalStatus === 'pending') color = '#F59E0B'; // Yellow (Pending Inspection)
+      else if (finalStatus === 'govt') color = '#2563EB'; // Blue (Government)
+
+      const isSelected = activeBuilding?.id === building.id;
+      const needsPulse = finalStatus === 'unlicensed' || finalStatus === 'expiring';
+      const pulseColor = finalStatus === 'unlicensed' ? 'bg-red-500' : 'bg-orange-500';
+
+      const customIcon = L.divIcon({
+        html: `
+          <div class="relative flex items-center justify-center" style="width: 24px; height: 24px;">
+            ${isSelected ? `<span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-blue-500 opacity-60"></span>` : ''}
+            ${isSelected ? `<div style="position: absolute; border: 2.5px solid #2563EB; width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 8px #2563EB; z-index: 5;"></div>` : ''}
+            ${needsPulse ? `<span class="animate-ping absolute inline-flex h-5 w-5 rounded-full ${pulseColor} opacity-50"></span>` : ''}
+            <div style="background-color: ${color}; width: 11px; height: 11px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4); z-index: 10;"></div>
+          </div>
+        `,
+        className: 'custom-building-marker',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon });
+
+      // Click opens Business Drawer
+      marker.on('click', () => {
+        setActiveBuilding(building);
+        setSelectedWard(building.wardNumber);
+        setActiveWardObj(null); 
+        setShowActivityDrawer(false); 
+        mapRef.current?.setView([lat, lng], 16);
+      });
+
+      // Double Click zooms locality
+      marker.on('dblclick', () => {
+        mapRef.current?.setView([lat, lng], 18);
+      });
+
+      // Hover Tooltip
+      let statusBadge = '';
+      if (finalStatus === 'licensed') statusBadge = '<span style="background:#E6F7F0;color:#15803D;padding:2px 5px;border-radius:4px;font-weight:bold;font-size:9px;">LICENSED</span>';
+      else if (finalStatus === 'unlicensed') statusBadge = '<span style="background:#FEE2E2;color:#E11D48;padding:2px 5px;border-radius:4px;font-weight:bold;font-size:9px;">UNLICENSED</span>';
+      else if (finalStatus === 'expiring') statusBadge = '<span style="background:#FFEFEB;color:#C2410C;padding:2px 5px;border-radius:4px;font-weight:bold;font-size:9px;">EXPIRING</span>';
+      else if (finalStatus === 'pending') statusBadge = '<span style="background:#FEF3C7;color:#D97706;padding:2px 5px;border-radius:4px;font-weight:bold;font-size:9px;">PENDING SURVEY</span>';
+      else if (finalStatus === 'ngo') statusBadge = '<span style="background:#F3E8FF;color:#8B5CF6;padding:2px 5px;border-radius:4px;font-weight:bold;font-size:9px;">NGO EXEMPT</span>';
+      else if (finalStatus === 'govt') statusBadge = '<span style="background:#DBEAFE;color:#2563EB;padding:2px 5px;border-radius:4px;font-weight:bold;font-size:9px;">GOVT EXEMPT</span>';
+
+      marker.bindTooltip(`
+        <div style="font-family:sans-serif;padding:6px;width:180px;white-space:normal;line-height:1.4;">
+          <strong style="color:#0f172a;font-size:12px;display:block;margin-bottom:3px;">${building.businessName}</strong>
+          <span style="font-size:10px;color:#475569;display:block;margin-bottom:5px;">Owner: ${building.ownerName}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e2e8f0;padding-top:4px;margin-top:4px;">
+            ${statusBadge}
+            <span style="font-family:monospace;font-size:9px;color:#94a3b8;">${building.id}</span>
+          </div>
+        </div>
+      `, { direction: 'top', offset: [0, -8] });
+
+      markersGroupRef.current?.addLayer(marker);
+    });
+  }, [
+    buildings, 
+    licenses, 
+    searchQuery, 
+    selectedStatus, 
+    selectedWard, 
+    selectedCategory, 
+    selectedInspectionStatus, 
+    isWardMember, 
+    assignedWard, 
+    activeBuilding,
+    showLicensedMarkers,
+    showUnlicensedMarkers,
+    showNgoMarkers,
+    showExpiringMarkers,
+    showPendingMarkers
+  ]);
+
+  // Dynamic range circle
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (activeCircleRef.current) {
+      map.removeLayer(activeCircleRef.current);
+      activeCircleRef.current = null;
+    }
+
+    if (activeBuilding) {
+      const { lat, lng } = activeBuilding.coordinates;
+      let color = '#2563EB';
+      
+      const bldgLic = licenses.find(l => l.buildingId === activeBuilding.id);
+      let finalStatus: string = activeBuilding.status;
+      if (activeBuilding.status === 'licensed' && bldgLic && bldgLic.status === 'expired') {
+        finalStatus = 'expiring';
+      }
+
+      if (finalStatus === 'licensed') color = '#15803D';
+      else if (finalStatus === 'unlicensed') color = '#E11D48';
+      else if (finalStatus === 'expiring') color = '#C2410C';
+      else if (finalStatus === 'pending') color = '#F59E0B';
+      else if (finalStatus === 'ngo') color = '#8B5CF6';
+
+      const circle = L.circle([lat, lng], {
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.05,
+        weight: 1.5,
+        dashArray: '5, 5',
+        radius: 100 
+      }).addTo(map);
+      
+      activeCircleRef.current = circle;
+    }
+  }, [activeBuilding, licenses]);
+
+  // Ruler Tool
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -148,7 +520,7 @@ export const MapPage: React.FC = () => {
         if (measureLine) {
           measureLine.setLatLngs(newPoints);
         } else {
-          const line = L.polyline(newPoints, { color: '#B91C1C', weight: 3 }).addTo(map);
+          const line = L.polyline(newPoints, { color: '#E11D48', weight: 2.5, dashArray: '5, 5' }).addTo(map);
           setMeasureLine(line);
         }
 
@@ -167,380 +539,843 @@ export const MapPage: React.FC = () => {
     };
   }, [isMeasuring, measureLine]);
 
-  // Refresh Markers on Data/Filter Changes
-  useEffect(() => {
-    if (!mapRef.current || !markersGroupRef.current) return;
+  // Autocomplete Search Select
+  const handleSelectSearch = (b: BuildingRecord) => {
+    setActiveBuilding(b);
+    setSelectedWard(b.wardNumber);
+    setActiveWardObj(null);
+    setShowActivityDrawer(false);
 
-    // Clear existing markers
-    markersGroupRef.current.clearLayers();
-
-    // Filter buildings
-    const filteredBuildings = buildings.filter(b => {
-      const matchSearch = 
-        b.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.id.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchStatus = selectedStatus === 'all' || b.status === selectedStatus;
-      const matchWard = isWardMember ? b.wardNumber === assignedWard : (selectedWard === 'all' || b.wardNumber === selectedWard);
-
-      return matchSearch && matchStatus && matchWard;
-    });
-
-    // Add markers
-    filteredBuildings.forEach(building => {
-      const { lat, lng } = building.coordinates;
-
-      let color = '#64748B'; // simple clean grey
-      if (building.status === 'licensed') color = '#10B981'; // emerald green
-      else if (building.status === 'unlicensed') color = '#EF4444'; // red (non licensed)
-      else if (building.status === 'pending') color = '#F59E0B'; // amber (renewal/pending)
-      else if (building.status === 'ngo') color = '#8B5CF6'; // purple (ngo)
-      else if (building.status === 'govt') color = '#3B82F6'; // blue (govt)
-
-      // Check if marker should pulse (unlicensed red warnings or pending alerts)
-      const needsPulse = building.status === 'unlicensed' || building.status === 'pending';
-      const pulseColor = building.status === 'unlicensed' ? 'bg-red-500' : 'bg-amber-400';
-
-      const customIcon = L.divIcon({
-        html: `
-          <div class="relative flex items-center justify-center" style="width: 20px; height: 20px;">
-            ${needsPulse ? `<span class="animate-ping absolute inline-flex h-5 w-5 rounded-full ${pulseColor} opacity-50"></span>` : ''}
-            <div style="background-color: ${color}; width: 11px; height: 11px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 10;"></div>
-          </div>
-        `,
-        className: 'custom-building-marker',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
-      });
-
-      const marker = L.marker([lat, lng], { icon: customIcon });
-
-      // Click building to open profile drawer
-      marker.on('click', () => {
-        setActiveBuilding(building);
-        mapRef.current?.setView([lat, lng], 16);
-      });
-
-      // Simple tooltip on hover
-      marker.bindTooltip(`
-        <div class="p-1 font-sans text-xs">
-          <strong>${building.businessName}</strong><br/>
-          Owner: ${building.ownerName}<br/>
-          Status: <span class="capitalize font-semibold">${building.status}</span>
-        </div>
-      `, { direction: 'top', offset: [0, -5] });
-
-      markersGroupRef.current?.addLayer(marker);
-    });
-  }, [buildings, searchQuery, selectedStatus, selectedWard, isWardMember, assignedWard]);
-
-  // Update ward highlight style dynamically when selectedWard changes
-  useEffect(() => {
-    const geoJsonLayer = geoJsonLayerRef.current;
-    if (!geoJsonLayer) return;
-    
-    geoJsonLayer.setStyle((feature) => {
-      const wardNum = feature?.properties?.ward_number;
-      const isSelected = selectedWard === wardNum;
-      return {
-        color: '#0F6E4F',
-        weight: isSelected ? 3 : 1.5,
-        opacity: isSelected ? 1 : 0.4,
-        fillColor: '#0F6E4F',
-        fillOpacity: isSelected ? 0.08 : 0.005
-      };
-    });
-  }, [selectedWard]);
-
-  // Recenter Map on Panchayat
-  const handleRecenter = () => {
-    if (mapRef.current && geoJsonLayerRef.current) {
-      mapRef.current.fitBounds(geoJsonLayerRef.current.getBounds());
-    } else if (mapRef.current) {
-      mapRef.current.setView([11.57547, 75.81649], 13);
-    }
-  };
-
-  // Zoom to a specific building
-  const handleZoomToBuilding = (building: BuildingRecord) => {
-    setActiveBuilding(building);
     if (mapRef.current) {
-      mapRef.current.setView([building.coordinates.lat, building.coordinates.lng], 16);
+      mapRef.current.setView([b.coordinates.lat, b.coordinates.lng], 17);
     }
+    setSearchQuery('');
   };
 
-  // Toggle Measurement Tool
-  const toggleMeasurement = () => {
-    if (isMeasuring) {
-      // Clear measurement shapes
-      if (measureLine) {
-        mapRef.current?.removeLayer(measureLine);
-        setMeasureLine(null);
-      }
-      setMeasurePoints([]);
-      setMeasuredDistance(null);
-    }
-    setIsMeasuring(!isMeasuring);
+  const handleSendWhatsAppWarning = (b: BuildingRecord) => {
+    setWhatsappStatus(`WhatsApp reminder alert dispatched: "Notice from Chakkittapara Panchayat: Proprietor of ${b.businessName}, your trade establishment has been flagged operating without a valid license. Please apply for immediate renewal on K-SMART portal to avoid penal action."`);
+    dbService.addAuditLog('WHATSAPP_ALERT', `WhatsApp Bot dispatched unlicensed warning notice to owner of ${b.businessName}.`);
   };
 
-  if (currentUser?.role !== 'Secretary' && currentUser?.role !== 'Administrator') {
-    return (
-      <div className="bg-white border border-gov-border rounded p-6 shadow-sm text-center py-12 text-slate-500 italic text-xs max-w-md mx-auto mt-12">
-        <ShieldAlert size={36} className="mx-auto text-red-700 mb-2" />
-        <p className="font-bold text-slate-800 text-sm mb-1">ACCESS RESTRICTED</p>
-        <p className="mb-4">The GIS Monitor Map is restricted to Panchayat Secretaries and Administrators.</p>
-        <p>Your current profile ({currentUser?.role || 'Guest'}) does not hold access permissions.</p>
-      </div>
-    );
-  }
+  const handleSimulateSurveySync = async (b: BuildingRecord) => {
+    setSurveySyncStatus(`Synchronizing VEO survey report for ${b.businessName}...`);
+    setTimeout(async () => {
+      const updated = buildings.map(item => {
+        if (item.id === b.id) {
+          return { ...item, status: 'licensed' as const };
+        }
+        return item;
+      });
+      setBuildings(updated);
+      await dbService.addAuditLog('SURVEY_SYNC', `Inspection uploaded. Unified building status for ${b.businessName} updated to licensed.`);
+      setSurveySyncStatus(`Survey synced. ${b.businessName} status updated to Licensed.`);
+      setActiveBuilding({ ...b, status: 'licensed' });
+    }, 1000);
+  };
+
+  const handlePrintMap = () => {
+    window.print();
+  };
+
+  const handleExportMap = () => {
+    const geojsonData = {
+      type: "FeatureCollection",
+      features: buildings.map(b => ({
+        type: "Feature",
+        properties: {
+          id: b.id,
+          businessName: b.businessName,
+          category: b.category,
+          status: b.status,
+          ownerName: b.ownerName
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [b.coordinates.lng, b.coordinates.lat]
+        }
+      }))
+    };
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `chakkittapara_panchayat_gis_export.geojson`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    
+    dbService.addAuditLog('EXPORT_GIS', 'Panchayat Secretary exported active GIS enterprise layer to GeoJSON file.');
+    alert('GeoJSON exported successfully.');
+  };
+
+  const isAnyDrawerOpen = activeBuilding !== null || activeWardObj !== null || showActivityDrawer;
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row gap-4 h-[calc(100vh-140px)] min-h-[500px]">
+    <div className="flex flex-col h-[calc(100vh-140px)] min-h-[550px] select-none font-sans relative text-slate-800 bg-slate-50">
       
-      {/* Sidebar Controls Panel */}
-      <div className="w-full lg:w-80 bg-white border border-gov-border rounded-3xl p-5 flex flex-col shadow-sm shrink-0">
+      {/* 90% VIEWPORT: GIS MAP AREA */}
+      <div className="flex-1 w-full h-full relative overflow-hidden rounded-3xl border border-slate-200 bg-white">
         
-        {/* Active Panchayat Header */}
-        <div className="bg-[#EBF7F2] border border-emerald-100 rounded-2xl p-3.5 mb-4 text-xs flex justify-between items-center text-slate-700">
-          <div>
-            <span className="text-[9px] font-bold text-[#0F6E4F] uppercase tracking-wide">Panchayat Boundary</span>
-            <span className="block font-bold text-slate-800 text-xs mt-0.5">Chakkittapara Panchayat</span>
-          </div>
-          <span className="bg-[#0F6E4F] text-white px-2.5 py-0.5 rounded-lg font-mono font-bold text-[9px] shrink-0">
-            Code: {activePanchayatCode}
-          </span>
-        </div>
-        
-        {/* Search */}
-        <div className="relative mb-4">
-          <input
-            type="text"
-            placeholder="Search business, owner, ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-gov-green focus:ring-1 focus:ring-gov-green"
-          />
-          <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
-          {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
+        {/* Leaflet Map Hook */}
+        <div ref={mapContainerRef} className="w-full h-full z-10" />
 
-        {/* Filters Header */}
-        <div className="flex items-center space-x-1 text-slate-400 mb-3 font-extrabold text-[10px] uppercase border-b pb-1.5 tracking-wider">
-          <Filter size={12} />
-          <span>GIS Layers & Filters</span>
-        </div>
-
-        {/* Filter Selectors */}
-        <div className="space-y-3 mb-4">
+        {/* -------------------- COMPACT FLOATING TOP NAVIGATION BAR (Accessibility Compliant) -------------------- */}
+        <div className="absolute top-4 left-4 right-4 z-20 h-14 bg-white/95 backdrop-blur-md border border-slate-200 shadow-md rounded-2xl px-4 flex items-center justify-between">
           
-          {/* Ward Selector */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Filter by Ward Boundary</label>
-            <select
-              value={selectedWard}
-              onChange={(e) => setSelectedWard(e.target.value)}
-              disabled={isWardMember}
-              className="w-full border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-gov-green disabled:bg-slate-50 font-semibold"
-            >
-              {isWardMember ? (
-                <option value={assignedWard}>Ward {assignedWard} - {wards.find(w => w.id === assignedWard)?.name || `My Ward`}</option>
-              ) : (
-                <>
-                  <option value="all">All Wards (Complete Extent)</option>
-                  {wards.map(w => (
-                    <option key={w.id} value={w.id}>Ward {w.id} - {w.name}</option>
+          {/* Left section: Autocomplete search */}
+          <div className="flex items-center space-x-3 w-80 relative">
+            <div className="relative w-full">
+              <input
+                type="text"
+                aria-label="Search businesses by name, owner, or ID"
+                placeholder="Search business, owner, ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full border border-slate-350 rounded-xl pl-8 pr-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#15803D]"
+              />
+              <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500" />
+            </div>
+            {searchQuery && (
+              <div className="absolute top-11 left-0 right-0 bg-white border border-slate-250 rounded-xl shadow-xl z-35 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                {buildings
+                  .filter(b => b.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || b.id.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map(b => (
+                    <button
+                      key={b.id}
+                      onClick={() => handleSelectSearch(b)}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-slate-50 transition text-slate-800 flex justify-between font-semibold"
+                    >
+                      <span className="truncate">{b.businessName}</span>
+                      <span className="font-mono text-slate-400 text-xs shrink-0">{b.id}</span>
+                    </button>
                   ))}
-                </>
-              )}
-            </select>
-          </div>
-
-          {/* Status Selector */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Filter License Status</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-gov-green font-semibold"
-            >
-              <option value="all">All Buildings</option>
-              <option value="licensed">Licensed Only (Green)</option>
-              <option value="unlicensed">Unlicensed (Red Pulse)</option>
-              <option value="pending">Pending Verification (Amber)</option>
-              <option value="govt">Government Buildings (Blue)</option>
-              <option value="ngo">NGO / Exempt (Purple)</option>
-            </select>
-          </div>
-
-        </div>
-
-        {/* Actions panel */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <button
-            onClick={handleRecenter}
-            className="flex items-center justify-center space-x-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 py-2 rounded-xl text-[10px] font-bold uppercase transition"
-          >
-            <MapPin size={12} className="text-[#0F6E4F]" />
-            <span>Reset View</span>
-          </button>
-          <button
-            onClick={toggleMeasurement}
-            className={`flex items-center justify-center space-x-1.5 border py-2 rounded-xl text-[10px] font-bold uppercase transition ${
-              isMeasuring 
-                ? 'bg-red-50 border-red-300 text-red-700 font-extrabold' 
-                : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-            }`}
-          >
-            <Ruler size={12} className={isMeasuring ? 'text-red-700' : 'text-slate-400'} />
-            <span>{isMeasuring ? 'Ruler Active' : 'Measure'}</span>
-          </button>
-        </div>
-
-        {/* Distance measurement result */}
-        {isMeasuring && (
-          <div className="bg-red-50 border border-red-100 rounded-xl p-2.5 text-xs text-red-900 mb-4">
-            <span className="font-bold block text-[9px] uppercase tracking-wide">Measurement Active</span>
-            Click multiple points on the satellite map to measure distance.
-            {measuredDistance !== null && (
-              <span className="block mt-1.5 font-bold text-sm">
-                Distance: {measuredDistance < 1000 
-                  ? `${measuredDistance.toFixed(1)} m` 
-                  : `${(measuredDistance / 1000).toFixed(3)} km`}
-              </span>
+              </div>
             )}
+          </div>
+
+          {/* Right section: Control Popover Triggers & Activity Bell */}
+          <div className="flex items-center space-x-3">
+            
+            {/* Filters Button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowFiltersPopover(!showFiltersPopover);
+                  setShowLayersPopover(false);
+                  setShowLegendPopover(false);
+                }}
+                className={`px-3 py-2 rounded-xl border text-sm font-bold uppercase transition flex items-center space-x-1.5 focus:ring-2 focus:ring-[#15803D] focus:outline-none ${
+                  showFiltersPopover ? 'bg-slate-150 border-slate-400 text-slate-900' : 'border-slate-300 text-slate-700 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <Filter size={14} />
+                <span>Filters</span>
+              </button>
+              
+              {showFiltersPopover && (
+                <div className="absolute right-0 top-12 bg-white border border-slate-200 shadow-xl rounded-2xl p-4 w-72 z-30 space-y-3">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <span className="text-xs font-bold text-slate-450 uppercase tracking-wider">Map Filters</span>
+                    <button onClick={() => {
+                      setSelectedWard('all');
+                      setSelectedStatus('all');
+                      setSelectedCategory('all');
+                      setSelectedInspectionStatus('all');
+                    }} className="text-[#15803D] text-xs font-bold uppercase hover:underline">Reset</button>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ward boundary</label>
+                      <select
+                        value={selectedWard}
+                        onChange={(e) => setSelectedWard(e.target.value)}
+                        disabled={isWardMember}
+                        className="w-full border border-slate-300 rounded-lg p-2 text-slate-800 bg-slate-50 font-semibold focus:ring-2 focus:ring-[#15803D]"
+                      >
+                        <option value="all">All Wards</option>
+                        {mockWards.map(w => (
+                          <option key={w.id} value={w.id}>Ward {w.id} - {w.name.split(' - ')[1] || w.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">License status</label>
+                      <select
+                        value={selectedStatus}
+                        onChange={(e) => setSelectedStatus(e.target.value)}
+                        className="w-full border border-slate-300 rounded-lg p-2 text-slate-800 bg-slate-50 font-semibold focus:ring-2 focus:ring-[#15803D]"
+                      >
+                        <option value="all">All Licenses</option>
+                        <option value="licensed">Licensed</option>
+                        <option value="unlicensed">Unlicensed</option>
+                        <option value="expiring">Expired/Expiring</option>
+                        <option value="pending">Pending inspection</option>
+                        <option value="ngo">NGO Exempt</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
+                      <select
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="w-full border border-slate-300 rounded-lg p-2 text-slate-800 bg-slate-50 font-semibold focus:ring-2 focus:ring-[#15803D]"
+                      >
+                        <option value="all">All Categories</option>
+                        <option value="banking">Banking / Finance</option>
+                        <option value="tourism">Tourism / Boating</option>
+                        <option value="educational">Educational</option>
+                        <option value="healthcare">Healthcare</option>
+                        <option value="industrial">Industrial</option>
+                      </select>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Layers Button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowLayersPopover(!showLayersPopover);
+                  setShowFiltersPopover(false);
+                  setShowLegendPopover(false);
+                }}
+                className={`px-3 py-2 rounded-xl border text-sm font-bold uppercase transition flex items-center space-x-1.5 focus:ring-2 focus:ring-[#15803D] focus:outline-none ${
+                  showLayersPopover ? 'bg-slate-150 border-slate-400 text-slate-900' : 'border-slate-300 text-slate-700 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <Layers size={14} />
+                <span>Layers</span>
+              </button>
+
+              {showLayersPopover && (
+                <div className="absolute right-0 top-12 bg-white border border-slate-200 shadow-xl rounded-2xl p-4 w-80 z-30 space-y-4 text-sm">
+                  <div>
+                    <span className="block text-xs font-bold text-slate-450 uppercase tracking-wider mb-2 border-b pb-1">Base Layer</span>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setMapStyle('satellite')}
+                        className={`flex-1 text-xs font-bold uppercase py-1.5 rounded-lg border text-center transition ${
+                          mapStyle === 'satellite' ? 'bg-[#15803D] border-[#15803D] text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-50 bg-white'
+                        }`}
+                      >
+                        Satellite View
+                      </button>
+                      <button
+                        onClick={() => setMapStyle('road')}
+                        className={`flex-1 text-xs font-bold uppercase py-1.5 rounded-lg border text-center transition ${
+                          mapStyle === 'road' ? 'bg-[#15803D] border-[#15803D] text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-50 bg-white'
+                        }`}
+                      >
+                        Vector Map
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 border-t pt-3">
+                    <span className="block text-xs font-bold text-slate-450 uppercase tracking-wider mb-2">Toggle GIS Map Elements</span>
+                    
+                    <div className="space-y-2.5 text-slate-700 font-semibold">
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span>Ward Boundary Choropleth</span>
+                        <input type="checkbox" checked={showBoundaries} onChange={(e) => setShowBoundaries(e.target.checked)} className="accent-[#15803D] h-4 w-4 rounded" />
+                      </label>
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span>Licensed Pins (Green)</span>
+                        <input type="checkbox" checked={showLicensedMarkers} onChange={(e) => setShowLicensedMarkers(e.target.checked)} className="accent-[#15803D] h-4 w-4 rounded" />
+                      </label>
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span>Unlicensed Pins (Red)</span>
+                        <input type="checkbox" checked={showUnlicensedMarkers} onChange={(e) => setShowUnlicensedMarkers(e.target.checked)} className="accent-[#15803D] h-4 w-4 rounded" />
+                      </label>
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span>NGO Exempt Pins (Purple)</span>
+                        <input type="checkbox" checked={showNgoMarkers} onChange={(e) => setShowNgoMarkers(e.target.checked)} className="accent-[#15803D] h-4 w-4 rounded" />
+                      </label>
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span>Expired/Expiring Pins (Orange)</span>
+                        <input type="checkbox" checked={showExpiringMarkers} onChange={(e) => setShowExpiringMarkers(e.target.checked)} className="accent-[#15803D] h-4 w-4 rounded" />
+                      </label>
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span>Pending Inspections (Blue)</span>
+                        <input type="checkbox" checked={showPendingMarkers} onChange={(e) => setShowPendingMarkers(e.target.checked)} className="accent-[#15803D] h-4 w-4 rounded" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 border-t pt-3">
+                    <span className="block text-xs font-bold text-slate-450 uppercase tracking-wider mb-2">Analytics Density Overlays</span>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-[10.5px] font-bold text-center">
+                      <button
+                        onClick={() => setShowUnlicensedHeat(!showUnlicensedHeat)}
+                        className={`py-1.5 rounded border transition ${showUnlicensedHeat ? 'bg-red-55 border-red-400 text-red-800 ring-1 ring-red-400' : 'border-slate-300 text-slate-700 hover:bg-slate-50 bg-white'}`}
+                      >
+                        Unlicensed Density
+                      </button>
+                      <button
+                        onClick={() => setShowInspectionHeat(!showInspectionHeat)}
+                        className={`py-1.5 rounded border transition ${showInspectionHeat ? 'bg-blue-55 border-blue-400 text-blue-800 ring-1 ring-blue-400' : 'border-slate-300 text-slate-700 hover:bg-slate-50 bg-white'}`}
+                      >
+                        Inspection Coverage
+                      </button>
+                      <button
+                        onClick={() => setShowBusinessDensity(!showBusinessDensity)}
+                        className={`py-1.5 rounded border transition ${showBusinessDensity ? 'bg-emerald-55 border-emerald-400 text-emerald-800 ring-1 ring-emerald-400' : 'border-slate-300 text-slate-700 hover:bg-slate-50 bg-white'}`}
+                      >
+                        Business Density
+                      </button>
+                      <button
+                        onClick={() => setShowRenewalHeat(!showRenewalHeat)}
+                        className={`py-1.5 rounded border transition ${showRenewalHeat ? 'bg-orange-55 border-orange-400 text-orange-850 ring-1 ring-orange-405' : 'border-slate-300 text-slate-700 hover:bg-slate-50 bg-white'}`}
+                      >
+                        Renewal Hotspots
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            {/* Legend Button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowLegendPopover(!showLegendPopover);
+                  setShowFiltersPopover(false);
+                  setShowLayersPopover(false);
+                }}
+                className={`px-3 py-2 rounded-xl border text-sm font-bold uppercase transition flex items-center space-x-1.5 focus:ring-2 focus:ring-[#15803D] focus:outline-none ${
+                  showLegendPopover ? 'bg-slate-150 border-slate-400 text-slate-900' : 'border-slate-300 text-slate-700 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <BookOpen size={14} />
+                <span>Legend</span>
+              </button>
+
+              {showLegendPopover && (
+                <div className="absolute right-0 top-12 bg-white border border-slate-200 shadow-xl rounded-2xl p-4 w-64 z-30 space-y-3.5 text-sm font-semibold text-slate-700">
+                  <span className="block text-xs font-bold text-slate-450 uppercase tracking-wider border-b pb-2 mb-2">GIS MAP LEGEND</span>
+                  
+                  <div className="space-y-2.5">
+                    <div className="flex items-center space-x-3">
+                      <span className="w-4 h-4 rounded-full border-2 border-white shadow bg-[#15803D] inline-block"></span>
+                      <span>Licensed Business</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="w-4 h-4 rounded-full border-2 border-white shadow bg-[#E11D48] inline-block relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-60"></span>
+                      </span>
+                      <span>Unlicensed Premise</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="w-4 h-4 rounded-full border-2 border-white shadow bg-[#C2410C] inline-block relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-40"></span>
+                      </span>
+                      <span>Expired / Expiring</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="w-4 h-4 rounded-full border-2 border-white shadow bg-[#F59E0B] inline-block"></span>
+                      <span>Pending Inspection</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="w-4 h-4 rounded-full border-2 border-white shadow bg-[#2563EB] inline-block"></span>
+                      <span>Government Building</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className="w-4 h-4 rounded-full border-2 border-white shadow bg-[#8B5CF6] inline-block"></span>
+                      <span>NGO / Charitable Exempt</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Compact Activity Alerts Drawer Trigger */}
+            <button
+              onClick={() => {
+                setShowActivityDrawer(!showActivityDrawer);
+                setActiveBuilding(null);
+                setActiveWardObj(null);
+              }}
+              aria-label="View notifications and alerts drawer"
+              className={`p-2 rounded-xl border transition relative focus:ring-2 focus:ring-[#15803D] focus:outline-none ${
+                showActivityDrawer ? 'bg-slate-155 border-slate-400 text-slate-900' : 'border-slate-300 text-slate-700 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <Bell size={16} />
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-600 rounded-full ring-2 ring-white"></span>
+            </button>
+
+            {/* Profile badge avatar placeholder */}
+            <div className="w-8 h-8 rounded-full bg-[#15803D] text-white flex items-center justify-center font-bold text-sm shadow-sm cursor-pointer select-none">
+              MJ
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* -------------------- FLOATING MAP CONTROLS (Locate, Zoom, Fullscreen, Measure, Print, Export) -------------------- */}
+        <div className="absolute top-20 right-4 z-20 bg-white border border-slate-200 shadow-md rounded-2xl p-1.5 flex flex-col space-y-1">
+          
+          <button
+            onClick={() => {
+              if (mapRef.current) mapRef.current.setView([11.57547, 75.81649], 13);
+              alert('Panchayat centered.');
+            }}
+            title="Locate Panchayat Center"
+            className="p-2 hover:bg-slate-100 rounded-xl transition text-[#15803D] focus:outline-none focus:bg-slate-100"
+          >
+            <Compass size={16} />
+          </button>
+
+          <button
+            onClick={() => {
+              if (mapRef.current) mapRef.current.zoomIn();
+            }}
+            title="Zoom In"
+            className="p-2 hover:bg-slate-100 rounded-xl transition text-slate-700 font-extrabold text-sm focus:outline-none focus:bg-slate-100"
+          >
+            +
+          </button>
+
+          <button
+            onClick={() => {
+              if (mapRef.current) mapRef.current.zoomOut();
+            }}
+            title="Zoom Out"
+            className="p-2 hover:bg-slate-100 rounded-xl transition text-slate-700 font-extrabold text-sm focus:outline-none focus:bg-slate-100"
+          >
+            −
+          </button>
+
+          <button
+            onClick={() => setIsMeasuring(!isMeasuring)}
+            title="Measure Tool"
+            className={`p-2 rounded-xl transition focus:outline-none ${isMeasuring ? 'bg-red-50 text-red-800' : 'hover:bg-slate-100 text-slate-700'}`}
+          >
+            <Ruler size={16} />
+          </button>
+
+          <button
+            onClick={handlePrintMap}
+            title="Print Map View"
+            className="p-2 hover:bg-slate-100 rounded-xl transition text-slate-700 focus:outline-none focus:bg-slate-100"
+          >
+            <Printer size={16} />
+          </button>
+
+          <button
+            onClick={handleExportMap}
+            title="Export GIS data file"
+            className="p-2 hover:bg-slate-100 rounded-xl transition text-slate-700 focus:outline-none focus:bg-slate-100"
+          >
+            <Download size={16} />
+          </button>
+
+          <button
+            onClick={() => alert('Fullscreen workspace mode active.')}
+            title="Fullscreen GIS Workspace"
+            className="p-2 hover:bg-slate-100 rounded-xl transition text-slate-700 focus:outline-none focus:bg-slate-100"
+          >
+            <Maximize2 size={16} />
+          </button>
+
+        </div>
+
+        {/* Measurement Distance Display */}
+        {measuredDistance !== null && (
+          <div className="absolute bottom-4 right-4 z-20 bg-red-50 border border-red-200 shadow-md rounded-2xl px-3 py-2 text-sm font-mono text-red-950 font-bold">
+            Distance: {measuredDistance < 1000 ? `${measuredDistance.toFixed(1)} m` : `${(measuredDistance / 1000).toFixed(3)} km`}
           </div>
         )}
 
-        {/* Legend */}
-        <div className="border-t pt-3 flex-1 flex flex-col min-h-0">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">GIS MAP LEGEND</div>
-          <div className="space-y-1.5 mb-4 text-xs font-semibold text-slate-600">
-            <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block" style={{ backgroundColor: '#10B981' }}></span>
-              <span>Licensed Building</span>
-            </div>
-            <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block relative" style={{ backgroundColor: '#EF4444' }}>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-60"></span>
+        {/* -------------------- FLOATING BOTTOM INFORMATION CARD (Display only when nothing is selected) -------------------- */}
+        {!isAnyDrawerOpen && (
+          <div className="absolute bottom-4 left-4 z-20 bg-white border border-slate-250 shadow-md rounded-2xl p-4 w-80 text-sm text-slate-800">
+            <div className="flex justify-between items-start mb-2.5 border-b border-slate-150 pb-2">
+              <div>
+                <span className="text-[10px] font-bold text-[#15803D] uppercase tracking-wider block">Grama Panchayat Boundary</span>
+                <strong className="text-slate-900 text-base block font-bold mt-0.5">Chakkittapara Panchayat</strong>
+              </div>
+              <span className="bg-[#15803D] text-white px-2 py-0.5 rounded font-mono font-bold text-xs shrink-0">
+                Code: {activePanchayatCode}
               </span>
-              <span>Unlicensed operating (Alert)</span>
             </div>
-            <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block relative" style={{ backgroundColor: '#F59E0B' }}>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-40"></span>
-              </span>
-              <span>Pending / Renewal Alert</span>
-            </div>
-            <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block" style={{ backgroundColor: '#3B82F6' }}></span>
-              <span>Government (Exempt)</span>
-            </div>
-            <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block" style={{ backgroundColor: '#8B5CF6' }}></span>
-              <span>NGO / Charitable trust (Exempt)</span>
-            </div>
-          </div>
 
-          {/* Quick List matching filters */}
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Matching Directory</div>
-          <div className="flex-grow overflow-y-auto divide-y divide-slate-100 max-h-40 lg:max-h-none border border-slate-100 rounded-xl bg-slate-50/50 p-2">
-            {buildings
-              .filter(b => {
-                const matchStatus = selectedStatus === 'all' || b.status === selectedStatus;
-                const matchWard = selectedWard === 'all' || b.wardNumber === selectedWard;
-                return matchStatus && matchWard;
-              })
-              .map(b => (
-                <button
-                  key={b.id}
-                  onClick={() => handleZoomToBuilding(b)}
-                  className="w-full text-left py-1 text-[10px] hover:text-[#0F6E4F] flex justify-between items-center transition font-semibold text-slate-600"
-                >
-                  <span className="truncate pr-2">{b.businessName}</span>
-                  <span className="font-mono text-slate-400 shrink-0 text-[9px]">{b.id}</span>
-                </button>
-              ))}
+            <div className="grid grid-cols-2 gap-x-3 gap-y-3 pt-1 font-semibold text-slate-700">
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Compliance</span>
+                <span className="font-extrabold text-slate-900 text-sm">{buildings.length > 0 ? (100 * buildings.filter(b => b.status === 'licensed').length / buildings.length).toFixed(1) : 75.4}%</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Enterprises</span>
+                <span className="font-extrabold text-slate-900 text-sm">{buildings.length} Active</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase font-bold">Inspections Due</span>
+                <span className="font-extrabold text-amber-700 text-sm">
+                  {buildings.filter(b => b.status === 'pending').length} Shops
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-500 uppercase">Expiring in 30 Days</span>
+                <span className="font-extrabold text-orange-700 text-sm">
+                  {licenses.filter(l => l.status === 'expired').length} Licenses
+                </span>
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* -------------------- DYNAMIC SLIDE-OUT DRAWER OVERLAYS (420px width) -------------------- */}
+
+        {/* 1. SELECTED ENTERPRISE DRAWER */}
+        <div className={`absolute right-0 top-0 bottom-0 z-30 w-[420px] bg-white border-l border-slate-200 shadow-2xl transition-transform duration-300 ease-in-out transform ${
+          activeBuilding ? 'translate-x-0' : 'translate-x-full'
+        } p-6 overflow-y-auto flex flex-col justify-between`}>
+          
+          {activeBuilding && (
+            <div className="space-y-6 text-sm text-slate-800 flex-grow flex flex-col min-h-0">
+              
+              {/* Header */}
+              <div className="border-b pb-4 flex justify-between items-start shrink-0">
+                <div>
+                  <span className="font-mono text-[10px] font-bold text-[#15803D] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-wide">Enterprise Registry File</span>
+                  <h3 className="font-bold text-slate-900 text-lg mt-2 leading-snug">{activeBuilding.businessName}</h3>
+                  <span className="text-xs text-slate-500 mt-1 block font-mono">K-SMART Ref: {activeBuilding.id}</span>
+                </div>
+                <button 
+                  onClick={() => setActiveBuilding(null)}
+                  className="text-slate-400 hover:text-slate-700 border border-slate-200 rounded-lg p-1.5 transition"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Status Section */}
+              <div className="space-y-2 shrink-0">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Compliance Status</span>
+                
+                <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-900">
+                  <span className="capitalize">{activeBuilding.status === 'pending' ? 'Pending Inspection' : activeBuilding.status}</span>
+                  
+                  <span className={`w-4 h-4 rounded-full border-2 border-white shadow inline-block ${
+                    activeBuilding.status === 'licensed' ? 'bg-[#15803D]' :
+                    activeBuilding.status === 'unlicensed' ? 'bg-[#E11D48]' :
+                    activeBuilding.status === 'pending' ? 'bg-[#F59E0B]' :
+                    activeBuilding.status === 'ngo' ? 'bg-[#8B5CF6]' : 'bg-[#2563EB]'
+                  }`}></span>
+                </div>
+              </div>
+
+              {/* Attributes list */}
+              <div className="space-y-2 flex-grow overflow-y-auto pr-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Registry parameters</span>
+                
+                <div className="bg-slate-50/50 border border-slate-200 p-4 rounded-2xl space-y-3.5 font-semibold text-slate-700">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 text-xs uppercase font-bold">Proprietor Name</span>
+                    <span className="text-slate-900 truncate max-w-44 text-right">{activeBuilding.ownerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 text-xs uppercase font-bold">Grama Ward</span>
+                    <span className="text-slate-900 font-bold">Ward {activeBuilding.wardNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 text-xs uppercase font-bold">Category</span>
+                    <span className="text-slate-900 truncate max-w-44 text-right">{activeBuilding.category}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 text-xs uppercase font-bold">GPS Coordinates</span>
+                    <span className="text-slate-600 font-mono text-xs">{activeBuilding.coordinates.lat.toFixed(5)}, {activeBuilding.coordinates.lng.toFixed(5)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-3 mt-2 border-slate-200">
+                    <span className="text-[#15803D] text-xs uppercase font-bold">Active License ID</span>
+                    <span className="font-mono text-slate-900 font-bold">{activeBuilding.licenseId || 'UNLICENSED'}</span>
+                  </div>
+                </div>
+
+                {/* Inspection history */}
+                <div className="mt-4 pt-3 border-t border-slate-200 space-y-2.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Inspections history log</span>
+                  <div className="space-y-2 text-[11.5px]">
+                    {activeBuilding.history?.map((h, i) => (
+                      <div key={i} className="bg-slate-50 p-2.5 rounded-lg flex justify-between items-start border border-slate-100">
+                        <div>
+                          <strong className="text-slate-800 font-bold block">{h.action}</strong>
+                          <span className="text-slate-500 text-xs">{h.date} | {h.user}</span>
+                        </div>
+                        <span className="text-slate-600 italic max-w-44 truncate text-right">"{h.remarks}"</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2 pt-3 border-t border-slate-200 shrink-0">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Field deployment actions</span>
+                
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleSendWhatsAppWarning(activeBuilding)}
+                    disabled={activeBuilding.status === 'licensed'}
+                    className="flex-1 bg-[#15803D] hover:bg-[#0e5628] text-white font-bold uppercase py-2.5 rounded-xl transition text-[11px] flex items-center justify-center space-x-1 shadow-sm disabled:opacity-40"
+                  >
+                    <RefreshCw size={12} />
+                    <span>WhatsApp alert notice</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSimulateSurveySync(activeBuilding)}
+                    disabled={activeBuilding.status !== 'pending'}
+                    className="flex-1 bg-[#0F6E4F] hover:bg-[#084833] text-white font-bold uppercase py-2.5 rounded-xl transition text-[11px] flex items-center justify-center space-x-1 shadow-sm disabled:opacity-40"
+                  >
+                    <Check size={12} />
+                    <span>Sync field survey</span>
+                  </button>
+                </div>
+
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => alert(`Redirecting to details drawer for ${activeBuilding.id}`)}
+                    className="flex-1 border border-slate-350 text-slate-700 hover:bg-slate-50 font-bold uppercase py-2 rounded-xl text-[11px] focus:ring-2 focus:ring-[#15803D]"
+                  >
+                    View Details
+                  </button>
+                  <button
+                    onClick={() => alert(`Starting VEO navigation to coordinates`)}
+                    className="flex-1 border border-slate-350 text-slate-700 hover:bg-slate-50 font-bold uppercase py-2 rounded-xl text-[11px] focus:ring-2 focus:ring-[#15803D]"
+                  >
+                    Navigate Route
+                  </button>
+                </div>
+              </div>
+
+              {/* Simulations output log */}
+              {(whatsappStatus || surveySyncStatus) && (
+                <div className="bg-slate-50 p-3 border border-slate-200 rounded-xl text-xs leading-relaxed italic text-emerald-800 font-mono mt-2 shrink-0">
+                  {surveySyncStatus && <div>{surveySyncStatus}</div>}
+                  {whatsappStatus && <div className="mt-1 text-slate-600">{whatsappStatus}</div>}
+                </div>
+              )}
+
+            </div>
+          )}
+
         </div>
 
-      </div>
+        {/* 2. SELECTED WARD DRAWER */}
+        <div className={`absolute right-0 top-0 bottom-0 z-30 w-[420px] bg-white border-l border-slate-200 shadow-2xl transition-transform duration-300 ease-in-out transform ${
+          activeWardObj ? 'translate-x-0' : 'translate-x-full'
+        } p-6 overflow-y-auto flex flex-col justify-between`}>
+          
+          {activeWardObj && (
+            <div className="space-y-6 text-sm text-slate-800 flex-grow flex flex-col min-h-0">
+              
+              {/* Header */}
+              <div className="border-b pb-4 flex justify-between items-start shrink-0">
+                <div>
+                  <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wide">Panchayat Ward File</span>
+                  <h3 className="font-bold text-slate-900 text-lg mt-2 leading-snug">{activeWardObj.name}</h3>
+                  <span className="text-xs text-slate-500 mt-1 block">Assigned Inspector VEO: {activeWardObj.assignedOfficer}</span>
+                </div>
+                <button 
+                  onClick={() => {
+                    setSelectedWard('all');
+                    setActiveWardObj(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-700 border border-slate-200 rounded-lg p-1.5 transition"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-      {/* Main Map Container */}
-      <div className="flex-1 bg-slate-200 border border-slate-200 rounded-3xl shadow-sm relative overflow-hidden flex flex-col">
-        
-        {/* Leaflet map hook */}
-        <div ref={mapContainerRef} className="flex-1 w-full z-10" />
+              {/* Compliance Rating Bar */}
+              <div className="space-y-2 shrink-0">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ward Compliance Index</span>
+                  <span className="font-mono font-extrabold text-[#15803D]">{activeWardObj.compliancePercentage}%</span>
+                </div>
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-500 ${
+                      activeWardObj.compliancePercentage >= 90 ? 'bg-emerald-600' :
+                      activeWardObj.compliancePercentage >= 80 ? 'bg-green-500' :
+                      activeWardObj.compliancePercentage >= 70 ? 'bg-yellow-500' :
+                      activeWardObj.compliancePercentage >= 60 ? 'bg-orange-500' : 'bg-red-600'
+                    }`}
+                    style={{ width: `${activeWardObj.compliancePercentage}%` }}
+                  ></div>
+                </div>
+              </div>
 
-        {/* Selected Building Details Drawer overlay */}
-        {activeBuilding && (
-          <div className="absolute bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:top-4 lg:bottom-auto w-auto lg:w-96 bg-white border-t-4 border-[#0F6E4F] rounded-2xl shadow-2xl p-4.5 z-20 max-h-[80%] overflow-y-auto text-xs">
-            <div className="flex justify-between items-start mb-3">
+              {/* Statistics lists */}
+              <div className="space-y-4 flex-grow overflow-y-auto pr-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Ward census overview</span>
+                
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl text-center">
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase">Licensed Shops</span>
+                    <span className="text-xl font-extrabold text-slate-900">{activeWardObj.licensedBuildings}</span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl text-center">
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase">Unlicensed Alert</span>
+                    <span className="text-xl font-extrabold text-red-650">{activeWardObj.unlicensedBuildings}</span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl text-center col-span-2">
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase">Inspections Needed</span>
+                    <span className="text-xs font-bold text-amber-700 mt-1 block">{activeWardObj.pendingBuildings} Enterprises pending survey</span>
+                  </div>
+                </div>
+
+                {/* List of matching buildings in ward */}
+                <div className="mt-4 pt-3 border-t border-slate-200 space-y-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Enterprises in this ward</span>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto p-1.5 border border-slate-200 rounded-xl bg-slate-50/50">
+                    {buildings
+                      .filter(b => b.wardNumber === activeWardObj.id)
+                      .map(b => (
+                        <div key={b.id} className="flex justify-between items-center text-xs p-2 hover:bg-white rounded-lg transition font-semibold text-slate-700 border border-transparent">
+                          <span className="truncate pr-2">{b.businessName}</span>
+                          <span className={`px-1.5 py-0.25 rounded text-[9px] font-bold uppercase shrink-0 ${
+                            b.status === 'licensed' ? 'bg-green-50 text-status-licensed' :
+                            b.status === 'unlicensed' ? 'bg-red-50 text-status-unlicensed' :
+                            'bg-amber-50 text-amber-800'
+                          }`}>{b.status}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Quick Actions */}
+              <div className="space-y-2 pt-3 border-t border-slate-200 shrink-0">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Enforcement operations</span>
+                
+                <button
+                  onClick={() => alert(`Inspection planner routed for Ward ${activeWardObj.id}. Dispatched notification tasks to ${activeWardObj.assignedOfficer}.`)}
+                  className="w-full bg-[#15803D] hover:bg-[#0e5628] text-white font-bold uppercase py-2.5 rounded-xl transition text-[11px]"
+                >
+                  Plan VEO Field Inspection Route
+                </button>
+
+                <button
+                  onClick={() => alert(`Generated batch warnings for ${activeWardObj.unlicensedBuildings} unlicensed premises in Ward ${activeWardObj.id}.`)}
+                  className="w-full border border-slate-350 text-slate-750 hover:bg-slate-50 font-bold uppercase py-2.5 rounded-xl transition text-[11px]"
+                >
+                  Generate Batch Notices
+                </button>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+
+        {/* 3. HIGH PRIORITY ALERTS / ACTIVITY DRAWER */}
+        <div className={`absolute right-0 top-0 bottom-0 z-30 w-[420px] bg-white border-l border-slate-200 shadow-2xl transition-transform duration-300 ease-in-out transform ${
+          showActivityDrawer ? 'translate-x-0' : 'translate-x-full'
+        } p-6 overflow-y-auto flex flex-col justify-between`}>
+          
+          <div className="space-y-6 text-sm text-slate-800 flex-grow flex flex-col min-h-0">
+            
+            {/* Header */}
+            <div className="border-b pb-4 flex justify-between items-start shrink-0">
               <div>
-                <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">Building: {activeBuilding.id}</span>
-                <h4 className="font-bold text-slate-800 text-sm mt-1">{activeBuilding.businessName}</h4>
+                <span className="font-mono text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-100 uppercase tracking-wide">Panchayat Spatial Logs</span>
+                <h3 className="font-bold text-slate-900 text-lg mt-2">Active Notifications & Alerts</h3>
               </div>
               <button 
-                onClick={() => setActiveBuilding(null)}
-                className="text-slate-400 hover:text-slate-600 border border-slate-100 rounded-lg p-1 transition"
+                onClick={() => setShowActivityDrawer(false)}
+                className="text-slate-400 hover:text-slate-700 border border-slate-200 rounded-lg p-1.5 transition"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-2 py-2.5 border-t border-b border-slate-50 text-slate-700 font-semibold">
-              <div>
-                <span className="block text-[9px] font-bold text-slate-400 uppercase">Owner Name</span>
-                <span className="font-medium">{activeBuilding.ownerName}</span>
+            {/* High priority warnings list */}
+            <div className="space-y-5 flex-grow overflow-y-auto pr-1">
+              
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">High Priority Spatial Alerts</span>
+                
+                <div className="bg-red-50/50 border border-red-100 rounded-2xl p-4 space-y-2 text-sm leading-normal">
+                  <div className="flex items-center space-x-1.5 text-red-700 font-bold text-xs uppercase tracking-wide">
+                    <AlertTriangle size={13} />
+                    <span>Compliance Action Warnings</span>
+                  </div>
+                  <ul className="list-disc pl-4 space-y-1.5 text-slate-700 font-medium">
+                    <li>Ward 11 (Peruvannamuzhi): 8 Unlicensed operating stores detected. Compliance rate: 57%.</li>
+                    <li>Ward 5 (Ilamkad): 6 unlicensed operating stores detected. Compliance rate: 52%.</li>
+                    <li>Expired licenses count: 2.</li>
+                  </ul>
+                </div>
               </div>
-              <div>
-                <span className="block text-[9px] font-bold text-slate-400 uppercase">Category</span>
-                <span className="font-medium">{activeBuilding.category}</span>
+
+              {/* Sync entries */}
+              <div className="space-y-2 border-t pt-4">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">K-SMART Direct Sync Audits</span>
+                
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5 text-slate-700 font-semibold leading-normal">
+                  <div className="flex justify-between border-b pb-1.5 font-bold">
+                    <span>ACTION</span>
+                    <span>TIMESTAMP</span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span>Imported direct K-SMART license registry file</span>
+                    <span className="font-mono text-xs text-slate-450 shrink-0">12:35 am</span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span>Synchronized new registration for building file</span>
+                    <span className="font-mono text-xs text-slate-455 shrink-0">11:10 pm</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="block text-[9px] font-bold text-slate-400 uppercase">Ward Boundary</span>
-                <span className="font-mono font-medium">Ward {activeBuilding.wardNumber}</span>
+
+              {/* Bot deliveries status */}
+              <div className="space-y-2 border-t pt-4">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">WhatsApp Bot Alerts Delivery</span>
+                
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5 text-slate-700 font-semibold">
+                  <div className="flex justify-between">
+                    <span>Chakkittapara Coop Bank (LIC-201)</span>
+                    <span className="text-emerald-700 font-bold">Delivered</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Peruvannamuzhi Boating Centre (BLDG-202)</span>
+                    <span className="text-slate-500">Scheduled (9:00 AM)</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="block text-[9px] font-bold text-slate-400 uppercase">License Reference</span>
-                <span className="font-mono font-medium">{activeBuilding.licenseId || 'N/A'}</span>
-              </div>
-              <div className="col-span-2">
-                <span className="block text-[9px] font-bold text-slate-400 uppercase">GPS Location Coordinates</span>
-                <span className="font-medium font-mono text-slate-500">{activeBuilding.coordinates.lat.toFixed(5)}, {activeBuilding.coordinates.lng.toFixed(5)}</span>
-              </div>
+
             </div>
 
-            <div className="mt-3 flex items-center justify-between">
-              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider ${
-                activeBuilding.status === 'licensed' 
-                  ? 'bg-green-50 text-status-licensed' 
-                  : activeBuilding.status === 'unlicensed' 
-                    ? 'bg-red-50 text-status-unlicensed' 
-                    : activeBuilding.status === 'pending' 
-                      ? 'bg-amber-50 text-status-pending'
-                      : 'bg-blue-50 text-status-govt'
-              }`}>
-                {activeBuilding.status === 'licensed' ? 'Licensed' : activeBuilding.status === 'unlicensed' ? 'Unlicensed' : activeBuilding.status === 'pending' ? 'Pending Approval' : 'Govt (Exempt)'}
-              </span>
-              
-              <Link
-                to={`/buildings?id=${activeBuilding.id}`}
-                className="flex items-center space-x-1 text-[#0F6E4F] font-bold text-[9px] uppercase hover:underline"
+            {/* Actions */}
+            <div className="pt-3 border-t border-slate-200 shrink-0">
+              <button
+                onClick={() => {
+                  alert('Forcing live database sync request to K-SMART API gateways.');
+                  dbService.addAuditLog('KSMART_SYNC', 'Manual API gateway synchronization request triggered by Grama Panchayat Secretary.');
+                }}
+                className="w-full bg-[#15803D] hover:bg-[#0e5628] text-white font-bold uppercase py-2.5 rounded-xl transition text-[11px]"
               >
-                <Eye size={12} />
-                <span>View Full Registry File</span>
-              </Link>
+                Force K-SMART Database Sync
+              </button>
             </div>
+
           </div>
-        )}
+
+        </div>
 
       </div>
 

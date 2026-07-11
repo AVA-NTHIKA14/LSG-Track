@@ -22,6 +22,7 @@ export const Dashboard: React.FC = () => {
   const [wards, setWards] = useState<WardRecord[]>([]);
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
+  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
 
   useEffect(() => {
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
@@ -102,10 +103,10 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-100 pb-4 gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-800">LSGD Administrative Dashboard</h2>
-          <p className="text-xs text-slate-500">Real-time commercial license compliance monitoring status for Olavanna Panchayat.</p>
+          <p className="text-xs text-slate-500">Real-time commercial license compliance monitoring status for Chakkittapara Panchayat.</p>
         </div>
         <div className="bg-[#0F6E4F] text-white px-4 py-2 rounded-xl text-xs font-bold self-start shadow-sm tracking-wide">
-          Grama Panchayat Code: 204902
+          Grama Panchayat Code: {activePanchayatCode}
         </div>
       </div>
 

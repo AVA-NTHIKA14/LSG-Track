@@ -3,8 +3,8 @@ import type { BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, SystemNot
 export const mockUsers: UserProfile[] = [
   { id: 'usr-admin', name: 'K. Balan', email: 'balan.administrator@kerala.gov.in', role: 'Administrator', permissions: ['all'] },
   { id: 'usr-secy', name: 'Smt. Mini Joseph', email: 'mini.secretary@kerala.gov.in', role: 'Secretary', permissions: ['approve_license', 'verify_survey', 'view_reports'] },
-  { id: 'usr-ward1', name: 'Thomas Mathew (Ward 1 Member)', email: 'thomas.ward1@kerala.gov.in', role: 'Ward Member', ward: '1', permissions: ['view_ward', 'submit_survey'] },
-  { id: 'usr-ward2', name: 'Anila Kumari (Ward 2 Member)', email: 'anila.ward2@kerala.gov.in', role: 'Ward Member', ward: '2', permissions: ['view_ward', 'submit_survey'] },
+  { id: 'usr-ward12', name: 'Thomas Mathew (Ward 12 Member)', email: 'thomas.ward12@kerala.gov.in', role: 'Ward Member', ward: '12', permissions: ['view_ward', 'submit_survey'] },
+  { id: 'usr-ward11', name: 'Anila Kumari (Ward 11 Member)', email: 'anila.ward11@kerala.gov.in', role: 'Ward Member', ward: '11', permissions: ['view_ward', 'submit_survey'] },
   { id: 'usr-officer1', name: 'Shri. P. K. Suresh', email: 'suresh.surveyor@kerala.gov.in', role: 'VEO', permissions: ['submit_survey', 'capture_gps'] },
   { id: 'usr-officer2', name: 'Smt. Deepa Nair', email: 'deepa.surveyor@kerala.gov.in', role: 'VEO', permissions: ['submit_survey', 'capture_gps'] },
   { id: 'usr-dataentry', name: 'Sajesh Kumar', email: 'sajesh.deo@kerala.gov.in', role: 'Data Entry Operator', permissions: ['register_building', 'edit_records'] },
@@ -12,151 +12,155 @@ export const mockUsers: UserProfile[] = [
 ];
 
 export const mockWards: WardRecord[] = [
-  { id: '1', name: 'Ward 1 - Chakkittapara Town', totalBuildings: 25, licensedBuildings: 18, pendingBuildings: 3, unlicensedBuildings: 4, compliancePercentage: 72, assignedOfficer: 'Shri. P. K. Suresh' },
-  { id: '2', name: 'Ward 2 - Kulathuvayal', totalBuildings: 18, licensedBuildings: 14, pendingBuildings: 1, unlicensedBuildings: 3, compliancePercentage: 77, assignedOfficer: 'Smt. Deepa Nair' },
-  { id: '3', name: 'Ward 3 - Peruvannamuzhi', totalBuildings: 22, licensedBuildings: 15, pendingBuildings: 4, unlicensedBuildings: 3, compliancePercentage: 68, assignedOfficer: 'Shri. P. K. Suresh' },
-  { id: '4', name: 'Ward 4 - Chembanoda', totalBuildings: 15, licensedBuildings: 12, pendingBuildings: 1, unlicensedBuildings: 2, compliancePercentage: 80, assignedOfficer: 'Smt. Deepa Nair' },
-  { id: '5', name: 'Ward 5 - Muthukad', totalBuildings: 20, licensedBuildings: 13, pendingBuildings: 2, unlicensedBuildings: 5, compliancePercentage: 65, assignedOfficer: 'Shri. P. K. Suresh' },
-  { id: '6', name: 'Ward 6 - Kattippara Road', totalBuildings: 12, licensedBuildings: 10, pendingBuildings: 0, unlicensedBuildings: 2, compliancePercentage: 83, assignedOfficer: 'Smt. Deepa Nair' }
+  { id: '1', name: 'Ward 1 - Pannikkottur', totalBuildings: 25, licensedBuildings: 23, pendingBuildings: 1, unlicensedBuildings: 1, compliancePercentage: 92, assignedOfficer: 'Shri. P. K. Suresh' },
+  { id: '2', name: 'Ward 2 - Chembanoda', totalBuildings: 18, licensedBuildings: 14, pendingBuildings: 1, unlicensedBuildings: 3, compliancePercentage: 82, assignedOfficer: 'Smt. Deepa Nair' },
+  { id: '3', name: 'Ward 3 - Kurathippara', totalBuildings: 22, licensedBuildings: 16, pendingBuildings: 3, unlicensedBuildings: 3, compliancePercentage: 76, assignedOfficer: 'Shri. P. K. Suresh' },
+  { id: '4', name: 'Ward 4 - Poozhithode', totalBuildings: 15, licensedBuildings: 9, pendingBuildings: 3, unlicensedBuildings: 3, compliancePercentage: 63, assignedOfficer: 'Smt. Deepa Nair' },
+  { id: '5', name: 'Ward 5 - Ilamkad-Chenkottakkolli', totalBuildings: 20, licensedBuildings: 10, pendingBuildings: 4, unlicensedBuildings: 6, compliancePercentage: 52, assignedOfficer: 'Shri. P. K. Suresh' },
+  { id: '7', name: 'Ward 7 - Muthukad', totalBuildings: 12, licensedBuildings: 10, pendingBuildings: 0, unlicensedBuildings: 2, compliancePercentage: 88, assignedOfficer: 'Smt. Deepa Nair' },
+  { id: '8', name: 'Ward 8 - Plantation', totalBuildings: 16, licensedBuildings: 11, pendingBuildings: 2, unlicensedBuildings: 3, compliancePercentage: 74, assignedOfficer: 'Shri. P. K. Suresh' },
+  { id: '9', name: 'Ward 9 - Narinada', totalBuildings: 14, licensedBuildings: 13, pendingBuildings: 0, unlicensedBuildings: 1, compliancePercentage: 95, assignedOfficer: 'Smt. Deepa Nair' },
+  { id: '10', name: 'Ward 10 - Annakuttanchal', totalBuildings: 19, licensedBuildings: 13, pendingBuildings: 2, unlicensedBuildings: 4, compliancePercentage: 73, assignedOfficer: 'Shri. P. K. Suresh' },
+  { id: '11', name: 'Ward 11 - Peruvannamuzhi', totalBuildings: 28, licensedBuildings: 15, pendingBuildings: 5, unlicensedBuildings: 8, compliancePercentage: 57, assignedOfficer: 'Smt. Deepa Nair' },
+  { id: '12', name: 'Ward 12 - Chakkittapara', totalBuildings: 35, licensedBuildings: 26, pendingBuildings: 4, unlicensedBuildings: 5, compliancePercentage: 77, assignedOfficer: 'Shri. P. K. Suresh' },
+  { id: '13', name: 'Ward 13 - Kulathuvayal', totalBuildings: 24, licensedBuildings: 19, pendingBuildings: 2, unlicensedBuildings: 3, compliancePercentage: 81, assignedOfficer: 'Smt. Deepa Nair' },
+  { id: '16', name: 'Ward 16 - Thazhathuvayal', totalBuildings: 15, licensedBuildings: 9, pendingBuildings: 3, unlicensedBuildings: 3, compliancePercentage: 68, assignedOfficer: 'Shri. P. K. Suresh' }
 ];
 
-// Chakkittapara coordinates center approx: 11.57547, 75.81649
 export const mockBuildings: BuildingRecord[] = [
   {
     id: 'BLDG-101',
-    ownerName: 'P. T. Abraham',
-    businessName: 'Malabar Bakers & Sweets',
-    category: 'Retail / Bakery',
-    wardNumber: '1',
-    coordinates: { lat: 11.57612, lng: 75.81520 },
+    ownerName: 'Joy Joseph',
+    businessName: 'Chakkittapara Cooperative Bank',
+    category: 'Financial Service / Banking',
+    wardNumber: '12',
+    coordinates: { lat: 11.57560, lng: 75.81600 },
     licenseId: 'LIC-201',
     status: 'licensed',
-    remarks: 'Complies with fire safety standards.',
+    remarks: 'Approved structural clearance. Trade license active.',
     history: [
-      { date: '2025-04-12', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Initial registry' },
-      { date: '2025-05-15', action: 'APPROVE', user: 'Smt. Mini Joseph', remarks: 'License issued after inspection' }
+      { date: '2025-04-12', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Initial registry entry' },
+      { date: '2025-05-15', action: 'APPROVE', user: 'Smt. Mini Joseph', remarks: 'Trade license generated' }
     ]
   },
   {
     id: 'BLDG-102',
-    ownerName: 'N. K. Radhakrishnan',
-    businessName: 'Radha Groceries',
-    category: 'Retail / Provisions',
-    wardNumber: '1',
-    coordinates: { lat: 11.57480, lng: 75.81710 },
-    status: 'unlicensed',
-    remarks: 'Operating without local body trade license. Notice issued.',
+    ownerName: 'Grama Panchayat Secretary',
+    businessName: 'Chakkittapara Panchayat Office',
+    category: 'Government Office',
+    wardNumber: '12',
+    coordinates: { lat: 11.57547, lng: 75.81649 },
+    status: 'govt',
+    remarks: 'Panchayat Administrative Headquarters.',
     history: [
-      { date: '2025-09-01', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Identified during tax review' }
+      { date: '2020-01-01', action: 'CREATE', user: 'System', remarks: 'Base registry installation' }
     ]
   },
   {
     id: 'BLDG-103',
-    ownerName: 'M. M. Mathew',
-    businessName: 'St. George Hardwares & Electricals',
-    category: 'Wholesale / Hardware',
-    wardNumber: '1',
-    coordinates: { lat: 11.57720, lng: 75.81480 },
+    ownerName: 'Dr. Ramesh Nair',
+    businessName: 'Janakshema Hospital, Chakkittapara',
+    category: 'Healthcare / Clinic',
+    wardNumber: '12',
+    coordinates: { lat: 11.57620, lng: 75.81710 },
     status: 'pending',
-    remarks: 'Survey uploaded. Waiting for Secretary approval.',
+    remarks: 'Inspected medical facilities. Fire safety verification pending.',
     history: [
-      { date: '2026-06-10', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Initial registry' },
-      { date: '2026-06-25', action: 'SURVEY_SUBMIT', user: 'Shri. P. K. Suresh', remarks: 'Site visited. GPS verified.' }
+      { date: '2026-06-10', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Hospital entry registry' },
+      { date: '2026-06-25', action: 'SURVEY_SUBMIT', user: 'Shri. P. K. Suresh', remarks: 'Field survey GPS verified.' }
     ]
   },
   {
     id: 'BLDG-104',
-    ownerName: 'Government of Kerala',
-    businessName: 'Chakkittapara Grama Panchayat Office',
-    category: 'Government Office',
-    wardNumber: '1',
-    coordinates: { lat: 11.57547, lng: 75.81649 },
+    ownerName: 'Home Department',
+    businessName: 'Chakkittapara Police Station',
+    category: 'Government / Security',
+    wardNumber: '12',
+    coordinates: { lat: 11.57480, lng: 75.81550 },
     status: 'govt',
-    remarks: 'Main administrative office.',
+    remarks: 'Police headquarters and security camp.',
     history: [
-      { date: '2020-01-01', action: 'CREATE', user: 'System', remarks: 'Base installation' }
+      { date: '2021-02-10', action: 'CREATE', user: 'System', remarks: 'Public service listing' }
     ]
   },
   {
     id: 'BLDG-201',
-    ownerName: 'Smt. Khadeeja Beevi',
-    businessName: 'Al-Madina Restaurant',
-    category: 'Hotel / Restaurant',
-    wardNumber: '2',
-    coordinates: { lat: 11.58110, lng: 75.82100 },
+    ownerName: 'ICAR Director',
+    businessName: 'IISR Experimental Farm, Peruvannamuzhi',
+    category: 'Research / Agriculture',
+    wardNumber: '11',
+    coordinates: { lat: 11.56450, lng: 75.80910 },
     licenseId: 'LIC-202',
     status: 'licensed',
-    remarks: 'Health inspection clear.',
+    remarks: 'Indian Institute of Spices Research complex.',
     history: [
       { date: '2024-05-10', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Registry created' }
     ]
   },
   {
     id: 'BLDG-202',
-    ownerName: 'K. J. George',
-    businessName: 'George Medicals & Diagnostics',
-    category: 'Clinic / Pharmacy',
-    wardNumber: '2',
-    coordinates: { lat: 11.58320, lng: 75.82340 },
+    ownerName: 'DTPC Kozhikode',
+    businessName: 'Peruvannamuzhi Reservoir Boating Center',
+    category: 'Tourism / Commercial',
+    wardNumber: '11',
+    coordinates: { lat: 11.56210, lng: 75.80800 },
     status: 'unlicensed',
-    remarks: 'Unlicensed medical lab facilities. In violation of code.',
+    remarks: 'Boating ticket center operating without current fiscal D&O license. Notice dispatched.',
     history: [
-      { date: '2026-05-02', action: 'CREATE', user: 'Smt. Deepa Nair', remarks: 'Identified during survey' }
+      { date: '2026-05-02', action: 'CREATE', user: 'Smt. Deepa Nair', remarks: 'Identified during tourism survey' }
     ]
   },
   {
     id: 'BLDG-301',
-    ownerName: 'Joseph K. J.',
-    businessName: 'Peruvannamuzhi Tourist Lodge',
-    category: 'Lodging / Commercial',
-    wardNumber: '3',
-    coordinates: { lat: 11.56450, lng: 75.80910 },
-    licenseId: 'LIC-203',
-    status: 'licensed',
-    remarks: 'Near dam tourism spot.',
+    ownerName: 'Kulathuvayal Diocese',
+    businessName: 'St. George Church, Kulathuvayal',
+    category: 'Religious / NGO',
+    wardNumber: '13',
+    coordinates: { lat: 11.53200, lng: 75.79800 },
+    status: 'ngo',
+    remarks: 'Charitable institution/Exempt category.',
     history: [
-      { date: '2023-11-20', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Registry created' }
+      { date: '2023-11-20', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Registered NGO status' }
     ]
   },
   {
     id: 'BLDG-302',
-    ownerName: 'Irrigation Department',
-    businessName: 'Peruvannamuzhi Dam Info Centre',
-    category: 'Government / Tourism',
-    wardNumber: '3',
-    coordinates: { lat: 11.56210, lng: 75.80800 },
+    ownerName: 'Education Dept Kerala',
+    businessName: 'St. George High School, Kulathuvayal',
+    category: 'Educational / Govt',
+    wardNumber: '13',
+    coordinates: { lat: 11.53320, lng: 75.79950 },
     status: 'govt',
-    remarks: 'Government tourist info point.',
+    remarks: 'Aided primary & high school campus.',
     history: [
-      { date: '2021-03-15', action: 'CREATE', user: 'System', remarks: 'Added government building' }
+      { date: '2021-03-15', action: 'CREATE', user: 'System', remarks: 'Registry entry complete' }
     ]
   },
   {
     id: 'BLDG-401',
-    ownerName: 'K. R. Hariharan',
-    businessName: 'Hari Rice & Flour Mill',
-    category: 'Industrial / Mill',
-    wardNumber: '4',
-    coordinates: { lat: 11.58910, lng: 75.81120 },
-    licenseId: 'LIC-204',
-    status: 'licensed',
-    remarks: 'Noise pollution certificate attached.',
+    ownerName: 'Government of Kerala',
+    businessName: 'Govt. UP School, Chembanoda',
+    category: 'Educational / Govt',
+    wardNumber: '2',
+    coordinates: { lat: 11.58110, lng: 75.81050 },
+    status: 'govt',
+    remarks: 'Government school campus.',
     history: [
-      { date: '2024-03-01', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Created mill entry' }
+      { date: '2024-03-01', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Initial school listing' }
     ]
   },
   {
     id: 'BLDG-501',
-    ownerName: 'Thomas Kurian',
-    businessName: 'Muthukad Spices Processing',
-    category: 'Industrial / Agriculture',
-    wardNumber: '5',
-    coordinates: { lat: 11.56990, lng: 75.83210 },
+    ownerName: 'KSEB Limited',
+    businessName: 'Poozhithode Hydroelectric Project Site',
+    category: 'Industrial / Power',
+    wardNumber: '4',
+    coordinates: { lat: 11.59950, lng: 75.83900 },
     status: 'pending',
-    remarks: 'New spice sorting plant, field survey submitted. Lat/Lng needs cross check.',
+    remarks: 'Power station plant. Field survey submitted, waiting for commercial clearance.',
     history: [
-      { date: '2026-06-20', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Data Entry' },
-      { date: '2026-06-27', action: 'SURVEY_SUBMIT', user: 'Shri. P. K. Suresh', remarks: 'Inspection completed' }
+      { date: '2026-06-20', action: 'CREATE', user: 'Sajesh Kumar', remarks: 'Industrial registration' },
+      { date: '2026-06-27', action: 'SURVEY_SUBMIT', user: 'Shri. P. K. Suresh', remarks: 'Field survey complete' }
     ]
   }
 ];
@@ -165,9 +169,9 @@ export const mockLicenses: LicenseRecord[] = [
   {
     id: 'LIC-201',
     buildingId: 'BLDG-101',
-    licenseType: 'D&O (Dangerous & Offensive) Trade License',
+    licenseType: 'Commercial Trade License',
     issueDate: '2025-05-15',
-    expiryDate: '2026-03-31', // Expired
+    expiryDate: '2026-03-31',
     status: 'expired',
     feePaid: 1500
   },
@@ -176,27 +180,9 @@ export const mockLicenses: LicenseRecord[] = [
     buildingId: 'BLDG-201',
     licenseType: 'D&O Trade License - Food/Catering',
     issueDate: '2025-04-01',
-    expiryDate: '2027-03-31', // Active
+    expiryDate: '2027-03-31',
     status: 'active',
     feePaid: 2500
-  },
-  {
-    id: 'LIC-203',
-    buildingId: 'BLDG-301',
-    licenseType: 'Commercial Lodging License',
-    issueDate: '2025-04-01',
-    expiryDate: '2026-03-31', // Expired
-    status: 'expired',
-    feePaid: 5000
-  },
-  {
-    id: 'LIC-204',
-    buildingId: 'BLDG-401',
-    licenseType: 'Industrial Manufacturing License',
-    issueDate: '2026-04-01',
-    expiryDate: '2027-03-31', // Active
-    status: 'active',
-    feePaid: 4500
   }
 ];
 
@@ -206,9 +192,9 @@ export const mockSurveys: SurveyRecord[] = [
     buildingId: 'BLDG-103',
     officerId: 'usr-officer1',
     officerName: 'Shri. P. K. Suresh',
-    gps: { lat: 11.57720, lng: 75.81480 },
+    gps: { lat: 11.57620, lng: 75.81710 },
     status: 'submitted',
-    remarks: 'Verified boundary and owner records. Business is active and operating. Safe distance from highway maintained.',
+    remarks: 'Verified bank layout and boundary markers. Safety clearance documents submitted.',
     surveyDate: '2026-06-25',
     isSynced: true
   },
@@ -217,9 +203,9 @@ export const mockSurveys: SurveyRecord[] = [
     buildingId: 'BLDG-501',
     officerId: 'usr-officer1',
     officerName: 'Shri. P. K. Suresh',
-    gps: { lat: 11.56990, lng: 75.83210 },
+    gps: { lat: 11.59950, lng: 75.83900 },
     status: 'submitted',
-    remarks: 'Spice sorting unit. Fire extinguishers installed. Found unlicensed operations but forms submitted for issue.',
+    remarks: 'Inspected plant layout and electrical safety clearance documents. Recommended for license generation.',
     surveyDate: '2026-06-27',
     isSynced: true
   }
@@ -229,7 +215,7 @@ export const mockNotifications: SystemNotification[] = [
   {
     id: 'NOT-001',
     title: 'License Expiring Soon',
-    message: 'Malabar Bakers & Sweets (LIC-201) in Ward 1 has expired on 2026-03-31.',
+    message: 'Chakkittapara Cooperative Bank (LIC-201) in Ward 12 has expired on 2026-03-31.',
     type: 'warning',
     timestamp: '2026-06-28T09:00:00Z',
     read: false
@@ -237,7 +223,7 @@ export const mockNotifications: SystemNotification[] = [
   {
     id: 'NOT-002',
     title: 'Verification Required',
-    message: 'Field Officer Suresh submitted a survey for St. George Hardwares (BLDG-103) in Ward 1.',
+    message: 'Field Officer Suresh submitted a survey for Janakshema Hospital (BLDG-103) in Ward 12.',
     type: 'info',
     timestamp: '2026-06-25T11:30:00Z',
     read: false
@@ -245,7 +231,7 @@ export const mockNotifications: SystemNotification[] = [
   {
     id: 'NOT-003',
     title: 'Unlicensed Building Flagged',
-    message: 'George Medicals (BLDG-202) has been reported active without a trade license in Ward 2.',
+    message: 'Peruvannamuzhi Reservoir Boating Center (BLDG-202) has been reported active without a trade license in Ward 11.',
     type: 'alert',
     timestamp: '2026-06-27T16:45:00Z',
     read: true
@@ -253,8 +239,8 @@ export const mockNotifications: SystemNotification[] = [
 ];
 
 export const mockAuditLogs: AuditLogRecord[] = [
-  { id: 'LOG-001', timestamp: '2026-06-25T11:30:00Z', userId: 'usr-officer1', userName: 'Shri. P. K. Suresh', userRole: 'VEO', action: 'SURVEY_SUBMIT', description: 'Submitted field inspection details for St. George Hardwares (BLDG-103).' },
-  { id: 'LOG-002', timestamp: '2026-06-27T16:00:00Z', userId: 'usr-dataentry', userName: 'Sajesh Kumar', userRole: 'Data Entry Operator', action: 'CREATE', description: 'Registered building record for Muthukad Spices Processing (BLDG-501).' },
-  { id: 'LOG-003', timestamp: '2026-06-27T16:45:00Z', userId: 'usr-officer1', userName: 'Shri. P. K. Suresh', userRole: 'VEO', action: 'SURVEY_SUBMIT', description: 'Submitted field inspection details for Muthukad Spices Processing (BLDG-501).' },
+  { id: 'LOG-001', timestamp: '2026-06-25T11:30:00Z', userId: 'usr-officer1', userName: 'Shri. P. K. Suresh', userRole: 'VEO', action: 'SURVEY_SUBMIT', description: 'Submitted field inspection details for Janakshema Hospital (BLDG-103).' },
+  { id: 'LOG-002', timestamp: '2026-06-27T16:00:00Z', userId: 'usr-dataentry', userName: 'Sajesh Kumar', userRole: 'Data Entry Operator', action: 'CREATE', description: 'Registered industrial record for Poozhithode Hydroelectric Project Site (BLDG-501).' },
+  { id: 'LOG-003', timestamp: '2026-06-27T16:45:00Z', userId: 'usr-officer1', userName: 'Shri. P. K. Suresh', userRole: 'VEO', action: 'SURVEY_SUBMIT', description: 'Submitted field inspection details for Poozhithode Hydroelectric Project Site (BLDG-501).' },
   { id: 'LOG-004', timestamp: '2026-06-28T04:20:00Z', userId: 'usr-secy', userName: 'Smt. Mini Joseph', userRole: 'Secretary', action: 'LOGIN', description: 'Logged into dashboard portal.' }
 ];

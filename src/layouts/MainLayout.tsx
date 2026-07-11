@@ -103,16 +103,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </Link>
 
           {/* Header Search Mockup */}
-          <div className="relative hidden md:block">
-            <input
-              type="text"
-              placeholder="Search businesses, wards or files..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="border border-slate-200 bg-slate-50/50 rounded-full pl-9 pr-4 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] w-64 transition"
-            />
-            <Search size={13} className="absolute left-3.5 top-2.5 text-slate-400" />
-          </div>
+          {location.pathname !== '/map' && (
+            <div className="relative hidden md:block">
+              <input
+                type="text"
+                placeholder="Search businesses, wards or files..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="border border-slate-200 bg-slate-50/50 rounded-full pl-9 pr-4 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] w-64 transition"
+              />
+              <Search size={13} className="absolute left-3.5 top-2.5 text-slate-400" />
+            </div>
+          )}
 
         </div>
 
