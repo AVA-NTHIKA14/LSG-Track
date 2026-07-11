@@ -9,7 +9,8 @@ import {
   Map, 
   RefreshCw, 
   Bell, 
-  Info 
+  Info,
+  Compass
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { mockUsers } from '../data/buildingsSeed';
@@ -24,6 +25,7 @@ export const Login: React.FC = () => {
   // Login Inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [panchayatCode, setPanchayatCode] = useState('204902');
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
@@ -45,7 +47,8 @@ export const Login: React.FC = () => {
       
       if (user) {
         localStorage.setItem('cp_license_active_user', JSON.stringify(user));
-        await dbService.addAuditLog('LOGIN', `User logged in using credentials: ${user.email}`);
+        localStorage.setItem('cp_active_panchayat_code', panchayatCode);
+        await dbService.addAuditLog('LOGIN', `User logged in using credentials: ${user.email} (Panchayat Code: ${panchayatCode})`);
         navigate('/');
       } else {
         setError('Invalid personnel credentials. Please try again.');
@@ -162,6 +165,24 @@ export const Login: React.FC = () => {
                   className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition"
                 />
                 <User size={15} className="absolute right-3.5 top-3.5 text-slate-400" />
+              </div>
+            </div>
+
+            {/* Panchayat Code Input */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Panchayat Code
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 204902"
+                  value={panchayatCode}
+                  onChange={(e) => setPanchayatCode(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition"
+                />
+                <Compass size={15} className="absolute right-3.5 top-3.5 text-[#0F6E4F]" />
               </div>
             </div>
 

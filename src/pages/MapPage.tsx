@@ -22,6 +22,9 @@ export const MapPage: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedWard, setSelectedWard] = useState<string>(isWardMember ? assignedWard : 'all');
   const [activeBuilding, setActiveBuilding] = useState<BuildingRecord | null>(null);
+  const [activePanchayatCode] = useState<string>(
+    localStorage.getItem('cp_active_panchayat_code') || '204902'
+  );
   
   // Measurement state
   const [isMeasuring, setIsMeasuring] = useState(false);
@@ -84,15 +87,13 @@ export const MapPage: React.FC = () => {
           },
           style: (feature) => {
             const wardNum = feature?.properties?.ward_number;
-            // Cycle brand-consistent borders for wards
-            const colors = ['#0F6E4F', '#0B192C', '#3F4E4F', '#A27B5C', '#2C363F', '#D6CDA4'];
-            const color = colors[parseInt(wardNum || '0') % colors.length];
+            const isSelected = selectedWard === wardNum;
             return {
-              color: color,
-              weight: 3,
-              opacity: 0.8,
-              fillColor: color,
-              fillOpacity: 0.05
+              color: '#0F6E4F', // Unified clean brand green boundary line
+              weight: isSelected ? 3 : 1.5,
+              opacity: isSelected ? 1 : 0.4,
+              fillColor: '#0F6E4F',
+              fillOpacity: isSelected ? 0.08 : 0.005 // Simple and clean color, removes heavy rectangle blocks
             };
           },
           onEachFeature: (feature, layer) => {
@@ -190,12 +191,12 @@ export const MapPage: React.FC = () => {
     filteredBuildings.forEach(building => {
       const { lat, lng } = building.coordinates;
 
-      let color = '#4B5563'; // inactive
-      if (building.status === 'licensed') color = '#15803D'; // green
-      else if (building.status === 'unlicensed') color = '#B91C1C'; // red
-      else if (building.status === 'pending') color = '#B45309'; // amber
-      else if (building.status === 'govt') color = '#1D4ED8'; // blue
-      else if (building.status === 'ngo') color = '#7C3AED'; // purple
+      let color = '#64748B'; // simple clean grey
+      if (building.status === 'licensed') color = '#10B981'; // emerald green
+      else if (building.status === 'unlicensed') color = '#EF4444'; // red (non licensed)
+      else if (building.status === 'pending') color = '#F59E0B'; // amber (renewal/pending)
+      else if (building.status === 'ngo') color = '#8B5CF6'; // purple (ngo)
+      else if (building.status === 'govt') color = '#3B82F6'; // blue (govt)
 
       // Check if marker should pulse (unlicensed red warnings or pending alerts)
       const needsPulse = building.status === 'unlicensed' || building.status === 'pending';
@@ -233,6 +234,24 @@ export const MapPage: React.FC = () => {
       markersGroupRef.current?.addLayer(marker);
     });
   }, [buildings, searchQuery, selectedStatus, selectedWard, isWardMember, assignedWard]);
+
+  // Update ward highlight style dynamically when selectedWard changes
+  useEffect(() => {
+    const geoJsonLayer = geoJsonLayerRef.current;
+    if (!geoJsonLayer) return;
+    
+    geoJsonLayer.setStyle((feature) => {
+      const wardNum = feature?.properties?.ward_number;
+      const isSelected = selectedWard === wardNum;
+      return {
+        color: '#0F6E4F',
+        weight: isSelected ? 3 : 1.5,
+        opacity: isSelected ? 1 : 0.4,
+        fillColor: '#0F6E4F',
+        fillOpacity: isSelected ? 0.08 : 0.005
+      };
+    });
+  }, [selectedWard]);
 
   // Recenter Map on Panchayat
   const handleRecenter = () => {
@@ -281,6 +300,17 @@ export const MapPage: React.FC = () => {
       
       {/* Sidebar Controls Panel */}
       <div className="w-full lg:w-80 bg-white border border-gov-border rounded-3xl p-5 flex flex-col shadow-sm shrink-0">
+        
+        {/* Active Panchayat Header */}
+        <div className="bg-[#EBF7F2] border border-emerald-100 rounded-2xl p-3.5 mb-4 text-xs flex justify-between items-center text-slate-700">
+          <div>
+            <span className="text-[9px] font-bold text-[#0F6E4F] uppercase tracking-wide">Panchayat Boundary</span>
+            <span className="block font-bold text-slate-800 text-xs mt-0.5">Chakkittapara Panchayat</span>
+          </div>
+          <span className="bg-[#0F6E4F] text-white px-2.5 py-0.5 rounded-lg font-mono font-bold text-[9px] shrink-0">
+            Code: {activePanchayatCode}
+          </span>
+        </div>
         
         {/* Search */}
         <div className="relative mb-4">
@@ -394,27 +424,27 @@ export const MapPage: React.FC = () => {
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">GIS MAP LEGEND</div>
           <div className="space-y-1.5 mb-4 text-xs font-semibold text-slate-600">
             <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow bg-status-licensed inline-block"></span>
+              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block" style={{ backgroundColor: '#10B981' }}></span>
               <span>Licensed Building</span>
             </div>
             <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow bg-status-unlicensed inline-block relative">
+              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block relative" style={{ backgroundColor: '#EF4444' }}>
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-60"></span>
               </span>
               <span>Unlicensed operating (Alert)</span>
             </div>
             <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow bg-status-pending inline-block relative">
+              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block relative" style={{ backgroundColor: '#F59E0B' }}>
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-40"></span>
               </span>
-              <span>Pending survey verification</span>
+              <span>Pending / Renewal Alert</span>
             </div>
             <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow bg-status-govt inline-block"></span>
+              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block" style={{ backgroundColor: '#3B82F6' }}></span>
               <span>Government (Exempt)</span>
             </div>
             <div className="flex items-center space-x-2.5">
-              <span className="w-3 h-3 rounded-full border-2 border-white shadow bg-purple-600 inline-block"></span>
+              <span className="w-3 h-3 rounded-full border-2 border-white shadow inline-block" style={{ backgroundColor: '#8B5CF6' }}></span>
               <span>NGO / Charitable trust (Exempt)</span>
             </div>
           </div>
