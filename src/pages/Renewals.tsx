@@ -2,8 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
 import type { LicenseRecord, BuildingRecord } from '../types';
 import { 
-  RefreshCw, MessageSquare, Mail, CheckCircle, 
-  Clock, AlertTriangle, Play 
+  RefreshCw, 
+  MessageSquare, 
+  Mail, 
+  CheckCircle, 
+  Clock, 
+  AlertTriangle, 
+  Play 
 } from 'lucide-react';
 
 export const Renewals: React.FC = () => {
@@ -13,6 +18,7 @@ export const Renewals: React.FC = () => {
   
   const [smsStatus, setSmsStatus] = useState<string | null>(null);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [whatsappStatus, setWhatsappStatus] = useState<string | null>(null);
   const [renewSuccess, setRenewSuccess] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,6 +37,7 @@ export const Renewals: React.FC = () => {
     setActiveLic(lic);
     setSmsStatus(null);
     setEmailStatus(null);
+    setWhatsappStatus(null);
     setRenewSuccess(null);
   };
 
@@ -42,6 +49,11 @@ export const Renewals: React.FC = () => {
   const handleSendEmail = (lic: LicenseRecord, bldgName: string) => {
     setEmailStatus(`Email sent: To proprietor of ${bldgName}. Subject: NOTICE: Trade License Renewal Due (ID: ${lic.id}). Form uploaded to LSGD portal.`);
     dbService.addAuditLog('EMAIL_ALERT', `Sent renewal email alert for License: ${lic.id} to owner.`);
+  };
+
+  const handleSendWhatsApp = (lic: LicenseRecord, bldgName: string) => {
+    setWhatsappStatus(`WhatsApp Bot Alert sent: "Dear Proprietor, Trade License #${lic.id} for ${bldgName} is due for renewal. Please renew before ${lic.expiryDate} at Panchayat Office to avoid penalty. Pay online at: lsgtrack.kerala.gov.in/renew/${lic.id}"`);
+    dbService.addAuditLog('WHATSAPP_ALERT', `WhatsApp Bot dispatched renewal notice for License: ${lic.id} to owner.`);
   };
 
   const handleRenew = async (licId: string) => {
@@ -170,13 +182,25 @@ export const Renewals: React.FC = () => {
                   <div className="space-y-2 border-t pt-3">
                     <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Simulate Enforcement Notices</span>
                     
+                    {/* WhatsApp Notification */}
+                    <button
+                      onClick={() => handleSendWhatsApp(activeLic, b?.businessName || '')}
+                      className="w-full bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-200 text-emerald-800 rounded py-2 px-3 flex items-center justify-between transition text-left font-semibold"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <MessageSquare size={14} className="text-emerald-600" />
+                        <span>Send WhatsApp Notice (Owner)</span>
+                      </div>
+                      <span className="text-[9px] text-emerald-700 uppercase font-bold">Bot Ready</span>
+                    </button>
+
                     <button
                       onClick={() => handleSendSMS(activeLic, b?.businessName || '')}
                       className="w-full bg-slate-50 hover:bg-slate-100 border rounded py-2 px-3 flex items-center justify-between transition text-left"
                     >
                       <div className="flex items-center space-x-2">
                         <MessageSquare size={14} className="text-slate-500" />
-                        <span>Send SMS Alert (Owner)</span>
+                        <span>Send SMS Alert</span>
                       </div>
                       <span className="text-[9px] text-slate-400 uppercase">Gateway Ready</span>
                     </button>
@@ -187,7 +211,7 @@ export const Renewals: React.FC = () => {
                     >
                       <div className="flex items-center space-x-2">
                         <Mail size={14} className="text-slate-500" />
-                        <span>Send Email Notice (Owner)</span>
+                        <span>Send Email Notice</span>
                       </div>
                       <span className="text-[9px] text-slate-400 uppercase">SMTP Ready</span>
                     </button>
@@ -195,8 +219,9 @@ export const Renewals: React.FC = () => {
                   </div>
 
                   {/* Notification output logs */}
-                  {(smsStatus || emailStatus) && (
+                  {(smsStatus || emailStatus || whatsappStatus) && (
                     <div className="bg-slate-100 p-2.5 rounded text-[10px] space-y-2 leading-tight italic text-slate-600 font-mono">
+                      {whatsappStatus && <div className="border-b pb-1.5 border-slate-200 text-[#0F6E4F]">{whatsappStatus}</div>}
                       {smsStatus && <div className="border-b pb-1.5 border-slate-200">{smsStatus}</div>}
                       {emailStatus && <div>{emailStatus}</div>}
                     </div>

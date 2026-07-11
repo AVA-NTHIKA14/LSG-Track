@@ -3,8 +3,14 @@ import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
 import type { LicenseRecord, BuildingRecord, SurveyRecord } from '../types';
 import { 
-  FileCheck, ShieldCheck, Check, X, ShieldAlert, 
-  Search, ExternalLink 
+  FileCheck, 
+  ShieldCheck, 
+  Check, 
+  X, 
+  ShieldAlert, 
+  Search, 
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -15,6 +21,7 @@ export const Licenses: React.FC = () => {
   
   const [activeLicense, setActiveLicense] = useState<LicenseRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [ksmartSyncStatus, setKsmartSyncStatus] = useState<string | null>(null);
   
   // Secretary approval states
   const [selectedPendingBldg, setSelectedPendingBldg] = useState<BuildingRecord | null>(null);
@@ -52,6 +59,7 @@ export const Licenses: React.FC = () => {
 
   const handleSelectPending = (bldg: BuildingRecord) => {
     setSelectedPendingBldg(bldg);
+    setActiveLicense(null);
     setShowRejectForm(false);
     setRejectionRemarks('');
   };
@@ -80,6 +88,33 @@ export const Licenses: React.FC = () => {
     }
   };
 
+  // Mock K-SMART Sync trigger
+  const handleKsmartSync = async () => {
+    // Find an unlicensed building to sync license for
+    const unlicensedBldg = buildings.find(b => b.status === 'unlicensed');
+    if (!unlicensedBldg) {
+      alert('All mock buildings are already licensed or in pending/exempt status. Try registering a new structure first.');
+      return;
+    }
+    
+    const ksmartLicId = 'LIC-KSMART-' + Math.floor(1000 + Math.random() * 9000);
+    const newLicense = {
+      id: ksmartLicId,
+      buildingId: unlicensedBldg.id,
+      licenseType: 'K-SMART Direct Sync (' + unlicensedBldg.category + ')',
+      issueDate: new Date().toISOString().split('T')[0],
+      expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+      status: 'active' as const,
+      feePaid: 3000
+    };
+    
+    await dbService.addHistoricalLicense(newLicense);
+    await dbService.addAuditLog('KSMART_SYNC', `Synchronized license ${ksmartLicId} from K-SMART for Building ${unlicensedBldg.id}.`);
+    
+    setKsmartSyncStatus(`Successfully synchronized: License #${ksmartLicId} for "${unlicensedBldg.businessName}" (ID: ${unlicensedBldg.id}) added from K-SMART. Building status updated to licensed simultaneously.`);
+    alert(`Successfully synchronized License #${ksmartLicId} from K-SMART!`);
+  };
+
   // Find survey for selected pending building
   const activeSurvey = selectedPendingBldg 
     ? surveys.find(s => s.buildingId === selectedPendingBldg.id && s.status === 'submitted')
@@ -101,8 +136,8 @@ export const Licenses: React.FC = () => {
       
       {/* Page Title */}
       <div className="border-b pb-4">
-        <h2 className="text-xl font-bold text-gov-navy">License Management & Verification</h2>
-        <p className="text-xs text-slate-500">Secretary verification queue, commercial license issuance registry, and enforcement approvals.</p>
+        <h2 className="text-xl font-bold text-gov-navy">License Management & Verification Center</h2>
+        <p className="text-xs text-slate-500">Secretary verification queue, commercial license issuance registry, and K-SMART integration synchronization dashboard.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -192,7 +227,10 @@ export const Licenses: React.FC = () => {
                         <tr 
                           key={l.id} 
                           className="hover:bg-slate-50 cursor-pointer"
-                          onClick={() => setActiveLicense(l)}
+                          onClick={() => {
+                            setActiveLicense(l);
+                            setSelectedPendingBldg(null);
+                          }}
                         >
                           <td className="px-3 py-2.5 font-bold font-mono text-slate-800">{l.id}</td>
                           <td className="px-3 py-2.5 font-mono text-slate-500">{l.buildingId}</td>
@@ -219,7 +257,7 @@ export const Licenses: React.FC = () => {
 
         </div>
 
-        {/* Right Side: Approval Detail View / active license panel */}
+        {/* Right Side: Approval Detail View / K-SMART panel */}
         <div className="bg-white border border-gov-border rounded p-5 shadow-sm h-fit">
           
           {selectedPendingBldg ? (
@@ -355,7 +393,7 @@ export const Licenses: React.FC = () => {
               <div className="bg-emerald-50 border border-emerald-200 rounded p-4 text-center border-t-4 border-t-status-licensed">
                 <div className="font-bold text-emerald-900 text-xs uppercase tracking-wider mb-1">OFFICIAL TRADE LICENSE</div>
                 <div className="font-mono font-bold text-slate-900 text-sm">{activeLicense.id}</div>
-                <div className="text-[10px] text-slate-500 mt-1">Chakkittapara Grama Panchayat, Kerala</div>
+                <div className="text-[10px] text-slate-500 mt-1">Olavanna Grama Panchayat, Kerala</div>
               </div>
 
               <div className="space-y-2 border-t pt-3">
@@ -392,9 +430,49 @@ export const Licenses: React.FC = () => {
 
             </div>
           ) : (
-            <div className="text-center py-16 text-slate-400 text-xs space-y-2">
-              <ShieldAlert size={28} className="mx-auto text-slate-300" />
-              <p>Select a pending verification item or an active license from the lists to inspect administrative parameters and approval operations.</p>
+            /* Default details with K-SMART Live Integration Gateway Control Panel */
+            <div className="space-y-5">
+              
+              <div className="text-center py-10 text-slate-400 text-xs space-y-2 bg-slate-50 border rounded-2xl p-4">
+                <ShieldAlert size={28} className="mx-auto text-slate-300" />
+                <p>Select a pending verification item or an active license from the lists to inspect parameters.</p>
+              </div>
+
+              {/* K-SMART Live Integration Panel */}
+              <div className="bg-[#EBF7F2] border border-emerald-100 rounded-2xl p-4 space-y-3 text-xs text-slate-700">
+                <div className="flex items-center space-x-2 border-b border-emerald-100 pb-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+                  <h4 className="font-extrabold text-[#0F6E4F] uppercase tracking-wider text-[10px]">K-SMART Integration Gateway</h4>
+                </div>
+                
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Licensed trade establishments are exported by K-SMART. Use the control buttons below to simulate live imports and update the spatial GIS map.
+                </p>
+
+                <div className="space-y-2 pt-2">
+                  <button
+                    onClick={handleKsmartSync}
+                    className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white font-bold uppercase py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm text-[10px] tracking-wide"
+                  >
+                    <RefreshCw size={12} className="animate-spin" />
+                    <span>Sync Live K-SMART Database</span>
+                  </button>
+
+                  <button
+                    onClick={() => alert('No export file selected. Drag and drop K-SMART exported spreadsheet to import.')}
+                    className="w-full border border-emerald-300 text-[#0F6E4F] hover:bg-emerald-50 font-bold uppercase py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 text-[10px] tracking-wide"
+                  >
+                    <span>Import K-SMART Export Files</span>
+                  </button>
+                </div>
+
+                {ksmartSyncStatus && (
+                  <div className="mt-3 p-2.5 bg-white rounded-lg border border-emerald-100 text-[10px] text-slate-600 italic leading-relaxed font-mono">
+                    {ksmartSyncStatus}
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 
