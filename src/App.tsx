@@ -2,8 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './layouts/MainLayout';
 import { authService } from './services/authService';
-
-// Pages
+import { Welcome } from './pages/Welcome';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { MapPage } from './pages/MapPage';
@@ -17,7 +16,7 @@ import { Notifications } from './pages/Notifications';
 import { Settings } from './pages/Settings';
 import { Profile } from './pages/Profile';
 
-// Route guards
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
@@ -26,7 +25,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const currentUser = authService.getCurrentUser();
   
   if (!currentUser) {
-    // If no active user session, redirect to login
+    // If no active user, redirect to login
     return <Navigate to="/login" replace />;
   }
 
@@ -39,6 +38,7 @@ function App() {
       <Routes>
         
         {/* Public Login Screen */}
+        <Route path="/welcome" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
 
         {/* Protected Dashboard / Map layout */}
