@@ -68,7 +68,7 @@ Once submitted, records become read-only until reviewed by the Secretary.
 
 ---
 
-## 🥾Panchayath section Clerk
+## 🥾 Panchayat Section Clerk (VEO)
 
 Designed for onsite inspections and surveys.
 
@@ -85,21 +85,17 @@ Designed for onsite inspections and surveys.
 
 # 🔐 Authentication
 
-## Google Authentication
+## Default Development Mode
 
-Users can securely sign in using Firebase Authentication.
+The current login flow uses local mock profiles for rapid development and demos.
 
-## Firestore Profile Synchronization
+* Sign in with the mock usernames/emails listed below
+* Use any password
+* Session state is stored in browser localStorage
 
-On first login:
+## Optional Firebase Integration
 
-* User profile is automatically created
-* Role is assigned from preconfigured personnel records
-* Ward permissions are automatically applied
-
-## Development Login
-
-For development purposes, any password can be used with the demo email accounts below.
+If Firebase environment variables are provided, the app initializes Firebase services for Auth, Firestore, and Storage.
 
 ---
 
@@ -127,6 +123,21 @@ For development purposes, any password can be used with the demo email accounts 
 npm install
 ```
 
+## Configure Environment (Optional for Firebase)
+
+Create `/home/runner/work/LSG-Track/LSG-Track/.env.local`:
+
+```bash
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+If this file is not provided, the app runs in local mock mode.
+
 ## Start Development Server
 
 ```bash
@@ -145,6 +156,12 @@ http://localhost:5173
 
 ```bash
 npm run build
+```
+
+## Lint
+
+```bash
+npm run lint
 ```
 
 The production build automatically performs code splitting for improved performance.
