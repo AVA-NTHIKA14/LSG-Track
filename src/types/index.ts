@@ -13,6 +13,7 @@ export interface UserProfile {
   role: UserRole;
   ward?: string; // Ward assignment if Ward Member/Field Officer
   permissions: string[];
+  panchayathId?: string; // Tenant identification (LSGD code or 'all' for System Admin)
 }
 
 export interface WardRecord {
@@ -112,4 +113,37 @@ export interface SystemSettings {
   highContrast: boolean;
   smsNotificationsEnabled: boolean;
   emailNotificationsEnabled: boolean;
+}
+
+export interface Panchayath {
+  id: string; // LSGD code e.g. "204902"
+  name: string;
+  district: string;
+  taluk?: string;
+  boundaryGeoJSON?: string; // Ward boundary GeoJSON string
+  status: 'active' | 'suspended' | 'pending';
+}
+
+export interface SyncHistoryRecord {
+  id: string;
+  timestamp: string;
+  operatorName: string;
+  fileName: string;
+  totalRecords: number;
+  importedCount: number;
+  updatedCount: number;
+  expiredCount: number;
+  errorCount: number;
+  errors: string[];
+}
+
+export interface WhatsAppLogRecord {
+  id: string;
+  recipientName: string;
+  businessName: string;
+  contactNumber: string;
+  channel: 'WhatsApp' | 'SMS' | 'Email';
+  messageText: string;
+  status: 'sent' | 'delivered' | 'failed';
+  timestamp: string;
 }

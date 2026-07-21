@@ -1,14 +1,14 @@
-import type { BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, SystemNotification, AuditLogRecord, UserProfile } from '../types';
+import type { BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, SystemNotification, AuditLogRecord, UserProfile } from '../../src/types';
 
 export const mockUsers: UserProfile[] = [
-  { id: 'usr-admin', name: 'K. Balan', email: 'balan.administrator@kerala.gov.in', role: 'Administrator', permissions: ['all'] },
-  { id: 'usr-secy', name: 'Smt. Mini Joseph', email: 'mini.secretary@kerala.gov.in', role: 'Secretary', permissions: ['approve_license', 'verify_survey', 'view_reports'] },
-  { id: 'usr-ward12', name: 'Thomas Mathew (Ward 12 Member)', email: 'thomas.ward12@kerala.gov.in', role: 'Ward Member', ward: '12', permissions: ['view_ward', 'submit_survey'] },
-  { id: 'usr-ward11', name: 'Anila Kumari (Ward 11 Member)', email: 'anila.ward11@kerala.gov.in', role: 'Ward Member', ward: '11', permissions: ['view_ward', 'submit_survey'] },
-  { id: 'usr-officer1', name: 'Shri. P. K. Suresh', email: 'suresh.surveyor@kerala.gov.in', role: 'VEO', permissions: ['submit_survey', 'capture_gps'] },
-  { id: 'usr-officer2', name: 'Smt. Deepa Nair', email: 'deepa.surveyor@kerala.gov.in', role: 'VEO', permissions: ['submit_survey', 'capture_gps'] },
-  { id: 'usr-dataentry', name: 'Sajesh Kumar', email: 'sajesh.deo@kerala.gov.in', role: 'Data Entry Operator', permissions: ['register_building', 'edit_records'] },
-  { id: 'usr-readonly', name: 'Public Auditor', email: 'auditor.readonly@kerala.gov.in', role: 'Read Only Viewer', permissions: ['view_only'] }
+  { id: 'usr-admin', name: 'K. Balan', email: 'balan.administrator@kerala.gov.in', role: 'Administrator', permissions: ['all'], panchayathId: 'all' },
+  { id: 'usr-secy', name: 'Smt. Mini Joseph', email: 'mini.secretary@kerala.gov.in', role: 'Secretary', permissions: ['approve_license', 'verify_survey', 'view_reports'], panchayathId: '204902' },
+  { id: 'usr-ward12', name: 'Thomas Mathew (Ward 12 Member)', email: 'thomas.ward12@kerala.gov.in', role: 'Ward Member', ward: '12', permissions: ['view_ward', 'submit_survey'], panchayathId: '204902' },
+  { id: 'usr-ward11', name: 'Anila Kumari (Ward 11 Member)', email: 'anila.ward11@kerala.gov.in', role: 'Ward Member', ward: '11', permissions: ['view_ward', 'submit_survey'], panchayathId: '204902' },
+  { id: 'usr-officer1', name: 'Shri. P. K. Suresh', email: 'suresh.surveyor@kerala.gov.in', role: 'VEO', permissions: ['submit_survey', 'capture_gps'], panchayathId: '204902' },
+  { id: 'usr-officer2', name: 'Smt. Deepa Nair', email: 'deepa.surveyor@kerala.gov.in', role: 'VEO', permissions: ['submit_survey', 'capture_gps'], panchayathId: '204902' },
+  { id: 'usr-dataentry', name: 'Sajesh Kumar', email: 'sajesh.deo@kerala.gov.in', role: 'Data Entry Operator', permissions: ['register_building', 'edit_records'], panchayathId: '204902' },
+  { id: 'usr-readonly', name: 'Public Auditor', email: 'auditor.readonly@kerala.gov.in', role: 'Read Only Viewer', permissions: ['view_only'], panchayathId: '204902' }
 ];
 
 export const mockWards: WardRecord[] = [

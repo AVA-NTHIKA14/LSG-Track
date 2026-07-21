@@ -21,14 +21,26 @@ export const Renewals: React.FC = () => {
   const [whatsappStatus, setWhatsappStatus] = useState<string | null>(null);
   const [renewSuccess, setRenewSuccess] = useState<string | null>(null);
 
+  // Panchayat Meta State
+  const [panchayatName, setPanchayatName] = useState('Panchayat');
+  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
+
   useEffect(() => {
     const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
+    const unsubPanchayaths = dbService.subscribeToPanchayaths((list) => {
+      const activeP = list.find(p => p.id === activePanchayatCode);
+      if (activeP) {
+        setPanchayatName(activeP.name);
+      }
+    });
+
     return () => {
       unsubLicenses();
       unsubBuildings();
+      unsubPanchayaths();
     };
-  }, []);
+  }, [activePanchayatCode]);
 
   // Filter expired or soon-to-expire (expiring before 2027-03-31)
   const expiringLicenses = licenses.filter(l => l.status === 'expired' || new Date(l.expiryDate) <= new Date('2026-12-31'));
@@ -42,7 +54,7 @@ export const Renewals: React.FC = () => {
   };
 
   const handleSendSMS = (lic: LicenseRecord, bldgName: string) => {
-    setSmsStatus(`SMS dispatched: "Dear Proprietor, Trade License #${lic.id} for ${bldgName} is due for renewal. Please renew before ${lic.expiryDate} at Chakkittapara Panchayat Office to avoid penalty."`);
+    setSmsStatus(`SMS dispatched: "Dear Proprietor, Trade License #${lic.id} for ${bldgName} is due for renewal. Please renew before ${lic.expiryDate} at ${panchayatName} Office to avoid penalty."`);
     dbService.addAuditLog('SMS_ALERT', `Sent renewal SMS alert for License: ${lic.id} to owner.`);
   };
 

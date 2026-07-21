@@ -20,18 +20,30 @@ export const Reports: React.FC = () => {
   const [selectedWard, setSelectedWard] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
+  // Panchayat Meta State
+  const [panchayatName, setPanchayatName] = useState('Panchayat');
+  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
+
   useEffect(() => {
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
     const unsubWards = dbService.subscribeToWards(setWards);
     const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
     const unsubSurveys = dbService.subscribeToSurveys(setSurveys);
+    const unsubPanchayaths = dbService.subscribeToPanchayaths((list) => {
+      const activeP = list.find(p => p.id === activePanchayatCode);
+      if (activeP) {
+        setPanchayatName(activeP.name);
+      }
+    });
+
     return () => {
       unsubBuildings();
       unsubWards();
       unsubLicenses();
       unsubSurveys();
+      unsubPanchayaths();
     };
-  }, []);
+  }, [activePanchayatCode]);
 
   const handlePrint = () => {
     window.print();
@@ -142,8 +154,8 @@ export const Reports: React.FC = () => {
         {/* Printable Official Header */}
         <div className="text-center border-b-2 border-slate-800 pb-5">
           <div className="text-xs uppercase tracking-widest font-bold text-slate-600">Local Self Government Department</div>
-          <h2 className="text-lg font-extrabold uppercase text-gov-navy mt-1">Chakkittapara Grama Panchayat Office</h2>
-          <p className="text-[10px] text-slate-500">Kozhikode District, Kerala State, India | Tel: 0496 266 2235</p>
+          <h2 className="text-lg font-extrabold uppercase text-gov-navy mt-1">{panchayatName} Office</h2>
+          <p className="text-[10px] text-slate-500">Kerala State, India | Dynamic Multi-Tenant Portal</p>
           <div className="mt-4 px-3 py-1 bg-slate-50 rounded border inline-block text-[10px] font-mono text-slate-700">
             REF NO: LSGD/CP/LIC/2026/RP-{reportType.toUpperCase()} | DATE OF COMPILE: 2026-06-28
           </div>
@@ -153,7 +165,7 @@ export const Reports: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
           <div className="bg-slate-50 border rounded p-3 text-center">
             <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">Panchayat Extent</span>
-            <span className="block font-bold text-slate-800">Chakkittapara GP</span>
+            <span className="block font-bold text-slate-800">{panchayatName}</span>
           </div>
           <div className="bg-slate-50 border rounded p-3 text-center">
             <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">Total Assets Listed</span>
@@ -257,7 +269,7 @@ export const Reports: React.FC = () => {
                               type="button"
                               onClick={async () => {
                                 const phoneNum = `+91 944${Math.floor(1000000 + Math.random() * 9000000)}`;
-                                const alertMsg = `[SMS DISPATCHED] To: Proprietor of ${b?.businessName || 'Establishment'} (Phone: ${phoneNum}).\n\nMessage: Your D&O Trade License #${l.id} is expiring on ${l.expiryDate}. Please submit your renewal draft immediately at the Chakkittapara Panchayat portal.`;
+                                const alertMsg = `[SMS DISPATCHED] To: Proprietor of ${b?.businessName || 'Establishment'} (Phone: ${phoneNum}).\n\nMessage: Your D&O Trade License #${l.id} is expiring on ${l.expiryDate}. Please submit your renewal draft immediately at the ${panchayatName} portal.`;
                                 alert(alertMsg);
                                 await dbService.addAuditLog('NOTIFICATION', `Dispatched SMS renewal reminder to owner of ${b?.businessName || 'Establishment'} (License ID: ${l.id}, Phone: ${phoneNum}) regarding expiry date ${l.expiryDate}.`);
                               }}
@@ -396,7 +408,7 @@ export const Reports: React.FC = () => {
           <div>
             <div className="h-12"></div>
             <div className="border-t border-slate-400 w-48 mx-auto mt-2 pt-1 font-bold">Field Survey Officer</div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">Chakkittapara Panchayat</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">{panchayatName}</div>
           </div>
           <div>
             <div className="h-12"></div>

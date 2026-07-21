@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ShieldAlert, 
@@ -13,7 +13,8 @@ import {
   Compass
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { mockUsers } from '../data/buildingsSeed';
+import { authService } from '../services/authService';
+import type { Panchayath, UserProfile } from '../types';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -25,8 +26,31 @@ export const Login: React.FC = () => {
   // Login Inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [panchayatCode, setPanchayatCode] = useState('204902');
+  const [panchayatCode, setPanchayatCode] = useState('G110706');
   const [rememberMe, setRememberMe] = useState(false);
+
+  // Dynamic Tenants & Users List
+  const [panchayaths, setPanchayaths] = useState<Panchayath[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    const fetchTenantsAndUsers = async () => {
+      const list = await dbService.getPanchayaths();
+      setPanchayaths(list);
+      
+      const hasPanangad = list.some(p => p.id === 'G110706');
+      if (hasPanangad) {
+        setPanchayatCode('G110706');
+      } else if (list.length > 0) {
+        setPanchayatCode(list[0].id);
+      } else {
+        setPanchayatCode('all');
+      }
+
+      setRegisteredUsers(authService.getLocalUsers());
+    };
+    fetchTenantsAndUsers();
+  }, []);
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,19 +63,13 @@ export const Login: React.FC = () => {
     setError(null);
     
     try {
-      // Allow searching by email prefix (username) or full email
-      const user = mockUsers.find(u => 
-        u.email.toLowerCase() === email.toLowerCase() ||
-        u.email.toLowerCase().split('@')[0] === email.toLowerCase()
-      );
-      
+      const user = authService.loginWithCredentials(email, panchayatCode);
       if (user) {
-        localStorage.setItem('cp_license_active_user', JSON.stringify(user));
         localStorage.setItem('cp_active_panchayat_code', panchayatCode);
         await dbService.addAuditLog('LOGIN', `User logged in using credentials: ${user.email} (Panchayat Code: ${panchayatCode})`);
         navigate('/');
       } else {
-        setError('Invalid personnel credentials. Please try again.');
+        setError('Invalid personnel credentials or access mismatch for selected Panchayat code.');
       }
     } catch (err: any) {
       setError('Credentials sign-in failed. Please contact administrator.');
@@ -85,7 +103,7 @@ export const Login: React.FC = () => {
               Trade License Compliance Portal
             </h1>
             <p className="text-sm text-emerald-100/90 leading-relaxed font-normal">
-              A GIS-enabled platform for monitoring licensed and unlicensed commercial establishments across Kerala Grama Panchayats.
+              A dynamic GIS-enabled SaaS platform for monitoring trade license compliance across Kerala Grama Panchayats.
             </p>
           </div>
 
@@ -102,7 +120,7 @@ export const Login: React.FC = () => {
               <div className="w-8 h-8 rounded-full border border-emerald-300 flex items-center justify-center shrink-0">
                 <RefreshCw size={15} />
               </div>
-              <span className="text-sm font-semibold tracking-wide">K-SMART Integrated</span>
+              <span className="text-sm font-semibold tracking-wide">K-SMART Dynamic Integration</span>
             </div>
 
             <div className="flex items-center space-x-3.5">
@@ -159,7 +177,7 @@ export const Login: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. panchayat_official_01"
+                  placeholder="e.g. admin@lsgtrack.gov.in"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition"
@@ -168,20 +186,33 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
-            {/* Panchayat Code Input */}
+            {/* Select Panchayat / LSGD Code */}
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Panchayat Code
+                Panchayat / LSGD Code
               </label>
               <div className="relative">
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 204902"
-                  value={panchayatCode}
-                  onChange={(e) => setPanchayatCode(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition"
-                />
+                {panchayaths.length === 0 ? (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter LSGD Code, e.g. 204902"
+                    value={panchayatCode}
+                    onChange={(e) => setPanchayatCode(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition font-mono"
+                  />
+                ) : (
+                  <select
+                    value={panchayatCode}
+                    onChange={(e) => setPanchayatCode(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition font-bold"
+                  >
+                    {panchayaths.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                    ))}
+                    <option value="all">System Administrator (Root Access)</option>
+                  </select>
+                )}
                 <Compass size={15} className="absolute right-3.5 top-3.5 text-[#0F6E4F]" />
               </div>
             </div>
@@ -244,13 +275,12 @@ export const Login: React.FC = () => {
               <div className="flex-grow border-t border-slate-100"></div>
             </div>
 
-            {/* Support outline button */}
             <button
               type="button"
               className="w-full border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl py-2.5 text-xs font-semibold transition flex items-center justify-center space-x-2"
             >
               <HelpCircle size={15} />
-              <span>Help & Support</span>
+              <span>Help & Support Hotline</span>
             </button>
 
           </form>
@@ -268,11 +298,16 @@ export const Login: React.FC = () => {
             
             {showDevNotes && (
               <div className="mt-2.5 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] text-slate-500 space-y-1 font-mono leading-normal">
-                <div><strong>Secretary</strong>: <code>mini.secretary</code> (or email)</div>
-                <div><strong>DEO (Staff)</strong>: <code>sajesh.deo</code></div>
-                <div><strong>VEO (Surveyor)</strong>: <code>suresh.surveyor</code></div>
-                <div><strong>Ward Member</strong>: <code>thomas.ward1</code></div>
-                <div className="text-slate-400 italic mt-1 font-sans">Use any password to sign in to these profiles.</div>
+                {registeredUsers.length === 0 ? (
+                  <div>No accounts registered yet. Use <code>admin@lsgtrack.gov.in</code> to log in.</div>
+                ) : (
+                  registeredUsers.map(u => (
+                    <div key={u.id}>
+                      <strong>{u.role}</strong> ({u.panchayathId === 'all' ? 'All' : `Panchayat: ${u.panchayathId}`}): <code>{u.email.split('@')[0]}</code>
+                    </div>
+                  ))
+                )}
+                <div className="text-slate-400 italic mt-1 font-sans">Use any password to sign in. Default Root Administrator: <code>admin@lsgtrack.gov.in</code>.</div>
               </div>
             )}
           </div>
@@ -282,7 +317,7 @@ export const Login: React.FC = () => {
         {/* Bottom Branding net connection secure */}
         <div className="w-full max-w-xl mx-auto flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-100 pt-4 mt-6 select-none font-medium">
           <div>Powered by LSG Track</div>
-          <div className="font-mono">Version 1.0.0</div>
+          <div className="font-mono">Version 2.0.0 (Production SaaS)</div>
         </div>
 
       </div>

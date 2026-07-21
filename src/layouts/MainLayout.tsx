@@ -12,11 +12,15 @@ import {
   Bell, 
   Search, 
   Compass,
-  ChevronDown
+  ChevronDown,
+  Building2,
+  Smartphone,
+  MessageSquare,
+  ShieldAlert
 } from 'lucide-react';
 import { authService } from '../services/authService';
 import { dbService } from '../services/dbService';
-import type { UserProfile, SystemNotification } from '../types';
+import type { UserProfile, SystemNotification, Panchayath } from '../types';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -30,6 +34,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Multi-tenancy states
+  const [panchayaths, setPanchayaths] = useState<Panchayath[]>([]);
+  const [activePanchayatName, setActivePanchayatName] = useState('Loading Panchayat...');
+  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
 
   useEffect(() => {
     // Listen for auth changes
@@ -47,12 +56,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       setHighContrast(settings.highContrast);
     });
 
+    // Subscribe to Panchayats list and active name
+    const unsubscribePanchayaths = dbService.subscribeToPanchayaths((list) => {
+      setPanchayaths(list);
+      const activeP = list.find(p => p.id === activePanchayatCode);
+      if (activeP) {
+        setActivePanchayatName(activeP.name);
+      } else {
+        setActivePanchayatName(`Panchayat (${activePanchayatCode})`);
+      }
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribeNotifications();
       unsubscribeSettings();
+      unsubscribePanchayaths();
     };
-  }, []);
+  }, [activePanchayatCode]);
 
   const handleLogout = async () => {
     await authService.logout();
@@ -61,21 +82,28 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Navigation Items mapped to match the sidebar in screenshot (using clean Lucide icons)
+  // Navigation Items mapped to match the sidebar in e-governance requirements
   const getNavItems = () => {
-    // Default standard links for Secretary/Admin, adapted to match the design screenshot
-    return [
+    const items = [
       { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-      { name: 'Map View', path: '/map', icon: Map },
-      { name: 'Compliance', path: '/survey', icon: ShieldCheck },
-      { name: 'Analytics', path: '/reports', icon: BarChart3 },
+      { name: 'GIS Operations', path: '/map', icon: Map },
+      { name: 'Establishments', path: '/buildings', icon: Building2 },
+      { name: 'Applications', path: '/licenses', icon: ShieldCheck },
+      { name: 'Inspections', path: '/survey', icon: Smartphone },
+      { name: 'Communication Hub', path: '/communication', icon: MessageSquare },
+      { name: 'Reports & Analytics', path: '/reports', icon: BarChart3 },
       { name: 'Settings', path: '/settings', icon: Settings },
     ];
+
+    if (currentUser?.role === 'Administrator') {
+      items.push({ name: 'Administration', path: '/administration', icon: ShieldAlert });
+    }
+
+    return items;
   };
 
   const navItems = getNavItems();
 
-  // Get User Initials (e.g. "SK" for Sajesh Kumar, or "SK" for Secretary Kerala)
   const getUserInitials = () => {
     if (!currentUser) return 'SK';
     const names = currentUser.name.split(' ');
@@ -107,7 +135,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <div className="relative hidden md:block">
               <input
                 type="text"
-                placeholder="Search businesses, wards or files..."
+                placeholder="Search businesses, owners or licenses..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="border border-slate-200 bg-slate-50/50 rounded-full pl-9 pr-4 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] w-64 transition"
@@ -127,7 +155,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="tracking-wide">K-SMART Active</span>
+            <span className="tracking-wide">K-SMART Dynamic Integration</span>
           </div>
 
           {/* Notifications bell */}
@@ -156,7 +184,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               onClick={() => setShowRoleMenu(!showRoleMenu)}
               className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-full border border-slate-100 transition"
             >
-              {/* Initials circle */}
               <div className="w-7 h-7 bg-[#0F6E4F] text-white rounded-full flex items-center justify-center text-[10px] font-extrabold shadow-sm">
                 {getUserInitials()}
               </div>
@@ -174,6 +201,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   <div className="text-slate-400 text-[10px] truncate">{currentUser?.email}</div>
                   <div className="text-slate-400 text-[9px] mt-1 font-bold">
                     Role: {currentUser?.role} {currentUser?.ward ? `(Ward ${currentUser.ward})` : ''}
+                  </div>
+                  <div className="text-slate-400 text-[9px] mt-0.5 font-bold">
+                    LSGD: {currentUser?.panchayathId || activePanchayatCode}
                   </div>
                 </div>
                 <button 
@@ -194,20 +224,41 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* ==================== CORE CONTAINER ==================== */}
       <div className="flex-grow flex relative">
         
-        {/* Left Navigation Sidebar (Light Lavender-Grey) */}
+        {/* Left Navigation Sidebar */}
         <aside className="w-64 bg-[#EEF2F6] border-r border-slate-200/60 hidden md:flex flex-col no-print shrink-0 p-4 justify-between select-none">
           
           <div className="space-y-6">
             
             {/* Top Gov Metadata branding */}
-            <div className="flex items-center space-x-3 px-2">
-              <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
-                <Compass size={14} className="text-[#0F6E4F]" />
+            <div className="flex flex-col space-y-2.5 px-2">
+              <div className="flex items-center space-x-3">
+                <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
+                  <Compass size={14} className="text-[#0F6E4F]" />
+                </div>
+                <div className="leading-tight">
+                  <div className="text-xs font-extrabold text-slate-800">LSG Admin Portal</div>
+                  <div className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Kerala State</div>
+                </div>
               </div>
-              <div className="leading-tight">
-                <div className="text-xs font-extrabold text-slate-800">LSG Admin</div>
-                <div className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Kerala State</div>
-              </div>
+
+              {/* Tenant context switcher for System Admins */}
+              {currentUser?.role === 'Administrator' && panchayaths.length > 0 && (
+                <div className="pt-2">
+                  <label className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">Active Tenant</label>
+                  <select
+                    value={activePanchayatCode}
+                    onChange={(e) => {
+                      localStorage.setItem('cp_active_panchayat_code', e.target.value);
+                      window.location.reload(); 
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1 text-[10px] font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0F6E4F]"
+                  >
+                    {panchayaths.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Navigation links */}
@@ -251,7 +302,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           {/* Bottom Action buttons */}
           <div className="space-y-1 border-t border-slate-300/40 pt-4">
             
-            {/* Support link */}
             <button
               onClick={() => navigate('/settings')}
               className="w-full flex items-center space-x-3 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 rounded-xl transition"
@@ -260,7 +310,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <span>Support</span>
             </button>
 
-            {/* Logout link */}
             <button
               onClick={handleLogout}
               className="w-full flex items-center space-x-3 px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition"
@@ -284,10 +333,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <footer className="bg-[#0B3B24] text-emerald-100/70 py-6 border-t border-emerald-950/20 text-center text-xs no-print select-none leading-relaxed">
         <div className="max-w-7xl mx-auto px-6 space-y-1.5">
           <div className="font-semibold text-[11px] tracking-wide">
-            © 2026 Chakkittapara Grama Panchayat, Kozhikode, Kerala. All Rights Reserved.
+            © 2026 {activePanchayatName}, Local Self-Government Department, Kerala. All Rights Reserved.
           </div>
           <div className="text-[10px] text-emerald-200/50">
-            Maintained by LSGD Information Kerala Mission (IKM). Software version 1.0.4. For support: helpdesk.lsgd@kerala.gov.in | Phone: 0496 286 2235
+            Maintained by LSGD Information Kerala Mission (IKM). Software version 2.0.0 (Multi-Tenant Production). For support: helpdesk.lsgd@kerala.gov.in
           </div>
         </div>
       </footer>

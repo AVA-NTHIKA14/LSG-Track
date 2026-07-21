@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
-import { mockWards } from '../data/buildingsSeed';
-import type { BuildingRecord, WardRecord, LicenseRecord } from '../types';
+import type { BuildingRecord, WardRecord, LicenseRecord, SyncHistoryRecord, WhatsAppLogRecord } from '../types';
 import { 
   Search, 
   Ruler, 
@@ -36,6 +35,11 @@ export const MapPage: React.FC = () => {
   // Database States
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
+  const [wards, setWards] = useState<WardRecord[]>([]);
+  const [syncHistory, setSyncHistory] = useState<SyncHistoryRecord[]>([]);
+  const [whatsappLogs, setWhatsappLogs] = useState<WhatsAppLogRecord[]>([]);
+  const [panchayatName, setPanchayatName] = useState('Loading Panchayat...');
+  const [boundaryGeoJSON, setBoundaryGeoJSON] = useState<any>(null);
   
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,6 +83,7 @@ export const MapPage: React.FC = () => {
 
   // Simulation Status States
   const [whatsappStatus, setWhatsappStatus] = useState<string | null>(null);
+  const [whatsappRecipient, setWhatsappRecipient] = useState('7025643678');
   const [surveySyncStatus, setSurveySyncStatus] = useState<string | null>(null);
 
   const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
@@ -87,11 +92,50 @@ export const MapPage: React.FC = () => {
   useEffect(() => {
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
     const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
+    const unsubWards = dbService.subscribeToWards(setWards);
+    const unsubSyncHistory = dbService.subscribeToSyncHistory(setSyncHistory);
+    const unsubWhatsappLogs = dbService.subscribeToWhatsAppLogs(setWhatsappLogs);
+
+    const unsubPanchayaths = dbService.subscribeToPanchayaths((list) => {
+      const activeP = list.find(p => p.id === activePanchayatCode);
+      if (activeP) {
+        setPanchayatName(activeP.name);
+        if (activeP.boundaryGeoJSON) {
+          try {
+            setBoundaryGeoJSON(JSON.parse(activeP.boundaryGeoJSON));
+          } catch {
+            setBoundaryGeoJSON(null);
+          }
+        }
+      } else {
+        setPanchayatName(`Panchayat (${activePanchayatCode})`);
+        setBoundaryGeoJSON(null);
+      }
+    });
+
     return () => {
       unsubBuildings();
       unsubLicenses();
+      unsubWards();
+      unsubSyncHistory();
+      unsubWhatsappLogs();
+      unsubPanchayaths();
     };
-  }, []);
+  }, [activePanchayatCode]);
+
+  // Automatically extract and set WhatsApp recipient from active building ownerName
+  useEffect(() => {
+    if (activeBuilding) {
+      const clean = activeBuilding.ownerName.replace(/\s+/g, '');
+      const match = clean.match(/\d{10}/);
+      if (match) {
+        setWhatsappRecipient(match[0]);
+      } else {
+        // Fallback to Sreya
+        setWhatsappRecipient('7025643678');
+      }
+    }
+  }, [activeBuilding]);
 
   // Initialize Map
   useEffect(() => {
@@ -129,78 +173,85 @@ export const MapPage: React.FC = () => {
     const heatmapsGroup = L.layerGroup().addTo(map);
     heatmapsGroupRef.current = heatmapsGroup;
 
-    // Load Ward Boundaries GeoJSON
-    let isMounted = true;
-    fetch('/data/chakkittapara_wards.geojson')
-      .then(res => res.json())
-      .then(geoJsonData => {
-        if (!isMounted || !mapRef.current) return;
-
-        const geoJsonLayer = L.geoJSON(geoJsonData, {
-          filter: (feature) => {
-            return !isWardMember || feature?.properties?.ward_number === assignedWard;
-          },
-          style: (feature) => {
-            const wardNum = feature?.properties?.ward_number;
-            const wardObj = mockWards.find(w => w.id === wardNum);
-            const comp = wardObj ? wardObj.compliancePercentage : 75;
-
-            // Compliance Coloring Choropleth Spectrum
-            let color = '#E11D48'; // High Contrast Red (Critical < 60%)
-            if (comp >= 90) color = '#166534'; // High Contrast Dark Green (Excellent)
-            else if (comp >= 80) color = '#15803D'; // High Contrast Light Green (Good)
-            else if (comp >= 70) color = '#A16207'; // High Contrast Yellow/Brown (Needs Attention)
-            else if (comp >= 60) color = '#C2410C'; // High Contrast Orange (Poor)
-
-            const isSelected = selectedWard === wardNum;
-
-            return {
-              color: '#FFFFFF',
-              weight: isSelected ? 4.5 : 2.0,
-              opacity: showBoundaries ? 1.0 : 0.0,
-              fillColor: color,
-              fillOpacity: showBoundaries ? (isSelected ? 0.28 : 0.10) : 0.0
-            };
-          },
-          onEachFeature: (feature, layer) => {
-            const props = feature.properties;
-            const wardObj = mockWards.find(w => w.id === props.ward_number);
-            
-            layer.bindTooltip(`
-              <div style="font-family:sans-serif;padding:4px;font-size:11px;font-weight:bold;color:#0f172a;">
-                Ward ${props.ward_number}: ${props.ward_name}<br/>
-                <span style="font-size:10px;color:#166534;">Compliance: ${wardObj?.compliancePercentage}%</span>
-              </div>
-            `, { permanent: false, direction: 'center' });
-
-            // Click Ward Boundary opens Ward Drawer
-            layer.on('click', () => {
-              setSelectedWard(props.ward_number);
-              setActiveBuilding(null); 
-              setShowActivityDrawer(false); 
-              if (wardObj) setActiveWardObj(wardObj);
-            });
-
-            // Double Click zooms into locality
-            layer.on('dblclick', (e) => {
-              mapRef.current?.setView(e.latlng, 15);
-            });
-          }
-        }).addTo(mapRef.current);
-        geoJsonLayerRef.current = geoJsonLayer;
-        
-        mapRef.current.fitBounds(geoJsonLayer.getBounds());
-      })
-      .catch(err => console.error('Failed to load ward boundaries GeoJSON:', err));
-
     return () => {
-      isMounted = false;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
-  }, [isWardMember, assignedWard]);
+  }, []);
+
+  // Update geojson boundary layer when boundaryGeoJSON resolves
+  useEffect(() => {
+    if (!mapRef.current || !boundaryGeoJSON) return;
+
+    // Remove old layer
+    if (geoJsonLayerRef.current) {
+      mapRef.current.removeLayer(geoJsonLayerRef.current);
+    }
+
+    try {
+      const geoJsonLayer = L.geoJSON(boundaryGeoJSON, {
+        filter: (feature) => {
+          return !isWardMember || feature?.properties?.ward_number === assignedWard;
+        },
+        style: (feature) => {
+          const wardNum = feature?.properties?.ward_number;
+          const wardObj = wards.find(w => w.id === wardNum);
+          const comp = wardObj ? wardObj.compliancePercentage : 75;
+
+          // Compliance Coloring Choropleth Spectrum
+          let color = '#E11D48'; // High Contrast Red (Critical < 60%)
+          if (comp >= 90) color = '#166534'; // High Contrast Dark Green (Excellent)
+          else if (comp >= 80) color = '#15803D'; // High Contrast Light Green (Good)
+          else if (comp >= 70) color = '#A16207'; // High Contrast Yellow/Brown (Needs Attention)
+          else if (comp >= 60) color = '#C2410C'; // High Contrast Orange (Poor)
+
+          const isSelected = selectedWard === wardNum;
+
+          return {
+            color: '#FFFFFF',
+            weight: isSelected ? 4.5 : 2.0,
+            opacity: showBoundaries ? 1.0 : 0.0,
+            fillColor: color,
+            fillOpacity: showBoundaries ? (isSelected ? 0.28 : 0.10) : 0.0
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          const props = feature.properties;
+          const wardObj = wards.find(w => w.id === props.ward_number);
+          
+          layer.bindTooltip(`
+            <div style="font-family:sans-serif;padding:4px;font-size:11px;font-weight:bold;color:#0f172a;">
+              Ward ${props.ward_number}: ${props.ward_name || `Ward ${props.ward_number}`}<br/>
+              <span style="font-size:10px;color:#166534;">Compliance: ${wardObj?.compliancePercentage || 100}%</span>
+            </div>
+          `, { permanent: false, direction: 'center' });
+
+          // Click Ward Boundary opens Ward Drawer
+          layer.on('click', () => {
+            setSelectedWard(props.ward_number);
+            setActiveBuilding(null); 
+            setShowActivityDrawer(false); 
+            if (wardObj) setActiveWardObj(wardObj);
+          });
+
+          // Double Click zooms into locality
+          layer.on('dblclick', (e) => {
+            mapRef.current?.setView(e.latlng, 15);
+          });
+        }
+      }).addTo(mapRef.current);
+      geoJsonLayerRef.current = geoJsonLayer;
+      
+      // Fit Bounds dynamically
+      if (geoJsonLayer.getBounds().isValid()) {
+        mapRef.current.fitBounds(geoJsonLayer.getBounds());
+      }
+    } catch (err) {
+      console.error('GeoJSON rendering error:', err);
+    }
+  }, [boundaryGeoJSON, showBoundaries, selectedWard, wards]);
 
   // Handle Base Map Layer Change
   useEffect(() => {
@@ -237,7 +288,7 @@ export const MapPage: React.FC = () => {
 
     geoJsonLayer.setStyle((feature) => {
       const wardNum = feature?.properties?.ward_number;
-      const wardObj = mockWards.find(w => w.id === wardNum);
+      const wardObj = wards.find((w: WardRecord) => w.id === wardNum);
       const comp = wardObj ? wardObj.compliancePercentage : 75;
 
       let color = '#E11D48';
@@ -552,10 +603,7 @@ export const MapPage: React.FC = () => {
     setSearchQuery('');
   };
 
-  const handleSendWhatsAppWarning = (b: BuildingRecord) => {
-    setWhatsappStatus(`WhatsApp reminder alert dispatched: "Notice from Chakkittapara Panchayat: Proprietor of ${b.businessName}, your trade establishment has been flagged operating without a valid license. Please apply for immediate renewal on K-SMART portal to avoid penal action."`);
-    dbService.addAuditLog('WHATSAPP_ALERT', `WhatsApp Bot dispatched unlicensed warning notice to owner of ${b.businessName}.`);
-  };
+
 
   const handleSimulateSurveySync = async (b: BuildingRecord) => {
     setSurveySyncStatus(`Synchronizing VEO survey report for ${b.businessName}...`);
@@ -599,14 +647,21 @@ export const MapPage: React.FC = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonData, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `chakkittapara_panchayat_gis_export.geojson`);
+    downloadAnchor.setAttribute("download", `${panchayatName.toLowerCase().replace(/\s+/g, '_')}_gis_export.geojson`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
     
-    dbService.addAuditLog('EXPORT_GIS', 'Panchayat Secretary exported active GIS enterprise layer to GeoJSON file.');
+    dbService.addAuditLog('EXPORT_GIS', `${panchayatName} Secretary exported active GIS enterprise layer to GeoJSON file.`);
     alert('GeoJSON exported successfully.');
   };
+
+  const getExtractedPhone = (ownerText: string) => {
+    const clean = ownerText.replace(/\s+/g, '');
+    const match = clean.match(/\d{10}/);
+    return match ? match[0] : null;
+  };
+  const extractedPhone = activeBuilding ? getExtractedPhone(activeBuilding.ownerName) : null;
 
   const isAnyDrawerOpen = activeBuilding !== null || activeWardObj !== null || showActivityDrawer;
 
@@ -694,9 +749,9 @@ export const MapPage: React.FC = () => {
                         className="w-full border border-slate-300 rounded-lg p-2 text-slate-800 bg-slate-50 font-semibold focus:ring-2 focus:ring-[#15803D]"
                       >
                         <option value="all">All Wards</option>
-                        {mockWards.map(w => (
+                        {wards.map((w: WardRecord) => (
                           <option key={w.id} value={w.id}>Ward {w.id} - {w.name.split(' - ')[1] || w.name}</option>
-                        ))}
+                        )) }
                       </select>
                     </div>
 
@@ -1003,7 +1058,7 @@ export const MapPage: React.FC = () => {
             <div className="flex justify-between items-start mb-2.5 border-b border-slate-150 pb-2">
               <div>
                 <span className="text-[10px] font-bold text-[#15803D] uppercase tracking-wider block">Grama Panchayat Boundary</span>
-                <strong className="text-slate-900 text-base block font-bold mt-0.5">Chakkittapara Panchayat</strong>
+                <strong className="text-slate-900 text-base block font-bold mt-0.5">{panchayatName}</strong>
               </div>
               <span className="bg-[#15803D] text-white px-2 py-0.5 rounded font-mono font-bold text-xs shrink-0">
                 Code: {activePanchayatCode}
@@ -1124,15 +1179,45 @@ export const MapPage: React.FC = () => {
               <div className="space-y-2 pt-3 border-t border-slate-200 shrink-0">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Field deployment actions</span>
                 
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase font-semibold">WhatsApp Recipient</label>
+                  <select
+                    value={whatsappRecipient}
+                    onChange={(e) => setWhatsappRecipient(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl p-2 text-xs bg-slate-50 font-bold text-slate-700 outline-none focus:border-[#0F6E4F] transition"
+                  >
+                    <option value="7025643678">Sreya (+91 70256 43678)</option>
+                    <option value="8281466322">Avanthika (+91 82814 66322)</option>
+                    {extractedPhone && extractedPhone !== '7025643678' && extractedPhone !== '8281466322' && (
+                      <option value={extractedPhone}>
+                        Extracted: +91 {extractedPhone.slice(0, 5)} {extractedPhone.slice(5)}
+                      </option>
+                    )}
+                  </select>
+                </div>
+                
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleSendWhatsAppWarning(activeBuilding)}
-                    disabled={activeBuilding.status === 'licensed'}
-                    className="flex-1 bg-[#15803D] hover:bg-[#0e5628] text-white font-bold uppercase py-2.5 rounded-xl transition text-[11px] flex items-center justify-center space-x-1 shadow-sm disabled:opacity-40"
+                  <a
+                    href={`https://wa.me/91${whatsappRecipient}?text=${encodeURIComponent(`Notice from ${panchayatName}: Proprietor of ${activeBuilding.businessName}, your trade establishment has been flagged operating without a valid license. Please apply for immediate renewal on K-SMART portal to avoid penal action.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      dbService.addWhatsAppLog({
+                        businessName: activeBuilding.businessName,
+                        recipientName: whatsappRecipient === '7025643678' ? 'Sreya' : 'Avanthika',
+                        contactNumber: whatsappRecipient,
+                        channel: 'WhatsApp',
+                        messageText: `Notice from ${panchayatName}: Proprietor of ${activeBuilding.businessName}, your trade establishment has been flagged operating without a valid license. Please apply for immediate renewal on K-SMART portal to avoid penal action.`,
+                        status: 'sent'
+                      });
+                      setWhatsappStatus(`WhatsApp reminder alert dispatched to ${whatsappRecipient === '7025643678' ? 'Sreya' : 'Avanthika'} (+91 ${whatsappRecipient})`);
+                      dbService.addAuditLog('WHATSAPP_ALERT', `WhatsApp Bot dispatched unlicensed warning notice to ${whatsappRecipient === '7025643678' ? 'Sreya' : 'Avanthika'} (+91 ${whatsappRecipient}) for ${activeBuilding.businessName}.`);
+                    }}
+                    className="flex-1 bg-[#15803D] hover:bg-[#0e5628] text-white font-bold uppercase py-2.5 rounded-xl transition text-[11px] flex items-center justify-center space-x-1 shadow-sm text-center"
                   >
                     <RefreshCw size={12} />
                     <span>WhatsApp alert notice</span>
-                  </button>
+                  </a>
 
                   <button
                     onClick={() => handleSimulateSurveySync(activeBuilding)}
@@ -1331,14 +1416,16 @@ export const MapPage: React.FC = () => {
                     <span>ACTION</span>
                     <span>TIMESTAMP</span>
                   </div>
-                  <div className="flex justify-between items-start">
-                    <span>Imported direct K-SMART license registry file</span>
-                    <span className="font-mono text-xs text-slate-450 shrink-0">12:35 am</span>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <span>Synchronized new registration for building file</span>
-                    <span className="font-mono text-xs text-slate-455 shrink-0">11:10 pm</span>
-                  </div>
+                  {syncHistory.length === 0 ? (
+                    <div className="text-slate-400 italic text-center py-2 text-[10px]">No imports processed yet.</div>
+                  ) : (
+                    syncHistory.slice(0, 3).map(h => (
+                      <div key={h.id} className="flex justify-between items-start">
+                        <span>Imported {h.fileName} ({h.importedCount} rows)</span>
+                        <span className="font-mono text-xs text-slate-450 shrink-0">{new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -1347,14 +1434,16 @@ export const MapPage: React.FC = () => {
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">WhatsApp Bot Alerts Delivery</span>
                 
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5 text-slate-700 font-semibold">
-                  <div className="flex justify-between">
-                    <span>Chakkittapara Coop Bank (LIC-201)</span>
-                    <span className="text-emerald-700 font-bold">Delivered</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Peruvannamuzhi Boating Centre (BLDG-202)</span>
-                    <span className="text-slate-500">Scheduled (9:00 AM)</span>
-                  </div>
+                  {whatsappLogs.length === 0 ? (
+                    <div className="text-slate-400 italic text-center py-2 text-[10px]">No message logs recorded.</div>
+                  ) : (
+                    whatsappLogs.slice(0, 3).map(w => (
+                      <div key={w.id} className="flex justify-between">
+                        <span className="truncate pr-2">{w.businessName}</span>
+                        <span className={`text-[10px] font-bold uppercase shrink-0 ${w.status === 'sent' ? 'text-emerald-700' : 'text-slate-500'}`}>{w.status}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

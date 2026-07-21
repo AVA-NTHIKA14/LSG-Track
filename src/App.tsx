@@ -15,7 +15,8 @@ import { Reports } from './pages/Reports';
 import { Notifications } from './pages/Notifications';
 import { Settings } from './pages/Settings';
 import { Profile } from './pages/Profile';
-
+import { Administration } from './pages/Administration';
+import { CommunicationHub } from './pages/CommunicationHub';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -37,11 +38,11 @@ function App() {
     <Router>
       <Routes>
         
-        {/* Public Login Screen */}
+        {/* Public Onboarding & Login Screen */}
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
 
-        {/* Protected Dashboard / Map layout */}
+        {/* Protected Dashboard & e-Governance workflows */}
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} />
         <Route path="/buildings" element={<ProtectedRoute><Buildings /></ProtectedRoute>} />
@@ -53,6 +54,8 @@ function App() {
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
+        <Route path="/communication" element={<ProtectedRoute><CommunicationHub /></ProtectedRoute>} />
 
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />

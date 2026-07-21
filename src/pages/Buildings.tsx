@@ -18,8 +18,8 @@ const buildingFormSchema = z.object({
   businessName: z.string().min(3, 'Business/Establishment name is required'),
   category: z.string().min(2, 'Please specify category'),
   wardNumber: z.string().min(1, 'Please select ward'),
-  lat: z.preprocess((val) => parseFloat(val as string) || 0, z.number().min(11.5, 'Must be in Chakkittapara coordinates').max(11.7, 'Must be in Chakkittapara coordinates')),
-  lng: z.preprocess((val) => parseFloat(val as string) || 0, z.number().min(75.7, 'Must be in Chakkittapara coordinates').max(75.9, 'Must be in Chakkittapara coordinates')),
+  lat: z.preprocess((val) => parseFloat(val as string) || 0, z.number().min(8.0, 'Must be in valid Kerala coordinates').max(13.0, 'Must be in valid Kerala coordinates')),
+  lng: z.preprocess((val) => parseFloat(val as string) || 0, z.number().min(74.0, 'Must be in valid Kerala coordinates').max(78.0, 'Must be in valid Kerala coordinates')),
   remarks: z.string().optional()
 });
 

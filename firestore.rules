@@ -1,0 +1,70 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: Checks if the user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper: Gets the user record from the users collection
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Helper: Checks if the user belongs to the specified panchayath
+    function belongsToPanchayath(panchayathId) {
+      return isSignedIn() && (
+        getUserData().panchayathId == panchayathId || 
+        getUserData().role == 'Administrator'
+      );
+    }
+
+    // Helper: Checks if the user is a System Administrator
+    function isSystemAdmin() {
+      return isSignedIn() && getUserData().role == 'Administrator';
+    }
+
+    // Wards and metadata subcollections
+    match /panchayaths/{panchayathId} {
+      allow read: if isSignedIn();
+      allow write: if isSystemAdmin();
+
+      // Scoped subcollections containing operational data
+      match /buildings/{buildingId} {
+        allow read, write: if belongsToPanchayath(panchayathId);
+      }
+
+      match /licenses/{licenseId} {
+        allow read, write: if belongsToPanchayath(panchayathId);
+      }
+
+      match /wards/{wardId} {
+        allow read, write: if belongsToPanchayath(panchayathId);
+      }
+
+      match /surveys/{surveyId} {
+        allow read, write: if belongsToPanchayath(panchayathId);
+      }
+
+      match /syncHistory/{syncId} {
+        allow read, write: if belongsToPanchayath(panchayathId);
+      }
+
+      match /whatsappLogs/{logId} {
+        allow read, write: if belongsToPanchayath(panchayathId);
+      }
+
+      match /auditLogs/{logId} {
+        allow read, write: if belongsToPanchayath(panchayathId);
+      }
+    }
+
+    // Users Collection rules
+    match /users/{userId} {
+      // User can read/write their own profile, System Admin can manage all profiles
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isSystemAdmin());
+    }
+  }
+}
