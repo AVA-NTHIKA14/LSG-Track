@@ -6,7 +6,6 @@ import {
   ShieldCheck, 
   BarChart3, 
   Settings, 
-  Plus, 
   HelpCircle, 
   LogOut, 
   Bell, 
@@ -16,7 +15,11 @@ import {
   Building2,
   Smartphone,
   MessageSquare,
-  ShieldAlert
+  ShieldAlert,
+  Menu,
+  X,
+  Database,
+  ClipboardCheck
 } from 'lucide-react';
 import { authService } from '../services/authService';
 import { dbService } from '../services/dbService';
@@ -33,7 +36,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+  const [largerText, setLargerText] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   
   // Multi-tenancy states
   const [panchayaths, setPanchayaths] = useState<Panchayath[]>([]);
@@ -51,9 +57,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       setNotifications(notifs);
     });
 
-    // Listen to settings/high-contrast
+    // Listen to settings/accessibility
     const unsubscribeSettings = dbService.subscribeToSettings((settings) => {
-      setHighContrast(settings.highContrast);
+      const isHc = !!settings.highContrast;
+      const isLt = !!settings.largerText;
+      setHighContrast(isHc);
+      setLargerText(isLt);
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.toggle('high-contrast', isHc);
+        document.documentElement.classList.toggle('larger-text', isLt);
+      }
     });
 
     // Subscribe to Panchayats list and active name
@@ -67,11 +80,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       }
     });
 
+    // Subscribe to Sync History for dynamic status pill
+    const unsubscribeSync = dbService.subscribeToSyncHistory((history) => {
+      if (history.length > 0) {
+        const latest = history[0];
+        setLastSyncTime(new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribeNotifications();
       unsubscribeSettings();
       unsubscribePanchayaths();
+      unsubscribeSync();
     };
   }, [activePanchayatCode]);
 
@@ -80,22 +102,51 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/buildings?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Navigation Items mapped to match the sidebar in e-governance requirements
+  // Navigation Items mapped to match Secretary-centric governance requirements
   const getNavItems = () => {
+    const role = currentUser?.role;
+
+    if (role === 'Panchayat Section Clerk') {
+      // DEO Scoped Navigation
+      return [
+        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+        { name: 'Synchronization', path: '/sync', icon: Database },
+        { name: 'Sync History', path: '/sync', icon: BarChart3 },
+        { name: 'Profile & Settings', path: '/settings', icon: Settings },
+      ];
+    }
+
+    if (role === 'Ward Member') {
+      // Ward Member Scoped Navigation
+      return [
+        { name: 'Report Establishment', path: '/survey', icon: Smartphone },
+        { name: 'My Reports', path: '/survey', icon: ShieldCheck },
+        { name: 'Profile & Settings', path: '/settings', icon: Settings },
+      ];
+    }
+
+    // Secretary & Administrator Navigation
     const items = [
       { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-      { name: 'GIS Operations', path: '/map', icon: Map },
-      { name: 'Establishments', path: '/buildings', icon: Building2 },
-      { name: 'Applications', path: '/licenses', icon: ShieldCheck },
-      { name: 'Inspections', path: '/survey', icon: Smartphone },
-      { name: 'Communication Hub', path: '/communication', icon: MessageSquare },
-      { name: 'Reports & Analytics', path: '/reports', icon: BarChart3 },
-      { name: 'Settings', path: '/settings', icon: Settings },
+      { name: 'Map View', path: '/map', icon: Map },
+      { name: 'Commercial Establishments', path: '/buildings', icon: Building2 },
+      { name: 'Licenses', path: '/licenses', icon: ShieldCheck },
+      { name: 'Field Reports', path: '/ward-reports', icon: ClipboardCheck },
+      { name: 'Renewal Alerts', path: '/communication', icon: MessageSquare },
+      { name: 'Reports', path: '/reports', icon: BarChart3 },
+      { name: 'Profile & Settings', path: '/settings', icon: Settings },
     ];
 
-    if (currentUser?.role === 'Administrator') {
+    if (role === 'Administrator') {
       items.push({ name: 'Administration', path: '/administration', icon: ShieldAlert });
     }
 
@@ -114,53 +165,77 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col ${highContrast ? 'high-contrast' : 'bg-slate-50 text-slate-800'} font-sans`}>
+    <div className={`min-h-screen flex flex-col ${highContrast ? 'high-contrast' : 'bg-slate-50 text-slate-800'} ${largerText ? 'larger-text' : ''} font-sans`}>
       
+      {/* Accessible Skip to Content Link */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-[#0F6E4F] focus:text-white focus:p-2.5 focus:rounded-lg font-bold text-xs shadow-xl outline-none"
+      >
+        Skip to main content
+      </a>
+
       {/* ==================== WHITE HEADER ==================== */}
-      <header className="bg-white border-b border-slate-100 px-6 py-3 flex justify-between items-center z-30 shadow-sm no-print select-none">
+      <header className="bg-white border-b border-slate-100 px-4 md:px-6 py-3 flex justify-between items-center z-30 shadow-sm no-print select-none">
         
-        {/* Left Side: Brand Logo and Search Bar */}
-        <div className="flex items-center space-x-8">
+        {/* Left Side: Mobile Hamburger + Brand Logo and Search Bar */}
+        <div className="flex items-center space-x-3 md:space-x-8">
           
+          {/* Mobile Menu Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle navigation drawer"
+            className="p-2 text-slate-600 hover:text-slate-900 md:hidden rounded-lg hover:bg-slate-100 transition"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+
           {/* Brand Mark Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <svg viewBox="0 0 20 25" className="w-5 h-6 text-[#0F6E4F]" fill="currentColor">
+            <svg viewBox="0 0 20 25" className="w-5 h-6 text-[#0F6E4F]" fill="currentColor" aria-hidden="true">
               <path d="M10 12.5C10.6875 12.5 11.276 12.2552 11.7656 11.7656C12.2552 11.276 12.5 10.6875 12.5 10C12.5 9.3125 12.2552 8.72396 11.7656 8.23438C11.276 7.74479 10.6875 7.5 10 7.5C9.3125 7.5 8.72396 7.74479 8.23438 8.23438C7.74479 8.72396 7.5 9.3125 7.5 10C7.5 10.6875 7.74479 11.276 8.23438 11.7656C8.72396 12.2552 9.3125 12.5 10 12.5ZM10 25C6.64583 22.1458 4.14062 19.4948 2.48438 17.0469C0.828125 14.599 0 12.3333 0 10.25C0 7.125 1.00521 4.63542 3.01562 2.78125C5.02604 0.927083 7.35417 0 10 0C12.6458 0 14.974 0.927083 16.9844 2.78125C18.9948 4.63542 20 7.125 20 10.25C20 12.3333 19.1719 14.599 17.5156 17.0469C15.8594 19.4948 13.3542 22.1458 10 25Z" />
             </svg>
             <span className="font-extrabold text-lg text-[#0F6E4F] tracking-wide">LSG Track</span>
           </Link>
 
-          {/* Header Search Mockup */}
+          {/* Functional Header Search Bar */}
           {location.pathname !== '/map' && (
-            <div className="relative hidden md:block">
+            <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
               <input
                 type="text"
                 placeholder="Search businesses, owners or licenses..."
                 value={searchQuery}
+                aria-label="Search businesses, owners or licenses"
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="border border-slate-200 bg-slate-50/50 rounded-full pl-9 pr-4 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] w-64 transition"
               />
-              <Search size={13} className="absolute left-3.5 top-2.5 text-slate-400" />
-            </div>
+              <button type="submit" aria-label="Perform search" className="absolute left-3.5 top-2.5 text-slate-400 hover:text-slate-600">
+                <Search size={13} />
+              </button>
+            </form>
           )}
 
         </div>
 
         {/* Right Side: Status Pill, Notifications, Help & User Dropdown */}
-        <div className="flex items-center space-x-5">
+        <div className="flex items-center space-x-3 md:space-x-5">
           
-          {/* K-SMART Active Pill */}
-          <div className="bg-[#EBF7F2] text-[#0F6E4F] px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center space-x-1.5 shadow-sm border border-emerald-100">
+          {/* K-SMART Dynamic Integration Pill with live status binding */}
+          <div className="bg-[#EBF7F2] text-[#0F6E4F] px-3 py-1.5 rounded-full text-[11px] font-semibold hidden lg:flex items-center space-x-1.5 shadow-sm border border-emerald-100">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="tracking-wide">K-SMART Dynamic Integration</span>
+            <span className="tracking-wide">
+              {lastSyncTime ? `K-SMART Synced (${lastSyncTime})` : 'K-SMART Dynamic Integration'}
+            </span>
           </div>
 
           {/* Notifications bell */}
           <button 
             type="button" 
+            aria-label="Notifications system"
             onClick={() => navigate('/notifications')}
             className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 transition relative"
           >
@@ -173,14 +248,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           {/* Help circle */}
           <button 
             type="button" 
+            aria-label="Help and Support guidelines"
+            onClick={() => navigate('/settings')}
             className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 transition"
           >
             <HelpCircle size={18} />
           </button>
 
-          {/* User profile with initials dropdown */}
+          {/* User profile dropdown button */}
           <div className="relative">
             <button
+              type="button"
+              aria-label="User profile and account settings"
               onClick={() => setShowRoleMenu(!showRoleMenu)}
               className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-full border border-slate-100 transition"
             >
@@ -224,7 +303,64 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* ==================== CORE CONTAINER ==================== */}
       <div className="flex-grow flex relative">
         
-        {/* Left Navigation Sidebar */}
+        {/* Mobile Slide-Out Drawer Navigation Overlay (<768px) */}
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-40 bg-slate-900/60 md:hidden flex">
+            <div className="w-72 bg-[#EEF2F6] h-full p-4 flex flex-col justify-between shadow-2xl overflow-y-auto">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center space-x-2">
+                    <Compass size={18} className="text-[#0F6E4F]" />
+                    <span className="font-bold text-slate-800 text-sm">LSG Mobile Menu</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    aria-label="Close menu drawer"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-1 text-slate-500 hover:text-slate-800"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <nav className="space-y-1.5">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.path}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${
+                          isActive 
+                            ? 'bg-[#0F6E4F] text-white shadow-md' 
+                            : 'text-slate-700 hover:bg-slate-200/70'
+                        }`}
+                      >
+                        <Icon size={18} className={isActive ? 'text-white' : 'text-slate-500'} />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              <div className="border-t border-slate-300 pt-4">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition"
+                >
+                  <LogOut size={16} />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+            <div className="flex-grow" onClick={() => setMobileMenuOpen(false)} />
+          </div>
+        )}
+
+        {/* Left Desktop Sidebar Navigation */}
         <aside className="w-64 bg-[#EEF2F6] border-r border-slate-200/60 hidden md:flex flex-col no-print shrink-0 p-4 justify-between select-none">
           
           <div className="space-y-6">
@@ -285,18 +421,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               })}
             </nav>
 
-            {/* + New Entry Button */}
-            <div className="px-1.5 pt-2">
-              <button
-                type="button"
-                onClick={() => navigate('/buildings')}
-                className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white rounded-xl py-3 px-4 flex items-center justify-center space-x-2 font-bold text-xs transition shadow-md shadow-emerald-900/10"
-              >
-                <Plus size={16} />
-                <span>New Entry</span>
-              </button>
-            </div>
-
           </div>
 
           {/* Bottom Action buttons */}
@@ -322,8 +446,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         </aside>
 
-        {/* Content Area */}
-        <main className="flex-1 min-w-0 bg-slate-50 flex flex-col p-4 md:p-6 overflow-y-auto">
+        {/* Content Area with Accessible ID */}
+        <main id="main-content" className="flex-1 min-w-0 bg-slate-50 flex flex-col p-4 md:p-6 overflow-y-auto">
           {children}
         </main>
 

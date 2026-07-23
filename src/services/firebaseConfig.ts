@@ -12,8 +12,19 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Check if credentials are provided
-export const isFirebaseEnabled = !!import.meta.env.VITE_FIREBASE_API_KEY;
+const requiredConfigKeys = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID'
+] as const;
+
+export const isFirebaseEnabled = requiredConfigKeys.every((key) => Boolean(import.meta.env[key]));
+export let firebaseInitializationError: string | null = isFirebaseEnabled
+  ? null
+  : 'Firebase configuration is incomplete.';
 
 let app;
 let auth: any = null;
@@ -31,7 +42,8 @@ if (isFirebaseEnabled) {
     storage = getStorage(app);
     googleProvider = new GoogleAuthProvider();
   } catch (error) {
-    console.error('Firebase initialization failed, falling back to mock database:', error);
+    firebaseInitializationError = error instanceof Error ? error.message : 'Firebase initialization failed.';
+    console.error('Firebase initialization failed:', error);
   }
 }
 

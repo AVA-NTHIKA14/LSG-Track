@@ -4,63 +4,42 @@ import type { LicenseRecord, BuildingRecord } from '../types';
 import { 
   RefreshCw, 
   MessageSquare, 
-  Mail, 
   CheckCircle, 
   Clock, 
   AlertTriangle, 
   Play 
 } from 'lucide-react';
 
+import { authService } from '../services/authService';
+
 export const Renewals: React.FC = () => {
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [activeLic, setActiveLic] = useState<LicenseRecord | null>(null);
   
-  const [smsStatus, setSmsStatus] = useState<string | null>(null);
-  const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [whatsappStatus, setWhatsappStatus] = useState<string | null>(null);
   const [renewSuccess, setRenewSuccess] = useState<string | null>(null);
 
-  // Panchayat Meta State
-  const [panchayatName, setPanchayatName] = useState('Panchayat');
-  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
+  const currentUser = authService.getCurrentUser();
+  const canApprove = currentUser?.role === 'Secretary' || currentUser?.role === 'Administrator' || authService.hasPermission('approve_license');
 
   useEffect(() => {
     const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
-    const unsubPanchayaths = dbService.subscribeToPanchayaths((list) => {
-      const activeP = list.find(p => p.id === activePanchayatCode);
-      if (activeP) {
-        setPanchayatName(activeP.name);
-      }
-    });
 
     return () => {
       unsubLicenses();
       unsubBuildings();
-      unsubPanchayaths();
     };
-  }, [activePanchayatCode]);
+  }, []);
 
   // Filter expired or soon-to-expire (expiring before 2027-03-31)
   const expiringLicenses = licenses.filter(l => l.status === 'expired' || new Date(l.expiryDate) <= new Date('2026-12-31'));
 
   const handleSelectLic = (lic: LicenseRecord) => {
     setActiveLic(lic);
-    setSmsStatus(null);
-    setEmailStatus(null);
     setWhatsappStatus(null);
     setRenewSuccess(null);
-  };
-
-  const handleSendSMS = (lic: LicenseRecord, bldgName: string) => {
-    setSmsStatus(`SMS dispatched: "Dear Proprietor, Trade License #${lic.id} for ${bldgName} is due for renewal. Please renew before ${lic.expiryDate} at ${panchayatName} Office to avoid penalty."`);
-    dbService.addAuditLog('SMS_ALERT', `Sent renewal SMS alert for License: ${lic.id} to owner.`);
-  };
-
-  const handleSendEmail = (lic: LicenseRecord, bldgName: string) => {
-    setEmailStatus(`Email sent: To proprietor of ${bldgName}. Subject: NOTICE: Trade License Renewal Due (ID: ${lic.id}). Form uploaded to LSGD portal.`);
-    dbService.addAuditLog('EMAIL_ALERT', `Sent renewal email alert for License: ${lic.id} to owner.`);
   };
 
   const handleSendWhatsApp = (lic: LicenseRecord, bldgName: string) => {
@@ -69,6 +48,10 @@ export const Renewals: React.FC = () => {
   };
 
   const handleRenew = async (licId: string) => {
+    if (!canApprove) {
+      alert('Access Restricted: Only Panchayat Secretaries and Administrators can execute license renewals.');
+      return;
+    }
     await dbService.renewLicense(licId);
     setRenewSuccess(`License ${licId} has been successfully renewed. Expiry date extended by 12 months.`);
     
@@ -206,36 +189,12 @@ export const Renewals: React.FC = () => {
                       <span className="text-[9px] text-emerald-700 uppercase font-bold">Bot Ready</span>
                     </button>
 
-                    <button
-                      onClick={() => handleSendSMS(activeLic, b?.businessName || '')}
-                      className="w-full bg-slate-50 hover:bg-slate-100 border rounded py-2 px-3 flex items-center justify-between transition text-left"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <MessageSquare size={14} className="text-slate-500" />
-                        <span>Send SMS Alert</span>
-                      </div>
-                      <span className="text-[9px] text-slate-400 uppercase">Gateway Ready</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleSendEmail(activeLic, b?.businessName || '')}
-                      className="w-full bg-slate-50 hover:bg-slate-100 border rounded py-2 px-3 flex items-center justify-between transition text-left"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <Mail size={14} className="text-slate-500" />
-                        <span>Send Email Notice</span>
-                      </div>
-                      <span className="text-[9px] text-slate-400 uppercase">SMTP Ready</span>
-                    </button>
-
                   </div>
 
                   {/* Notification output logs */}
-                  {(smsStatus || emailStatus || whatsappStatus) && (
+                  {whatsappStatus && (
                     <div className="bg-slate-100 p-2.5 rounded text-[10px] space-y-2 leading-tight italic text-slate-600 font-mono">
-                      {whatsappStatus && <div className="border-b pb-1.5 border-slate-200 text-[#0F6E4F]">{whatsappStatus}</div>}
-                      {smsStatus && <div className="border-b pb-1.5 border-slate-200">{smsStatus}</div>}
-                      {emailStatus && <div>{emailStatus}</div>}
+                      <div className="text-[#0F6E4F]">{whatsappStatus}</div>
                     </div>
                   )}
 

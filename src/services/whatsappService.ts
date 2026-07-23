@@ -6,7 +6,7 @@ export interface MessagePayload {
   contactNumber: string; // E.164 format, e.g. +91944xxxxxxx
   licenseId?: string;
   expiryDate?: string;
-  channel: 'WhatsApp' | 'SMS' | 'Email';
+  channel: 'WhatsApp';
   templateLanguage: 'en' | 'ml';
   customText?: string;
 }
@@ -112,9 +112,8 @@ export const whatsappService = {
       details = `API Exception: ${e.message || e}`;
     }
 
-    // 3. Fallback to Local Logging if API was not triggered/failed
-    if (!success) {
-      // In local mode or missing keys, we successfully "log" the message
+    // 3. Status determination and logging
+    if (provider === 'simulated') {
       success = true;
     }
 

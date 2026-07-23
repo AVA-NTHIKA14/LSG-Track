@@ -3,14 +3,8 @@ import { dbService } from '../services/dbService';
 import { whatsappService } from '../services/whatsappService';
 import type { BuildingRecord, LicenseRecord, WhatsAppLogRecord } from '../types';
 import { 
-  MessageSquare, Send, Search, Phone
+  MessageSquare, Search, Send
 } from 'lucide-react';
-
-interface ChatMessage {
-  sender: 'user' | 'bot';
-  text: string;
-  timestamp: string;
-}
 
 export const CommunicationHub: React.FC = () => {
   // Database States
@@ -19,25 +13,15 @@ export const CommunicationHub: React.FC = () => {
   const [logs, setLogs] = useState<WhatsAppLogRecord[]>([]);
 
   // UI States
-  const [activeTab, setActiveTab] = useState<'campaign' | 'logs' | 'bot'>('campaign');
+  const [activeTab, setActiveTab] = useState<'campaign' | 'logs'>('campaign');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [templateLang, setTemplateLang] = useState<'en' | 'ml'>('ml');
-  const [channel, setChannel] = useState<'WhatsApp' | 'SMS' | 'Email'>('WhatsApp');
+  const [channel] = useState<'WhatsApp'>('WhatsApp');
   
   // Feedback
   const [loading, setLoading] = useState(false);
   const [successCount, setSuccessCount] = useState<number | null>(null);
-
-  // Chat Bot Simulator States
-  const [chatInput, setChatInput] = useState('');
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { 
-      sender: 'bot', 
-      text: '🏛️ Welcome to LSG Track e-Governance Chatbot Hotline!\n\nI can help you check trade licensing status, survey applications, and download digital certificates.\n\nCommands:\n- *Status <Building ID>* (e.g. Status BLDG-103)\n- *License <License ID>* (e.g. License LIC-202)\n- *Help* to show this guidelines menu.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  ]);
 
   // Load active Panchayat Data
   useEffect(() => {
@@ -129,64 +113,22 @@ export const CommunicationHub: React.FC = () => {
     setTimeout(() => setSuccessCount(null), 5000);
   };
 
-  // Bot message handler
-  const handleSendChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
 
-    const userText = chatInput.trim();
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    // Add user message
-    const userMsg: ChatMessage = { sender: 'user', text: userText, timestamp: nowTime };
-    setChatHistory(prev => [...prev, userMsg]);
-    setChatInput('');
-
-    // Process Bot reply with delay
-    setTimeout(() => {
-      let botReply = '';
-      const parts = userText.split(' ');
-      const command = parts[0].toLowerCase();
-      const arg = parts.slice(1).join(' ').trim();
-
-      if (command === 'status' && arg) {
-        const b = buildings.find(x => x.id.toLowerCase() === arg.toLowerCase());
-        if (b) {
-          botReply = `📍 *LSG Asset Records status:*\n\n- *Establishment:* ${b.businessName}\n- *Proprietor:* ${b.ownerName}\n- *Category:* ${b.category}\n- *Ward Jurisdiction:* Ward ${b.wardNumber}\n- *GPS Coordinates:* ${b.coordinates.lat.toFixed(5)}, ${b.coordinates.lng.toFixed(5)}\n- *Compliance Status:* ${b.status.toUpperCase()}\n- *License Reference:* ${b.licenseId || 'N/A'}`;
-        } else {
-          botReply = `❌ No commercial building found with ID: *${arg}* in our registered local body database. Please check the ID and try again.`;
-        }
-      } else if (command === 'license' && arg) {
-        const l = licenses.find(x => x.id.toLowerCase() === arg.toLowerCase());
-        if (l) {
-          const b = buildings.find(x => x.id === l.buildingId);
-          botReply = `📄 *Trade License Certificate Details:*\n\n- *License ID:* ${l.id}\n- *Establishment:* ${b?.businessName || 'N/A'}\n- *Proprietor:* ${b?.ownerName || 'N/A'}\n- *Category:* ${l.licenseType}\n- *Issue Date:* ${l.issueDate}\n- *Expiry Date:* ${l.expiryDate}\n- *Paid Treasury Fee:* ₹${l.feePaid}\n- *Status:* ${l.status.toUpperCase()}\n\n📥 *Digital Certificate Download Link:*\nhttps://lsgtrack.kerala.gov.in/certs/download/${l.id}`;
-        } else {
-          botReply = `❌ No active or historical D&O Trade License found with reference number: *${arg}*.`;
-        }
-      } else if (command === 'help') {
-        botReply = `🏛️ *LSG Track Chatbot Assistance*\n\nCommands:\n- *Status <BuildingID>*: Check license/verification status of building\n- *License <LicenseID>*: Get details & online download link for trade license\n- *Help*: Display this guidelines menu`;
-      } else {
-        botReply = `🤖 I did not understand that command.\n\nType *Help* to show valid actions, or check if your query format matches:\n- _Status BLDG-101_\n- _License LIC-202_`;
-      }
-
-      setChatHistory(prev => [...prev, {
-        sender: 'bot',
-        text: botReply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
-    }, 800);
-  };
 
   return (
     <div className="space-y-6">
       
-      {/* Title */}
-      <div className="border-b pb-4">
-        <h2 className="text-xl font-bold text-gov-navy">WhatsApp & Communications Hub</h2>
-        <p className="text-xs text-slate-500">
-          Monitor auto-dispatched alerts, trigger bulk campaigns to non-compliant businesses, and test the interactive citizen status chatbot interface.
-        </p>
+      {/* Page Title */}
+      <div className="border-b pb-4 flex justify-between items-center flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
+            <MessageSquare size={22} className="text-[#0F6E4F]" />
+            <span>Renewal Alerts</span>
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Automated WhatsApp renewal reminder dispatch hub for expired and expiring trade license establishments.
+          </p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -206,14 +148,6 @@ export const CommunicationHub: React.FC = () => {
           }`}
         >
           Message Notification Logs ({logs.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('bot')}
-          className={`py-2.5 px-4 font-bold border-b-2 transition ${
-            activeTab === 'bot' ? 'border-[#0F6E4F] text-[#0F6E4F]' : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Hotline Bot Simulator
         </button>
       </div>
 
@@ -323,21 +257,9 @@ export const CommunicationHub: React.FC = () => {
             <div className="space-y-3 font-medium text-slate-600">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Target Channel</label>
-                <div className="flex gap-2">
-                  {['WhatsApp', 'SMS', 'Email'].map((ch) => (
-                    <button
-                      key={ch}
-                      type="button"
-                      onClick={() => setChannel(ch as any)}
-                      className={`flex-1 py-1.5 rounded-xl border text-[10px] font-bold uppercase transition ${
-                        channel === ch 
-                          ? 'border-[#0F6E4F] bg-[#EBF7F2] text-[#0F6E4F]' 
-                          : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      {ch}
-                    </button>
-                  ))}
+                <div className="w-full bg-[#EBF7F2] text-[#0F6E4F] border border-emerald-200 rounded-xl py-2 px-3 text-xs font-bold uppercase tracking-wider text-center flex items-center justify-center space-x-1.5">
+                  <MessageSquare size={14} className="text-[#0F6E4F]" />
+                  <span>WhatsApp Direct</span>
                 </div>
               </div>
 
@@ -452,64 +374,6 @@ export const CommunicationHub: React.FC = () => {
               </table>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Bot simulator */}
-      {activeTab === 'bot' && (
-        <div className="max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[520px]">
-          
-          {/* Header */}
-          <div className="bg-[#075E54] text-white p-4 flex items-center space-x-3.5 shadow">
-            <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center border-2 border-emerald-400/30">
-              <Phone size={18} className="text-white" />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-sm leading-none flex items-center space-x-1.5">
-                <span>LSG Bot Assistant Hotline</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              </h3>
-              <p className="text-[10px] text-emerald-100 mt-1">Kerala Grama Panchayat Automated Service • Online</p>
-            </div>
-          </div>
-
-          {/* Chat Pane */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-[#e5ddd5]/15 flex flex-col">
-            {chatHistory.map((msg, index) => {
-              const isUser = msg.sender === 'user';
-              return (
-                <div 
-                  key={index} 
-                  className={`max-w-[80%] rounded-2xl p-3 text-xs leading-relaxed ${
-                    isUser 
-                      ? 'bg-[#d9fdd3] text-slate-800 self-end rounded-tr-none' 
-                      : 'bg-white text-slate-800 self-start rounded-tl-none shadow-sm'
-                  }`}
-                >
-                  <p className="whitespace-pre-line font-medium">{msg.text}</p>
-                  <span className="block text-[8px] text-slate-400 text-right mt-1 font-mono font-bold uppercase">{msg.timestamp}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Form Input */}
-          <form onSubmit={handleSendChat} className="bg-[#f0f0f0] p-3 flex items-center space-x-2 border-t border-slate-200">
-            <input
-              type="text"
-              placeholder="Type command, e.g. Status BLDG-101..."
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              className="flex-1 border rounded-full px-4 py-2.5 text-xs text-slate-700 bg-white focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="w-10 h-10 bg-[#075E54] hover:bg-[#064e46] text-white rounded-full flex items-center justify-center transition shadow shrink-0"
-            >
-              <Send size={15} />
-            </button>
-          </form>
-
         </div>
       )}
 

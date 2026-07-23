@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   ShieldAlert, 
   Eye, 
   EyeOff, 
@@ -9,19 +9,18 @@ import {
   Map, 
   RefreshCw, 
   Bell, 
-  Info,
   Compass
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
-import type { Panchayath, UserProfile } from '../types';
+import { AUTHORIZED_PORTAL_ROLES } from '../services/portalRoles';
+import type { Panchayath } from '../types';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showDevNotes, setShowDevNotes] = useState(false);
   
   // Login Inputs
   const [email, setEmail] = useState('');
@@ -29,25 +28,25 @@ export const Login: React.FC = () => {
   const [panchayatCode, setPanchayatCode] = useState('G110706');
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Dynamic Tenants & Users List
+  // Dynamic tenant list
   const [panchayaths, setPanchayaths] = useState<Panchayath[]>([]);
-  const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
     const fetchTenantsAndUsers = async () => {
-      const list = await dbService.getPanchayaths();
-      setPanchayaths(list);
-      
-      const hasPanangad = list.some(p => p.id === 'G110706');
-      if (hasPanangad) {
-        setPanchayatCode('G110706');
-      } else if (list.length > 0) {
-        setPanchayatCode(list[0].id);
-      } else {
-        setPanchayatCode('all');
-      }
+      try {
+        const list = await dbService.getPanchayaths();
+        setPanchayaths(list);
 
-      setRegisteredUsers(authService.getLocalUsers());
+        const hasPanangad = list.some(p => p.id === 'G110706');
+        if (hasPanangad) {
+          setPanchayatCode('G110706');
+        } else if (list.length > 0) {
+          setPanchayatCode(list[0].id);
+        }
+      } catch {
+        // Tenant metadata is protected until authentication; officers can enter their assigned code.
+        setPanchayaths([]);
+      }
     };
     fetchTenantsAndUsers();
   }, []);
@@ -63,16 +62,35 @@ export const Login: React.FC = () => {
     setError(null);
     
     try {
-      const user = authService.loginWithCredentials(email, panchayatCode);
+      const user = await authService.loginWithCredentials(email, password, panchayatCode);
       if (user) {
         localStorage.setItem('cp_active_panchayat_code', panchayatCode);
         await dbService.addAuditLog('LOGIN', `User logged in using credentials: ${user.email} (Panchayat Code: ${panchayatCode})`);
         navigate('/');
       } else {
-        setError('Invalid personnel credentials or access mismatch for selected Panchayat code.');
+        setError(`Invalid personnel credentials, password, or access mismatch for selected Panchayat code. Only ${AUTHORIZED_PORTAL_ROLES.join(', ')} accounts can sign in.`);
       }
     } catch (err: any) {
-      setError('Credentials sign-in failed. Please contact administrator.');
+      setError(err?.message || 'Credentials sign-in failed. Please contact administrator.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Enter your official email or username first, then use Forgot Password.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await authService.sendPasswordReset(email.trim());
+      setError('Password reset email sent. Check your inbox and spam folder.');
+    } catch (err: any) {
+      setError(err?.message || 'Unable to send password reset email. Contact the administrator.');
     } finally {
       setLoading(false);
     }
@@ -223,9 +241,14 @@ export const Login: React.FC = () => {
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   Password
                 </label>
-                <a href="#" className="text-[10px] font-bold text-[#0F6E4F] hover:underline transition">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-[10px] font-bold text-[#0F6E4F] hover:underline transition disabled:text-slate-300 disabled:no-underline"
+                  disabled={loading}
+                >
                   Forgot Password?
-                </a>
+                </button>
               </div>
               <div className="relative">
                 <input
@@ -260,6 +283,14 @@ export const Login: React.FC = () => {
               </label>
             </div>
 
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Authorized portal roles: {AUTHORIZED_PORTAL_ROLES.join(', ')}.
+            </p>
+
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Self sign-up is disabled. User accounts are provisioned by the System Administrator or Firebase Admin workflow.
+            </p>
+
             {/* Submit Sign In */}
             <button
               type="submit"
@@ -284,33 +315,6 @@ export const Login: React.FC = () => {
             </button>
 
           </form>
-
-          {/* Dev credentials helper button */}
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => setShowDevNotes(!showDevNotes)}
-              className="text-[10px] font-bold text-slate-400 hover:text-slate-500 uppercase tracking-widest flex items-center space-x-1 focus:outline-none"
-            >
-              <span>{showDevNotes ? 'Hide Mock Accounts' : 'Show Mock Accounts'}</span>
-              <Info size={11} />
-            </button>
-            
-            {showDevNotes && (
-              <div className="mt-2.5 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] text-slate-500 space-y-1 font-mono leading-normal">
-                {registeredUsers.length === 0 ? (
-                  <div>No accounts registered yet. Use <code>admin@lsgtrack.gov.in</code> to log in.</div>
-                ) : (
-                  registeredUsers.map(u => (
-                    <div key={u.id}>
-                      <strong>{u.role}</strong> ({u.panchayathId === 'all' ? 'All' : `Panchayat: ${u.panchayathId}`}): <code>{u.email.split('@')[0]}</code>
-                    </div>
-                  ))
-                )}
-                <div className="text-slate-400 italic mt-1 font-sans">Use any password to sign in. Default Root Administrator: <code>admin@lsgtrack.gov.in</code>.</div>
-              </div>
-            )}
-          </div>
 
         </div>
 

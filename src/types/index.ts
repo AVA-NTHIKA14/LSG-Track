@@ -2,18 +2,17 @@ export type UserRole =
   | 'Administrator' 
   | 'Secretary' 
   | 'Ward Member' 
-  | 'VEO' 
-  | 'Data Entry Operator' 
-  | 'Read Only Viewer';
+  | 'Panchayat Section Clerk';
 
 export interface UserProfile {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  ward?: string; // Ward assignment if Ward Member/Field Officer
+  ward?: string; // Ward assignment for Ward Members
   permissions: string[];
   panchayathId?: string; // Tenant identification (LSGD code or 'all' for System Admin)
+  active?: boolean; // Account status flag (defaults to true)
 }
 
 export interface WardRecord {
@@ -28,6 +27,7 @@ export interface WardRecord {
 }
 
 export type BuildingStatus = 'licensed' | 'unlicensed' | 'pending' | 'govt' | 'ngo' | 'inactive';
+export type RiskLevel = 'High' | 'Medium' | 'Low';
 
 export interface BuildingRecord {
   id: string;
@@ -43,6 +43,10 @@ export interface BuildingRecord {
   licenseId?: string; // Reference to license record
   status: BuildingStatus;
   remarks?: string;
+  riskScore?: RiskLevel;
+  lastSyncDate?: string;
+  kSmartRefId?: string;
+  lastInspectionDate?: string;
   history?: {
     date: string;
     action: string;
@@ -70,6 +74,7 @@ export interface LicenseRecord {
   expiryDate: string;
   status: LicenseStatus;
   feePaid: number;
+  kSmartAppNo?: string;
 }
 
 export type SurveyStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
@@ -88,6 +93,34 @@ export interface SurveyRecord {
   remarks: string;
   surveyDate: string;
   isSynced: boolean; // Relevant for offline sync drafts
+}
+
+export type WardReportStatus = 
+  | 'pending_verification' 
+  | 'verified_licensed' 
+  | 'inspection_required' 
+  | 'confirmed_unlicensed' 
+  | 'closed';
+
+export interface WardReportRecord {
+  id: string;
+  wardNumber: string;
+  businessName: string;
+  ownerName?: string;
+  category: string;
+  landmark?: string;
+  photoUrl?: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  remarks: string;
+  reporterId: string;
+  reporterName: string;
+  status: WardReportStatus;
+  createdAt: string;
+  verifiedAt?: string;
+  matchedBuildingId?: string;
 }
 
 export interface SystemNotification {
@@ -111,6 +144,7 @@ export interface AuditLogRecord {
 
 export interface SystemSettings {
   highContrast: boolean;
+  largerText?: boolean;
   smsNotificationsEnabled: boolean;
   emailNotificationsEnabled: boolean;
 }
@@ -134,6 +168,7 @@ export interface SyncHistoryRecord {
   updatedCount: number;
   expiredCount: number;
   errorCount: number;
+  duplicateCount?: number;
   errors: string[];
 }
 
@@ -142,7 +177,7 @@ export interface WhatsAppLogRecord {
   recipientName: string;
   businessName: string;
   contactNumber: string;
-  channel: 'WhatsApp' | 'SMS' | 'Email';
+  channel: 'WhatsApp';
   messageText: string;
   status: 'sent' | 'delivered' | 'failed';
   timestamp: string;

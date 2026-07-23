@@ -555,12 +555,12 @@ export const Licenses: React.FC = () => {
     ? surveys.find(s => s.buildingId === selectedPendingBldg.id && s.status === 'submitted')
     : null;
 
-  if (currentUser?.role !== 'Secretary' && currentUser?.role !== 'Administrator') {
+  if (currentUser?.role !== 'Secretary' && currentUser?.role !== 'Administrator' && currentUser?.role !== 'Panchayat Section Clerk') {
     return (
       <div className="bg-white border border-gov-border rounded p-6 shadow-sm text-center py-12 text-slate-500 italic text-xs max-w-md mx-auto mt-12">
         <ShieldAlert size={36} className="mx-auto text-red-700 mb-2" />
         <p className="font-bold text-slate-800 text-sm mb-1">ACCESS RESTRICTED</p>
-        <p className="mb-4">This license management queue and approval center is restricted to Secretaries and Administrators.</p>
+        <p className="mb-4">This K-SMART import workspace is restricted to Panchayat Section Clerks, Secretaries, and Administrators.</p>
         <p>Your current profile ({currentUser?.role || 'Guest'}) does not hold access permissions.</p>
       </div>
     );
@@ -570,9 +570,16 @@ export const Licenses: React.FC = () => {
     <div className="space-y-6">
       
       {/* Page Title */}
-      <div className="border-b pb-4">
-        <h2 className="text-xl font-bold text-gov-navy">License Management & Verification Center</h2>
-        <p className="text-xs text-slate-500">Secretary verification queue, commercial license issuance registry, and K-SMART integration synchronization dashboard.</p>
+      <div className="border-b pb-4 flex justify-between items-center flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
+            <ShieldCheck size={22} className="text-[#0F6E4F]" />
+            <span>License Monitoring</span>
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Operational monitoring portal to filter, track, and manage commercial D&O trade licenses across Panchayat wards.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -833,41 +840,43 @@ export const Licenses: React.FC = () => {
             </div>
           )}
 
-          {/* K-SMART Live Integration Panel (Always Visible) */}
-          <div className="bg-[#EBF7F2] border border-emerald-100 rounded-2xl p-4 space-y-3 text-xs text-slate-700">
-            <div className="flex items-center space-x-2 border-b border-emerald-100 pb-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
-              <h4 className="font-extrabold text-[#0F6E4F] uppercase tracking-wider text-[10px]">K-SMART Integration Gateway</h4>
-            </div>
-            
-            <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
-              Licensed trade establishments are exported by K-SMART. Use the control buttons below to simulate API sync or launch the file import pipeline.
-            </p>
-
-            <div className="space-y-2 pt-2">
-              <button
-                onClick={handleKsmartSync}
-                className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white font-bold uppercase py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm text-[10px] tracking-wide"
-              >
-                <RefreshCw size={12} />
-                <span>Sync Live K-SMART Database</span>
-              </button>
-
-              <button
-                onClick={() => { setShowImportModal(true); setImportStep('upload'); }}
-                className="w-full border border-emerald-300 text-[#0F6E4F] hover:bg-emerald-50 font-bold uppercase py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 text-[10px] tracking-wide"
-              >
-                <Download size={12} />
-                <span>Import K-SMART Export Files</span>
-              </button>
-            </div>
-
-            {ksmartSyncStatus && (
-              <div className="mt-3 p-2.5 bg-white rounded-lg border border-emerald-100 text-[10px] text-slate-655 italic leading-relaxed font-mono">
-                {ksmartSyncStatus}
+          {/* K-SMART Live Integration Panel (Restricted to DEO and Admin) */}
+          {(currentUser?.role === 'Panchayat Section Clerk' || currentUser?.role === 'Administrator') && (
+            <div className="bg-[#EBF7F2] border border-emerald-100 rounded-2xl p-4 space-y-3 text-xs text-slate-700">
+              <div className="flex items-center space-x-2 border-b border-emerald-100 pb-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+                <h4 className="font-extrabold text-[#0F6E4F] uppercase tracking-wider text-[10px]">K-SMART Integration Gateway</h4>
               </div>
-            )}
-          </div>
+              
+              <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                Licensed trade establishments are exported by K-SMART. Use the control buttons below to simulate API sync or launch the file import pipeline.
+              </p>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={handleKsmartSync}
+                  className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white font-bold uppercase py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm text-[10px] tracking-wide"
+                >
+                  <RefreshCw size={12} />
+                  <span>Sync Live K-SMART Database</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowImportModal(true); setImportStep('upload'); }}
+                  className="w-full border border-emerald-300 text-[#0F6E4F] hover:bg-emerald-50 font-bold uppercase py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 text-[10px] tracking-wide"
+                >
+                  <Download size={12} />
+                  <span>Import K-SMART Export Files</span>
+                </button>
+              </div>
+
+              {ksmartSyncStatus && (
+                <div className="mt-3 p-2.5 bg-white rounded-lg border border-emerald-100 text-[10px] text-slate-655 italic leading-relaxed font-mono">
+                  {ksmartSyncStatus}
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>

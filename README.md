@@ -85,17 +85,9 @@ Designed for onsite inspections and surveys.
 
 # 🔐 Authentication
 
-## Default Development Mode
+## Firebase Authentication Required
 
-The current login flow uses local mock profiles for rapid development and demos.
-
-* Sign in with the mock usernames/emails listed below
-* Use any password
-* Session state is stored in browser localStorage
-
-## Optional Firebase Integration
-
-If Firebase environment variables are provided, the app initializes Firebase services for Auth, Firestore, and Storage.
+The portal requires complete Firebase configuration. Create personnel in Firebase Authentication and provision the matching Firestore profile through a trusted Firebase Admin workflow before they can sign in.
 
 ---
 
@@ -177,15 +169,7 @@ Optimized bundles include:
 
 # 🧪 Demo Accounts
 
-| Role                      | Email                                                                         |
-| ------------------------- | ----------------------------------------------------------------------------- |
-| Panchayat Secretary       | [mini.secretary@kerala.gov.in](mailto:mini.secretary@kerala.gov.in)           |
-| Panchayat Staff (DEO)     | [sajesh.deo@kerala.gov.in](mailto:sajesh.deo@kerala.gov.in)                   |
-| Ward Member               | [thomas.ward1@kerala.gov.in](mailto:thomas.ward1@kerala.gov.in)               |
-| Village Extension Officer | [suresh.surveyor@kerala.gov.in](mailto:suresh.surveyor@kerala.gov.in)         |
-| Administrator             | [balan.administrator@kerala.gov.in](mailto:balan.administrator@kerala.gov.in) |
-
-Use any password while running in development mode.
+Contact the system administrator to obtain a Firebase-authenticated account.
 
 ---
 

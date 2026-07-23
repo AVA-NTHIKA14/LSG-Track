@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
+import { storageService } from '../services/storageService';
 import type { BuildingRecord, WardRecord } from '../types';
 
 // Zod Schema for Building Registration
@@ -40,10 +41,12 @@ export const Buildings: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
 
-  // DEO Document/Photo uploads simulator states
+  // DEO upload states
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [docName, setDocName] = useState('');
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
@@ -66,8 +69,9 @@ export const Buildings: React.FC = () => {
   }, []);
 
   const currentUser = authService.getCurrentUser();
-  const isDEO = currentUser?.role === 'Data Entry Operator';
+  const isDEO = currentUser?.role === 'Panchayat Section Clerk';
   const isAdmin = currentUser?.role === 'Administrator';
+  const isSecretary = currentUser?.role === 'Secretary';
 
   // React Hook Form for registering
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<BuildingFormData>({
@@ -94,6 +98,57 @@ export const Buildings: React.FC = () => {
       ...selectedBuilding,
       coordinates: { lat: mockLat, lng: mockLng }
     });
+  };
+
+  const uploadPhotoForBuilding = async (file: File) => {
+    if (!selectedBuilding || !currentUser?.id) return;
+    setUploadingPhoto(true);
+    setUploadError(null);
+
+    try {
+      const result = await storageService.uploadBuildingAsset({
+        panchayathId: currentUser.panchayathId || localStorage.getItem('cp_active_panchayat_code') || '204902',
+        userId: currentUser.id,
+        buildingId: selectedBuilding.id,
+        file
+      });
+
+      await dbService.updateBuilding(selectedBuilding.id, { photoUrl: result.downloadUrl });
+      setSelectedBuilding({ ...selectedBuilding, photoUrl: result.downloadUrl });
+    } catch (error: any) {
+      setUploadError(error?.message || 'Photo upload failed.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const uploadDocumentForBuilding = async (file: File) => {
+    if (!selectedBuilding || !currentUser?.id) return;
+    setUploadingDoc(true);
+    setUploadError(null);
+
+    try {
+      const result = await storageService.uploadBuildingAsset({
+        panchayathId: currentUser.panchayathId || localStorage.getItem('cp_active_panchayat_code') || '204902',
+        userId: currentUser.id,
+        buildingId: selectedBuilding.id,
+        file
+      });
+
+      const newAttachment = {
+        name: file.name,
+        url: result.downloadUrl,
+        uploadedAt: new Date().toISOString().split('T')[0]
+      };
+
+      const updatedAttachments = [...(selectedBuilding.attachments || []), newAttachment];
+      await dbService.updateBuilding(selectedBuilding.id, { attachments: updatedAttachments });
+      setSelectedBuilding({ ...selectedBuilding, attachments: updatedAttachments });
+    } catch (error: any) {
+      setUploadError(error?.message || 'Document upload failed.');
+    } finally {
+      setUploadingDoc(false);
+    }
   };
 
   // --- SUBMIT NEW BUILDING WORKFLOWS (DEO ONLY) ---
@@ -261,53 +316,6 @@ export const Buildings: React.FC = () => {
     }, 1500);
   };
 
-  // --- DEO FILE UPLOADS SIMULATORS ---
-  const handleSimulatePhotoUpload = () => {
-    if (!selectedBuilding) return;
-    setUploadingPhoto(true);
-    setTimeout(async () => {
-      const mockPhoto = `/C:/Users/OWNER/.gemini/antigravity/brain/82577a0c-f16e-4876-ae36-cca2dc96e487/lsgd_dashboard_preview_1782612914864.jpg`;
-      await dbService.updateBuilding(selectedBuilding.id, {
-        photoUrl: mockPhoto
-      });
-      setSelectedBuilding({
-        ...selectedBuilding,
-        photoUrl: mockPhoto
-      });
-      setUploadingPhoto(false);
-      alert('Mock photograph uploaded successfully.');
-    }, 1000);
-  };
-
-  const handleSimulateDocUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedBuilding || !docName.trim()) return;
-    setUploadingDoc(true);
-    
-    setTimeout(async () => {
-      const newAttachment = {
-        name: docName,
-        url: '#',
-        uploadedAt: new Date().toISOString().split('T')[0]
-      };
-      
-      const updatedAttachments = [...(selectedBuilding.attachments || []), newAttachment];
-      
-      await dbService.updateBuilding(selectedBuilding.id, {
-        attachments: updatedAttachments
-      });
-
-      setSelectedBuilding({
-        ...selectedBuilding,
-        attachments: updatedAttachments
-      });
-
-      setUploadingDoc(false);
-      setDocName('');
-      alert(`Mock document "${docName}" attached to building file.`);
-    }, 1000);
-  };
-
   // --- DELETE BUILDING (ADMIN ONLY) ---
   const handleDeleteBuilding = async (id: string) => {
     if (window.confirm(`Are you sure you want to archive and remove Building Record ${id}?`)) {
@@ -342,13 +350,13 @@ export const Buildings: React.FC = () => {
     alert(`Generating ${format} file matching ${filteredBuildings.length} records.`);
   };
 
-  // Block unauthorized roles (Secretary, Ward Member, VEO, Guest from this page)
-  if (!isDEO && !isAdmin) {
+  // Block unauthorized roles (Ward Member, VEO, Guest from this page)
+  if (!isDEO && !isAdmin && !isSecretary) {
     return (
       <div className="bg-white border border-gov-border rounded p-6 shadow-sm text-center py-12 text-slate-500 italic text-xs max-w-md mx-auto mt-12">
         <ShieldAlert size={36} className="mx-auto text-red-700 mb-2" />
         <p className="font-bold text-slate-800 text-sm mb-1">ACCESS RESTRICTED</p>
-        <p className="mb-4">This building registry and management portal is restricted to Panchayat Staff (Data Entry Operators) and Administrators.</p>
+        <p className="mb-4">This building registry and management portal is restricted to Panchayat Staff, Secretaries, and Administrators.</p>
         <p>Your current profile ({currentUser?.role || 'Guest'}) does not hold access to this interface.</p>
       </div>
     );
@@ -367,8 +375,11 @@ export const Buildings: React.FC = () => {
             </>
           ) : (
             <>
-              <h2 className="text-xl font-bold text-gov-navy">Building Registry File</h2>
-              <p className="text-xs text-slate-500">Complete catalog of commercial building assets and license compliance statuses.</p>
+              <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
+                <Building2 size={22} className="text-[#0F6E4F]" />
+                <span>Commercial Establishments</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">Complete master directory of commercial establishments, active trade licenses, and risk scores across Panchayat wards.</p>
             </>
           )}
         </div>
@@ -1030,6 +1041,12 @@ export const Buildings: React.FC = () => {
             )}
 
             <div className="space-y-3">
+              {uploadError && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded p-3 text-xs">
+                  {uploadError}
+                </div>
+              )}
+
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Building ID</label>
                 <span className="block font-mono font-bold bg-slate-50 border rounded px-2.5 py-1 text-slate-600">{selectedBuilding.id}</span>
@@ -1158,7 +1175,8 @@ export const Buildings: React.FC = () => {
                   />
                   {selectedBuilding.status === 'unlicensed' && (
                     <button
-                      onClick={handleSimulatePhotoUpload}
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
                       disabled={uploadingPhoto}
                       className="text-gov-green font-bold hover:underline text-[10px] uppercase flex items-center space-x-1"
                     >
@@ -1174,12 +1192,12 @@ export const Buildings: React.FC = () => {
                   {selectedBuilding.status === 'unlicensed' ? (
                     <button
                       type="button"
-                      onClick={handleSimulatePhotoUpload}
+                      onClick={() => photoInputRef.current?.click()}
                       disabled={uploadingPhoto}
                       className="bg-gov-navy hover:bg-gov-navy-light text-white text-[10px] font-bold uppercase py-1.5 px-3 rounded flex items-center space-x-1 transition"
                     >
                       <Upload size={11} />
-                      <span>{uploadingPhoto ? 'Uploading...' : 'Simulate Camera Capture'}</span>
+                      <span>{uploadingPhoto ? 'Uploading...' : 'Upload Photograph'}</span>
                     </button>
                   ) : (
                     <span className="text-[10px] text-slate-400 flex items-center space-x-1 font-bold">
@@ -1214,32 +1232,52 @@ export const Buildings: React.FC = () => {
                         <span className="text-[9px] text-slate-400 font-mono">{att.uploadedAt}</span>
                       </div>
                     ))}
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) {
+                        void uploadPhotoForBuilding(file);
+                      }
+                    }}
+                  />
                   </div>
                 )}
               </div>
 
               {/* Upload form */}
               {selectedBuilding.status === 'unlicensed' ? (
-                <form onSubmit={handleSimulateDocUpload} className="bg-slate-50 p-3 border rounded space-y-2.5">
-                  <span className="block text-[9px] font-bold text-gov-navy uppercase tracking-wider">Simulate Document Attachment</span>
-                  <div>
-                    <label className="block text-[9px] text-slate-400 font-bold mb-0.5">Document Title / Tag</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Fire NOC clearance certificate"
-                      value={docName}
-                      onChange={(e) => setDocName(e.target.value)}
-                      className="w-full border rounded px-2.5 py-1 text-xs text-slate-800 focus:outline-none"
-                    />
-                  </div>
+                <div className="bg-slate-50 p-3 border rounded space-y-2.5">
+                  <span className="block text-[9px] font-bold text-gov-navy uppercase tracking-wider">Upload Document Attachment</span>
                   <button
-                    type="submit"
-                    disabled={uploadingDoc || !docName.trim()}
+                    type="button"
+                    onClick={() => docInputRef.current?.click()}
+                    disabled={uploadingDoc}
                     className="w-full bg-gov-navy hover:bg-gov-navy-light text-white text-[10px] font-bold uppercase py-1.5 rounded transition disabled:bg-slate-200 disabled:text-slate-400"
                   >
-                    {uploadingDoc ? 'Attaching...' : 'Attach Document'}
+                    {uploadingDoc ? 'Uploading...' : 'Choose Document'}
                   </button>
-                </form>
+                  <input
+                    ref={docInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) {
+                        void uploadDocumentForBuilding(file);
+                      }
+                    }}
+                  />
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    Portal accepts JPEG, PNG, WEBP, and PDF only. Malware scanning still needs a backend quarantine service.
+                  </p>
+                </div>
               ) : (
                 <div className="bg-slate-50 border rounded p-4 text-center text-slate-400 italic text-[10px] flex items-center justify-center space-x-1">
                   <Lock size={12} className="text-slate-400" />

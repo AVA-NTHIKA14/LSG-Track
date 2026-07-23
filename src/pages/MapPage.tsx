@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import L from 'leaflet';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
@@ -17,7 +18,8 @@ import {
   AlertTriangle,
   Maximize2,
   Bell,
-  BookOpen
+  BookOpen,
+  ExternalLink
 } from 'lucide-react';
 
 export const MapPage: React.FC = () => {
@@ -122,6 +124,31 @@ export const MapPage: React.FC = () => {
       unsubPanchayaths();
     };
   }, [activePanchayatCode]);
+
+  const location = useLocation();
+
+  // URL query parameter filter listener (e.g. ?filter=expired or ?ward=12 or ?id=BLDG-101)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const filterParam = params.get('filter');
+    const wardParam = params.get('ward');
+    const idParam = params.get('id');
+
+    if (filterParam) {
+      if (filterParam === 'expired') setSelectedStatus('expiring');
+      else if (filterParam === 'unlicensed') setSelectedStatus('unlicensed');
+      else if (filterParam === 'licensed') setSelectedStatus('licensed');
+    }
+    if (wardParam) setSelectedWard(wardParam);
+
+    if (idParam && buildings.length > 0) {
+      const match = buildings.find(b => b.id.toLowerCase() === idParam.toLowerCase());
+      if (match) {
+        setActiveBuilding(match);
+        mapRef.current?.setView([match.coordinates.lat, match.coordinates.lng], 16);
+      }
+    }
+  }, [location.search, buildings]);
 
   // Automatically extract and set WhatsApp recipient from active building ownerName
   useEffect(() => {
@@ -1155,6 +1182,18 @@ export const MapPage: React.FC = () => {
                   <div className="flex justify-between border-t pt-3 mt-2 border-slate-200">
                     <span className="text-[#15803D] text-xs uppercase font-bold">Active License ID</span>
                     <span className="font-mono text-slate-900 font-bold">{activeBuilding.licenseId || 'UNLICENSED'}</span>
+                  </div>
+
+                  <div className="pt-2">
+                    <a
+                      href="https://ksmart.lsgkerala.gov.in"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-emerald-50 hover:bg-emerald-100 text-[#0F6E4F] border border-emerald-200 rounded-xl py-2 px-3 text-xs font-bold transition flex items-center justify-center space-x-1.5"
+                    >
+                      <span>Open K-SMART Official ERP Record</span>
+                      <ExternalLink size={13} />
+                    </a>
                   </div>
                 </div>
 

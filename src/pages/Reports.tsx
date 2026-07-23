@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
-import type { BuildingRecord, WardRecord, LicenseRecord, SurveyRecord } from '../types';
+import type { BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, AuditLogRecord } from '../types';
 import { 
   Printer, FileSpreadsheet, 
-  Layers, CircleDollarSign, CheckSquare, Clock, ShieldAlert 
+  Layers, CircleDollarSign, CheckSquare, Clock, ShieldAlert
 } from 'lucide-react';
 
-type ReportType = 'compliance' | 'licenses' | 'revenue' | 'surveys';
+type ReportType = 'compliance' | 'licenses' | 'revenue' | 'surveys' | 'audit';
 
 export const Reports: React.FC = () => {
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [wards, setWards] = useState<WardRecord[]>([]);
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
   const [surveys, setSurveys] = useState<SurveyRecord[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
 
   // Filter query states
   const [reportType, setReportType] = useState<ReportType>('compliance');
@@ -29,6 +31,7 @@ export const Reports: React.FC = () => {
     const unsubWards = dbService.subscribeToWards(setWards);
     const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
     const unsubSurveys = dbService.subscribeToSurveys(setSurveys);
+    const unsubAudit = dbService.subscribeToAuditLogs(setAuditLogs);
     const unsubPanchayaths = dbService.subscribeToPanchayaths((list) => {
       const activeP = list.find(p => p.id === activePanchayatCode);
       if (activeP) {
@@ -41,6 +44,7 @@ export const Reports: React.FC = () => {
       unsubWards();
       unsubLicenses();
       unsubSurveys();
+      unsubAudit();
       unsubPanchayaths();
     };
   }, [activePanchayatCode]);
@@ -50,8 +54,93 @@ export const Reports: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    dbService.addAuditLog('EXPORT', `Exported ${reportType} report matching query criteria to CSV.`);
-    alert(`Generating CSV export matching current search results...`);
+    let dataRows: Record<string, any>[] = [];
+
+    if (reportType === 'compliance') {
+      dataRows = wards
+        .filter(w => selectedWard === 'all' || w.id === selectedWard)
+        .map(w => ({
+          'Ward Number': `Ward ${w.id}`,
+          'Ward Name': w.name,
+          'Total Buildings': w.totalBuildings,
+          'Licensed Units': w.licensedBuildings,
+          'Unlicensed Units': w.unlicensedBuildings,
+          'Pending Verification': w.pendingBuildings,
+          'Compliance Rate': `${w.compliancePercentage}%`,
+          'Assigned Officer': w.assignedOfficer || 'N/A'
+        }));
+    } else if (reportType === 'licenses') {
+      dataRows = licenses
+        .filter(l => {
+          const b = buildings.find(bld => bld.id === l.buildingId);
+          return selectedWard === 'all' || b?.wardNumber === selectedWard;
+        })
+        .map(l => {
+          const b = buildings.find(bld => bld.id === l.buildingId);
+          return {
+            'License ID': l.id,
+            'Building Reference': l.buildingId,
+            'Establishment Name': b?.businessName || 'N/A',
+            'Proprietor Name': b?.ownerName || 'N/A',
+            'License Type': l.licenseType,
+            'Issue Date': l.issueDate,
+            'Expiry Date': l.expiryDate,
+            'Fee Paid (INR)': l.feePaid,
+            'Status': l.status
+          };
+        });
+    } else if (reportType === 'revenue') {
+      dataRows = licenses
+        .filter(l => {
+          const b = buildings.find(bld => bld.id === l.buildingId);
+          return selectedWard === 'all' || b?.wardNumber === selectedWard;
+        })
+        .map(l => {
+          const b = buildings.find(bld => bld.id === l.buildingId);
+          return {
+            'License Reference': l.id,
+            'Establishment Name': b?.businessName || 'N/A',
+            'Proprietor Name': b?.ownerName || 'N/A',
+            'Category': l.licenseType,
+            'Issue Date': l.issueDate,
+            'Amount Paid (INR)': l.feePaid,
+            'Payment Status': 'PAID'
+          };
+        });
+    } else if (reportType === 'surveys') {
+      dataRows = surveys
+        .filter(s => {
+          const b = buildings.find(bld => bld.id === s.buildingId);
+          return selectedWard === 'all' || b?.wardNumber === selectedWard;
+        })
+        .map(s => {
+          const b = buildings.find(bld => bld.id === s.buildingId);
+          return {
+            'Survey ID': s.id,
+            'Officer Name': s.officerName,
+            'Building Reference': s.buildingId,
+            'Establishment Name': b?.businessName || 'N/A',
+            'Latitude': s.gps.lat,
+            'Longitude': s.gps.lng,
+            'Inspection Date': s.surveyDate,
+            'Status': s.status,
+            'Remarks': s.remarks
+          };
+        });
+    }
+
+    if (dataRows.length === 0) {
+      alert('No data rows found matching the selected filters to export.');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(dataRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, reportType.toUpperCase());
+    const filename = `${panchayatName.replace(/[^a-z0-9]/gi, '_')}_${reportType}_report.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    dbService.addAuditLog('EXPORT', `Exported ${reportType} report containing ${dataRows.length} rows to Excel spreadsheet (${filename}).`);
   };
 
   // Compile stats based on selections
@@ -109,9 +198,10 @@ export const Reports: React.FC = () => {
             className="border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-gov-green w-48"
           >
             <option value="compliance">Ward-wise Compliance Audit</option>
-            <option value="licenses">License status Register</option>
+            <option value="licenses">License Status Register</option>
             <option value="revenue">Treasury Revenue Collection</option>
             <option value="surveys">Field Inspector Progress</option>
+            <option value="audit">Administrative Audit Register</option>
           </select>
         </div>
 
@@ -397,6 +487,39 @@ export const Reports: React.FC = () => {
                         </tr>
                       );
                     })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* AUDIT REGISTER TABLE */}
+        {reportType === 'audit' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-bold text-gov-navy text-sm uppercase">Official Operations Audit Register</h3>
+              <span className="text-[10px] text-slate-500 font-bold">Total Audit Entries: {auditLogs.length}</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 border-b uppercase font-bold text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2">User / Officer</th>
+                    <th className="px-3 py-2">Action Performed</th>
+                    <th className="px-3 py-2">Timestamp</th>
+                    <th className="px-3 py-2">Details / Result</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {auditLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50 font-medium">
+                      <td className="px-3 py-2.5 font-bold text-slate-900">{log.userName} ({log.userRole})</td>
+                      <td className="px-3 py-2.5 font-bold text-[#0F6E4F] font-mono">{log.action}</td>
+                      <td className="px-3 py-2.5 font-mono text-slate-500 text-[11px]">{new Date(log.timestamp).toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-slate-700">{log.description}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

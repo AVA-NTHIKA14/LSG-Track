@@ -5,7 +5,8 @@ import {
 } from 'firebase/firestore';
 import type { 
   BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, 
-  SystemNotification, AuditLogRecord, SystemSettings, Panchayath, SyncHistoryRecord, WhatsAppLogRecord 
+  SystemNotification, AuditLogRecord, SystemSettings, Panchayath, SyncHistoryRecord, WhatsAppLogRecord,
+  WardReportRecord, WardReportStatus 
 } from '../types';
 import { authService } from './authService';
 
@@ -29,7 +30,8 @@ const getKeys = (panchayathId: string) => ({
   AUDIT_LOGS: `cp_${panchayathId}_audit_logs`,
   SETTINGS: `cp_${panchayathId}_settings`,
   SYNC_HISTORY: `cp_${panchayathId}_sync_history`,
-  WHATSAPP_LOGS: `cp_${panchayathId}_whatsapp_logs`
+  WHATSAPP_LOGS: `cp_${panchayathId}_whatsapp_logs`,
+  WARD_REPORTS: `cp_${panchayathId}_ward_reports`
 });
 
 // Initialize localStorage partitions if empty
@@ -42,15 +44,13 @@ const initPanchayatLocalStorage = (panchayathId: string) => {
   const needsWardReset = isChakkittapara && savedWards && JSON.parse(savedWards).length !== 13;
   const needsPanangadWardReset = isPanangad && savedWards && (JSON.parse(savedWards).length !== 20 || JSON.parse(savedWards).some((w: any) => w.totalBuildings > 0));
 
-  const savedBuildings = localStorage.getItem(keys.BUILDINGS);
-  const needsBldgReset = isChakkittapara && savedBuildings && (JSON.parse(savedBuildings).length !== 5 || (JSON.parse(savedBuildings)[0] && JSON.parse(savedBuildings)[0].coordinates.lat === 11.57547));
-  const needsPanangadBldgReset = isPanangad && savedBuildings && (JSON.parse(savedBuildings).length === 4 || JSON.parse(savedBuildings).some((b: any) => b.id.includes('-101')));
+
 
   if (!savedWards || savedWards === '[]' || needsWardReset || needsPanangadWardReset) {
     const defaultWards: WardRecord[] = isChakkittapara ? [
-      { id: "1", name: "Ward 1 - Pannikkottur", totalBuildings: 2, licensedBuildings: 1, pendingBuildings: 0, unlicensedBuildings: 1, compliancePercentage: 50.0, assignedOfficer: "Anjali Devi" },
-      { id: "2", name: "Ward 2 - Chembanoda", totalBuildings: 2, licensedBuildings: 1, pendingBuildings: 1, unlicensedBuildings: 0, compliancePercentage: 50.0, assignedOfficer: "Binu Kumar" },
-      { id: "3", name: "Ward 3 - Kurathippara", totalBuildings: 1, licensedBuildings: 1, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Sajith V" },
+      { id: "1", name: "Ward 1 - Pannikkottur", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Anjali Devi" },
+      { id: "2", name: "Ward 2 - Chembanoda", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Binu Kumar" },
+      { id: "3", name: "Ward 3 - Kurathippara", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Sajith V" },
       { id: "4", name: "Ward 4 - Poozhithode", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
       { id: "5", name: "Ward 5 - Ilamkad-Chenkottakkolli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
       { id: "7", name: "Ward 7 - Muthukad", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
@@ -86,31 +86,19 @@ const initPanchayatLocalStorage = (panchayathId: string) => {
     localStorage.setItem(keys.WARDS, JSON.stringify(defaultWards));
   }
 
-  if (!savedBuildings || savedBuildings === '[]' || needsBldgReset || needsPanangadBldgReset) {
-    const defaultBuildings: BuildingRecord[] = isChakkittapara ? [
-      { id: "BLDG-101", ownerName: "Rajesh K", businessName: "Kerala Grocery Store", category: "Retail", wardNumber: "1", coordinates: { lat: 11.5660, lng: 75.7940 }, status: "licensed", licenseId: "LIC-201", submittedAt: "2026-05-15T10:00:00Z" },
-      { id: "BLDG-102", ownerName: "Faisal P", businessName: "Malabar Restaurant", category: "Hotel/Restaurant", wardNumber: "1", coordinates: { lat: 11.5680, lng: 75.7960 }, status: "unlicensed", submittedAt: "2026-05-20T11:30:00Z" },
-      { id: "BLDG-103", ownerName: "Mathew J", businessName: "Royal Bakery", category: "Retail", wardNumber: "2", coordinates: { lat: 11.5800, lng: 75.8080 }, status: "licensed", licenseId: "LIC-202", submittedAt: "2026-05-22T09:15:00Z" },
-      { id: "BLDG-104", ownerName: "Dr. Thomas", businessName: "Chakkittapara Clinic", category: "Clinic", wardNumber: "2", coordinates: { lat: 11.5820, lng: 75.8110 }, status: "pending", submittedAt: "2026-06-01T14:00:00Z" },
-      { id: "BLDG-105", ownerName: "Suresh N", businessName: "Coop Supermarket", category: "Retail", wardNumber: "3", coordinates: { lat: 11.5900, lng: 75.8180 }, status: "licensed", licenseId: "LIC-203", submittedAt: "2026-06-02T16:45:00Z" }
-    ] : isPanangad ? [] : [];
-    localStorage.setItem(keys.BUILDINGS, JSON.stringify(defaultBuildings));
-  }
+  // Always initialize empty arrays for buildings and licenses for clean state
+  const defaultBuildings: BuildingRecord[] = [];
+  localStorage.setItem(keys.BUILDINGS, JSON.stringify(defaultBuildings));
 
-  if (!localStorage.getItem(keys.LICENSES) || localStorage.getItem(keys.LICENSES) === '[]' || needsBldgReset || needsPanangadBldgReset) {
-    const defaultLicenses: LicenseRecord[] = isChakkittapara ? [
-      { id: "LIC-201", buildingId: "BLDG-101", licenseType: "D&O Trade License", issueDate: "2025-04-01", expiryDate: "2026-12-31", status: "active", feePaid: 1500 },
-      { id: "LIC-202", buildingId: "BLDG-103", licenseType: "Trade License", issueDate: "2024-04-01", expiryDate: "2025-03-31", status: "expired", feePaid: 1000 },
-      { id: "LIC-203", buildingId: "BLDG-105", licenseType: "D&O Trade License", issueDate: "2025-06-02", expiryDate: "2026-06-01", status: "active", feePaid: 2000 }
-    ] : isPanangad ? [] : [];
-    localStorage.setItem(keys.LICENSES, JSON.stringify(defaultLicenses));
-  }
+  const defaultLicenses: LicenseRecord[] = [];
+  localStorage.setItem(keys.LICENSES, JSON.stringify(defaultLicenses));
 
   if (!localStorage.getItem(keys.SURVEYS)) localStorage.setItem(keys.SURVEYS, JSON.stringify([]));
   if (!localStorage.getItem(keys.NOTIFICATIONS)) localStorage.setItem(keys.NOTIFICATIONS, JSON.stringify([]));
   if (!localStorage.getItem(keys.AUDIT_LOGS)) localStorage.setItem(keys.AUDIT_LOGS, JSON.stringify([]));
   if (!localStorage.getItem(keys.SYNC_HISTORY)) localStorage.setItem(keys.SYNC_HISTORY, JSON.stringify([]));
   if (!localStorage.getItem(keys.WHATSAPP_LOGS)) localStorage.setItem(keys.WHATSAPP_LOGS, JSON.stringify([]));
+  if (!localStorage.getItem(keys.WARD_REPORTS)) localStorage.setItem(keys.WARD_REPORTS, JSON.stringify([]));
   
   if (!localStorage.getItem(keys.SETTINGS)) {
     const defaultSettings: SystemSettings = {
@@ -138,6 +126,7 @@ const subscribers: { [key: string]: Set<SubscriptionCallback> } = {
   panchayaths: new Set(),
   syncHistory: new Set(),
   whatsappLogs: new Set(),
+  wardReports: new Set(),
   users: new Set()
 };
 
@@ -411,7 +400,7 @@ export const dbService = {
       timestamp: new Date().toISOString(),
       userId: currentUser?.id || 'anonymous',
       userName: currentUser?.name || 'Anonymous User',
-      userRole: currentUser?.role || 'Read Only Viewer',
+      userRole: currentUser?.role || 'Ward Member',
       action,
       description
     };
@@ -1001,7 +990,7 @@ export const dbService = {
     const activePId = getActivePanchayathId();
     if (isFirebaseEnabled && db) {
       const ref = doc(db, 'panchayaths', activePId, 'settings', 'config');
-      await updateDoc(ref, settings);
+      await setDoc(ref, settings, { merge: true });
     } else {
       initPanchayatLocalStorage(activePId);
       const keys = getKeys(activePId);
@@ -1087,5 +1076,243 @@ export const dbService = {
       subscribers.whatsappLogs.add(callback);
       return () => subscribers.whatsappLogs.delete(callback);
     }
+  },
+
+  // --- WARD MEMBER REPORTS ---
+  async addWardReport(reportData: Omit<WardReportRecord, 'id' | 'createdAt' | 'status'>): Promise<string> {
+    const activePId = getActivePanchayathId();
+    const id = 'WRD-REP-' + Date.now();
+    const newReport: WardReportRecord = {
+      ...reportData,
+      id,
+      status: 'pending_verification',
+      createdAt: new Date().toISOString()
+    };
+
+    if (isFirebaseEnabled && db) {
+      await setDoc(doc(db, 'panchayaths', activePId, 'wardReports', id), newReport);
+    } else {
+      initPanchayatLocalStorage(activePId);
+      const keys = getKeys(activePId);
+      const list: WardReportRecord[] = JSON.parse(localStorage.getItem(keys.WARD_REPORTS) || '[]');
+      list.unshift(newReport);
+      localStorage.setItem(keys.WARD_REPORTS, JSON.stringify(list));
+      notifySubscribers('wardReports', list);
+    }
+
+    await this.addAuditLog('SUBMIT_WARD_REPORT', `Ward Member ${reportData.reporterName} reported business: ${reportData.businessName} in Ward ${reportData.wardNumber}.`);
+    return id;
+  },
+
+  subscribeToWardReports(callback: (reports: WardReportRecord[]) => void): () => void {
+    const activePId = getActivePanchayathId();
+    if (isFirebaseEnabled && db) {
+      return onSnapshot(collection(db, 'panchayaths', activePId, 'wardReports'), (snapshot) => {
+        const list: WardReportRecord[] = [];
+        snapshot.forEach(doc => list.push(doc.data() as WardReportRecord));
+        callback(list);
+      });
+    } else {
+      initPanchayatLocalStorage(activePId);
+      const keys = getKeys(activePId);
+      const list = JSON.parse(localStorage.getItem(keys.WARD_REPORTS) || '[]');
+      callback(list);
+      subscribers.wardReports.add(callback);
+      return () => subscribers.wardReports.delete(callback);
+    }
+  },
+
+  async verifyWardReport(reportId: string, status: WardReportStatus, remarks?: string, matchedBuildingId?: string): Promise<void> {
+    const activePId = getActivePanchayathId();
+    if (isFirebaseEnabled && db) {
+      const ref = doc(db, 'panchayaths', activePId, 'wardReports', reportId);
+      await updateDoc(ref, {
+        status,
+        verifiedAt: new Date().toISOString(),
+        matchedBuildingId,
+        remarks: remarks ? `${remarks}` : undefined
+      });
+    } else {
+      initPanchayatLocalStorage(activePId);
+      const keys = getKeys(activePId);
+      const list: WardReportRecord[] = JSON.parse(localStorage.getItem(keys.WARD_REPORTS) || '[]');
+      const updated = list.map(r => {
+        if (r.id === reportId) {
+          return {
+            ...r,
+            status,
+            verifiedAt: new Date().toISOString(),
+            matchedBuildingId: matchedBuildingId || r.matchedBuildingId,
+            remarks: remarks ? `${r.remarks} | Verification note: ${remarks}` : r.remarks
+          };
+        }
+        return r;
+      });
+      localStorage.setItem(keys.WARD_REPORTS, JSON.stringify(updated));
+      notifySubscribers('wardReports', updated);
+    }
+    await this.addAuditLog('VERIFY_WARD_REPORT', `Secretary verified Ward Report ${reportId} with status: ${status}.`);
+  },
+
+  // --- K-SMART CSV/EXCEL IMPORT ENGINE ---
+  async processKSmartImport(fileContent: string, fileName: string, operatorName: string): Promise<{
+    totalRecords: number;
+    importedCount: number;
+    updatedCount: number;
+    expiredCount: number;
+    errorCount: number;
+    duplicateCount: number;
+    errors: string[];
+  }> {
+    const activePId = getActivePanchayathId();
+    const lines = fileContent.split(/\r?\n/).filter(line => line.trim().length > 0);
+
+    if (lines.length < 2) {
+      throw new Error("Invalid file format. File must contain a header row and at least one data row.");
+    }
+
+    const header = lines[0].toLowerCase();
+    const delimiter = header.includes(';') ? ';' : ',';
+
+    let importedCount = 0;
+    let updatedCount = 0;
+    let expiredCount = 0;
+    let errorCount = 0;
+    let duplicateCount = 0;
+    const errors: string[] = [];
+
+    // Retrieve current database state
+    initPanchayatLocalStorage(activePId);
+    const keys = getKeys(activePId);
+    const buildings: BuildingRecord[] = JSON.parse(localStorage.getItem(keys.BUILDINGS) || '[]');
+    const licenses: LicenseRecord[] = JSON.parse(localStorage.getItem(keys.LICENSES) || '[]');
+    const nowIso = new Date().toISOString().split('T')[0];
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const cols = line.split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
+      
+      // Expected Columns:
+      // 0: Building ID (e.g. BLDG-G110706-001)
+      // 1: Business Name
+      // 2: Proprietor / Owner Name
+      // 3: Category
+      // 4: Ward Number
+      // 5: Latitude
+      // 6: Longitude
+      // 7: License ID (Optional)
+      // 8: Expiry Date (YYYY-MM-DD)
+      // 9: Fee Paid
+      // 10: Status (licensed, unlicensed, pending, expired)
+      
+      const bId = cols[0] || `BLDG-IMPORT-${i}`;
+      const businessName = cols[1] || 'Commercial Unit';
+      const ownerName = cols[2] || 'Proprietor';
+      const category = cols[3] || 'General Trade';
+      const wardNumber = cols[4] || '1';
+      const lat = parseFloat(cols[5]) || 11.575 + (i * 0.001);
+      const lng = parseFloat(cols[6]) || 75.816 + (i * 0.001);
+      const licId = cols[7] || '';
+      const expiryDate = cols[8] || '2026-12-31';
+      const feePaid = parseFloat(cols[9]) || 1500;
+      const rawStatus = (cols[10] || 'licensed').toLowerCase();
+
+      let status: BuildingRecord['status'] = 'licensed';
+      if (rawStatus.includes('unlicensed') || rawStatus.includes('no')) {
+        status = 'unlicensed';
+      } else if (rawStatus.includes('pending')) {
+        status = 'pending';
+      } else if (rawStatus.includes('expired')) {
+        status = 'unlicensed';
+        expiredCount++;
+      } else {
+        // check expiry date vs today
+        if (new Date(expiryDate) < new Date(nowIso)) {
+          status = 'unlicensed';
+          expiredCount++;
+        } else {
+          status = 'licensed';
+        }
+      }
+
+      const riskScore = status === 'unlicensed' ? 'High' : (new Date(expiryDate) <= new Date(Date.now() + 7*86400000) ? 'Medium' : 'Low');
+
+      const existingIndex = buildings.findIndex(b => b.id.toLowerCase() === bId.toLowerCase() || b.businessName.toLowerCase() === businessName.toLowerCase());
+
+      const buildingObj: BuildingRecord = {
+        id: bId,
+        businessName,
+        ownerName,
+        category,
+        wardNumber,
+        coordinates: { lat, lng },
+        status,
+        licenseId: licId || undefined,
+        riskScore,
+        lastSyncDate: nowIso,
+        kSmartRefId: `KSMART-${bId}`
+      };
+
+      if (existingIndex >= 0) {
+        duplicateCount++;
+        buildings[existingIndex] = { ...buildings[existingIndex], ...buildingObj };
+        updatedCount++;
+      } else {
+        buildings.push(buildingObj);
+        importedCount++;
+      }
+
+      if (licId) {
+        const licExistIdx = licenses.findIndex(l => l.id.toLowerCase() === licId.toLowerCase());
+        const licObj: LicenseRecord = {
+          id: licId,
+          buildingId: bId,
+          licenseType: category,
+          issueDate: '2025-04-01',
+          expiryDate,
+          status: new Date(expiryDate) < new Date(nowIso) ? 'expired' : 'active',
+          feePaid,
+          kSmartAppNo: `KSMART-APP-${i}`
+        };
+        if (licExistIdx >= 0) {
+          licenses[licExistIdx] = licObj;
+        } else {
+          licenses.push(licObj);
+        }
+      }
+    }
+
+    // Save back to storage
+    localStorage.setItem(keys.BUILDINGS, JSON.stringify(buildings));
+    localStorage.setItem(keys.LICENSES, JSON.stringify(licenses));
+    notifySubscribers('buildings', buildings);
+    notifySubscribers('licenses', licenses);
+
+    // Save Sync Log
+    const syncRecord: Omit<SyncHistoryRecord, 'id' | 'timestamp'> = {
+      operatorName,
+      fileName,
+      totalRecords: lines.length - 1,
+      importedCount,
+      updatedCount,
+      expiredCount,
+      errorCount,
+      duplicateCount,
+      errors
+    };
+
+    await this.addSyncHistory(syncRecord);
+
+    return {
+      totalRecords: lines.length - 1,
+      importedCount,
+      updatedCount,
+      expiredCount,
+      errorCount,
+      duplicateCount,
+      errors
+    };
   }
 };

@@ -2,69 +2,143 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper: Checks if the user is signed in
-    function isSignedIn() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function user() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return signedIn() && user().role == 'Administrator'; }
+    function belongsTo(panchayathId) {
+      return signedIn() && (isAdmin() || user().panchayathId == panchayathId);
+    }
+    function hasRole(role) { return signedIn() && (isAdmin() || user().role == role); }
+    function isSecretary() { return hasRole('Secretary'); }
+    function canManageEstablishments() {
+      return isSecretary() || hasRole('Panchayat Section Clerk');
+    }
+    function canSubmitSurveys() {
+      return isSecretary() || hasRole('Ward Member');
+    }
+    function validBuildingStatus(status) {
+      return status in ['licensed', 'unlicensed', 'pending', 'govt', 'ngo', 'inactive'];
+    }
+    function validBuildingShape() {
+      return request.resource.data.keys().hasOnly([
+        'id', 'ownerName', 'businessName', 'category', 'wardNumber', 'coordinates', 'photoUrl',
+        'licenseId', 'status', 'remarks', 'history', 'attachments', 'createdBy', 'assignedTo',
+        'isReturnedForCorrection', 'submittedAt'
+      ])
+      && request.resource.data.id is string
+      && request.resource.data.ownerName is string
+      && request.resource.data.businessName is string
+      && request.resource.data.category is string
+      && request.resource.data.wardNumber is string
+      && request.resource.data.coordinates is map
+      && request.resource.data.coordinates.lat is number
+      && request.resource.data.coordinates.lng is number
+      && request.resource.data.coordinates.lat >= 8
+      && request.resource.data.coordinates.lat <= 13
+      && request.resource.data.coordinates.lng >= 74
+      && request.resource.data.coordinates.lng <= 78
+      && validBuildingStatus(request.resource.data.status)
+      && request.resource.data.remarks is string
+      && (request.resource.data.photoUrl == null || request.resource.data.photoUrl is string)
+      && (request.resource.data.licenseId == null || request.resource.data.licenseId is string)
+      && (request.resource.data.history == null || request.resource.data.history is list)
+      && (request.resource.data.attachments == null || request.resource.data.attachments is list)
+      && (request.resource.data.createdBy == null || request.resource.data.createdBy is string)
+      && (request.resource.data.assignedTo == null || request.resource.data.assignedTo is string)
+      && (request.resource.data.isReturnedForCorrection == null || request.resource.data.isReturnedForCorrection is bool)
+      && (request.resource.data.submittedAt == null || request.resource.data.submittedAt is string);
+    }
+    function canCreateEstablishment() {
+      return belongsTo(panchayathId) && canManageEstablishments()
+        && validBuildingShape()
+        && request.resource.data.id == request.resource.id
+        && request.resource.data.createdBy == request.auth.uid
+        && (isSecretary() || request.resource.data.status in ['unlicensed', 'pending', 'ngo'])
+        && (hasRole('Panchayat Section Clerk') ? request.resource.data.licenseId == null : true);
+    }
+    function canUpdateEstablishment(buildingId) {
+      return belongsTo(panchayathId) && validBuildingShape()
+        && request.resource.data.id == buildingId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.assignedTo == resource.data.assignedTo
+        && (isSecretary() || (
+          hasRole('Panchayat Section Clerk')
+          && request.resource.data.status in ['unlicensed', 'pending', 'ngo']
+          && request.resource.data.licenseId == resource.data.licenseId
+        ));
     }
 
-    // Helper: Gets the user record from the users collection
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    // Account documents are provisioned only by Firebase Admin SDK / trusted backend.
+    // This blocks self-service role or tenant changes.
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow create, update, delete: if isAdmin();
     }
 
-    // Helper: Checks if the user belongs to the specified panchayath
-    function belongsToPanchayath(panchayathId) {
-      return isSignedIn() && (
-        getUserData().panchayathId == panchayathId || 
-        getUserData().role == 'Administrator'
-      );
+    match /config/{configId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
 
-    // Helper: Checks if the user is a System Administrator
-    function isSystemAdmin() {
-      return isSignedIn() && getUserData().role == 'Administrator';
-    }
-
-    // Wards and metadata subcollections
     match /panchayaths/{panchayathId} {
-      allow read: if isSignedIn();
-      allow write: if isSystemAdmin();
+      allow read: if belongsTo(panchayathId);
+      allow create, update, delete: if isAdmin();
 
-      // Scoped subcollections containing operational data
-      match /buildings/{buildingId} {
-        allow read, write: if belongsToPanchayath(panchayathId);
+      match /establishments/{buildingId} {
+        allow read: if belongsTo(panchayathId);
+        allow create: if canCreateEstablishment();
+        allow update: if canUpdateEstablishment(buildingId);
+        allow delete: if belongsTo(panchayathId) && isSecretary();
       }
 
       match /licenses/{licenseId} {
-        allow read, write: if belongsToPanchayath(panchayathId);
+        allow read: if belongsTo(panchayathId);
+        allow create, update, delete: if belongsTo(panchayathId) && isSecretary();
       }
 
       match /wards/{wardId} {
-        allow read, write: if belongsToPanchayath(panchayathId);
+        allow read: if belongsTo(panchayathId);
+        allow create, update, delete: if belongsTo(panchayathId) && isSecretary();
       }
 
       match /surveys/{surveyId} {
-        allow read, write: if belongsToPanchayath(panchayathId);
+        allow read: if belongsTo(panchayathId);
+        allow create: if belongsTo(panchayathId) && canSubmitSurveys()
+          && request.resource.data.officerId == request.auth.uid;
+        allow update: if belongsTo(panchayathId) && (
+          isSecretary() || (hasRole('Ward Member') && resource.data.officerId == request.auth.uid
+            && request.resource.data.officerId == request.auth.uid)
+        );
+        allow delete: if belongsTo(panchayathId) && isSecretary();
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if belongsTo(panchayathId);
+        allow create, update, delete: if belongsTo(panchayathId) && isSecretary();
+      }
+
+      match /settings/{settingId} {
+        allow read: if belongsTo(panchayathId);
+        allow create, update, delete: if belongsTo(panchayathId) && isSecretary();
       }
 
       match /syncHistory/{syncId} {
-        allow read, write: if belongsToPanchayath(panchayathId);
+        allow read: if belongsTo(panchayathId);
+        allow create: if belongsTo(panchayathId) && isSecretary();
+        allow update, delete: if false;
       }
 
       match /whatsappLogs/{logId} {
-        allow read, write: if belongsToPanchayath(panchayathId);
+        allow read: if belongsTo(panchayathId) && isSecretary();
+        allow create: if belongsTo(panchayathId) && isSecretary();
+        allow update, delete: if false;
       }
 
       match /auditLogs/{logId} {
-        allow read, write: if belongsToPanchayath(panchayathId);
+        allow read: if belongsTo(panchayathId) && isSecretary();
+        allow create: if belongsTo(panchayathId) && isSecretary();
+        allow update, delete: if false;
       }
-    }
-
-    // Users Collection rules
-    match /users/{userId} {
-      // User can read/write their own profile, System Admin can manage all profiles
-      allow read, write: if isSignedIn() && (request.auth.uid == userId || isSystemAdmin());
     }
   }
 }

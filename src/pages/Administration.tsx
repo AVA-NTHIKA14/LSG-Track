@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
+import { AUTHORIZED_PORTAL_ROLES } from '../services/portalRoles';
 import type { Panchayath, UserProfile, UserRole } from '../types';
 import { 
   Building2, Users, Plus, ShieldCheck, FileCode, CheckCircle, AlertTriangle, Compass, ShieldAlert 
@@ -25,17 +26,13 @@ export const Administration: React.FC = () => {
   const [boundaryGeoJSON, setBoundaryGeoJSON] = useState('');
   const [geoJsonFile, setGeoJsonFile] = useState<File | null>(null);
   const [validationResult, setValidationResult] = useState<{ wards: { id: string; name: string }[] } | null>(null);
-  
-  // Secretary Invite Info
   const [secName, setSecName] = useState('');
   const [secEmail, setSecEmail] = useState('');
   const [secPassword, setSecPassword] = useState('');
-
-  // Form State - User Creation
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserRole, setNewUserRole] = useState<UserRole>('Data Entry Operator');
+  const [newUserRole, setNewUserRole] = useState<UserRole>('Panchayat Section Clerk');
   const [newUserWard, setNewUserWard] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
 
@@ -48,20 +45,10 @@ export const Administration: React.FC = () => {
   useEffect(() => {
     if (!isAdmin) return;
     const unsubPanchayaths = dbService.subscribeToPanchayaths(setPanchayaths);
+    setUsers([]);
     
-    // Simulate user loading (or load from authService)
-    const loadUsers = () => {
-      const allUsers = authService.getLocalUsers();
-      // Filter by active panchayat context or show all for admin
-      setUsers(allUsers);
-    };
-    loadUsers();
-
-    const interval = setInterval(loadUsers, 2000); // refresh list
-
     return () => {
       unsubPanchayaths();
-      clearInterval(interval);
     };
   }, [isAdmin, activePanchayatCode]);
 
@@ -119,6 +106,12 @@ export const Administration: React.FC = () => {
     reader.readAsText(file);
   };
 
+  // Accounts must be provisioned by a trusted Firebase Admin service, not the browser.
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('Personnel accounts must be created through the approved Firebase Admin workflow. Browser-based account creation is disabled.');
+  };
+
   // Simulate GeoJSON Fetch from OpenDataKerala
   const handleFetchPublicDataset = () => {
     if (!lsgdCode || lsgdCode.length !== 6) {
@@ -173,11 +166,6 @@ export const Administration: React.FC = () => {
       setErrorMsg('Please load or upload valid ward boundary GeoJSON first.');
       return;
     }
-    if (!secEmail || !secName) {
-      setErrorMsg('Please invite the first Panchayat Secretary by providing Name and Email.');
-      return;
-    }
-
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -195,19 +183,7 @@ export const Administration: React.FC = () => {
 
       await dbService.onboardPanchayath(newPanchayath, validationResult.wards);
 
-      // 2. Register first Secretary user
-      const secretaryUser: UserProfile = {
-        id: 'usr-sec-' + Date.now(),
-        name: secName,
-        email: secEmail,
-        role: 'Secretary',
-        permissions: ['approve_license', 'verify_survey', 'view_reports'],
-        panchayathId: lsgdCode
-      };
-      
-      authService.addLocalUser(secretaryUser);
-
-      setSuccessMsg(`Successfully onboarded Panchayat "${panchayatName}" (Code: ${lsgdCode}) with ${validationResult.wards.length} wards! Secretary invited: ${secEmail}`);
+      setSuccessMsg(`Successfully onboarded Panchayat "${panchayatName}" (Code: ${lsgdCode}) with ${validationResult.wards.length} wards. Provision officers through the approved Firebase Admin workflow.`);
       
       // Reset onboarding form
       setLsgdCode('');
@@ -216,9 +192,6 @@ export const Administration: React.FC = () => {
       setTaluk('');
       setBoundaryGeoJSON('');
       setValidationResult(null);
-      setSecName('');
-      setSecEmail('');
-      setSecPassword('');
       
     } catch (err: any) {
       setErrorMsg(`Onboarding failed: ${err.message || err}`);
@@ -233,42 +206,6 @@ export const Administration: React.FC = () => {
     setActivePanchayatCode(code);
     dbService.addAuditLog('SWITCH', `Admin switched active Panchayat context to code: ${code}.`);
     setSuccessMsg(`Context switched to Panchayat LSGD code: ${code}.`);
-  };
-
-  // Create User
-  const handleCreateUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUserName || !newUserEmail || !newUserPassword) {
-      setErrorMsg('User Name, Email and Password are required.');
-      return;
-    }
-
-    const newUser: UserProfile = {
-      id: 'usr-' + Date.now(),
-      name: newUserName,
-      email: newUserEmail,
-      role: newUserRole,
-      ward: newUserWard || undefined,
-      permissions: newUserRole === 'Secretary' 
-        ? ['approve_license', 'verify_survey', 'view_reports']
-        : newUserRole === 'VEO'
-          ? ['submit_survey', 'capture_gps']
-          : newUserRole === 'Data Entry Operator'
-            ? ['register_building', 'edit_records']
-            : newUserRole === 'Ward Member'
-              ? ['view_ward', 'submit_survey']
-              : ['view_only'],
-      panchayathId: activePanchayatCode
-    };
-
-    authService.addLocalUser(newUser);
-    setSuccessMsg(`Successfully created new user "${newUserName}" as ${newUserRole} in Panchayat ${activePanchayatCode}`);
-    
-    // Reset Form
-    setNewUserName('');
-    newUserEmail && setNewUserEmail('');
-    setNewUserWard('');
-    setNewUserPassword('');
   };
 
   return (
@@ -564,7 +501,6 @@ export const Administration: React.FC = () => {
       {/* User Directory */}
       {activeTab === 'users' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           {/* Create User Form */}
           <form onSubmit={handleCreateUser} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 text-xs text-slate-700 self-start">
             <h3 className="font-extrabold text-slate-800 border-b pb-2 text-sm flex items-center space-x-2">
@@ -615,10 +551,11 @@ export const Administration: React.FC = () => {
                     onChange={(e) => setNewUserRole(e.target.value as UserRole)}
                     className="w-full border border-slate-200 rounded-xl px-2 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0F6E4F]"
                   >
-                    <option value="Secretary">Secretary</option>
-                    <option value="Data Entry Operator">Data Entry Operator</option>
-                    <option value="VEO">VEO (Surveyor)</option>
-                    <option value="Ward Member">Ward Member</option>
+                    {AUTHORIZED_PORTAL_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -645,6 +582,10 @@ export const Administration: React.FC = () => {
                 />
               </div>
             </div>
+
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Browser-based account creation is intentionally disabled. The supported portal roles are {AUTHORIZED_PORTAL_ROLES.join(', ')} and must be provisioned through Firebase Admin.
+            </p>
 
             <button
               type="submit"

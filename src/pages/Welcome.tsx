@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import mapPreviewImg from '../assets/map_preview.jpg';
 import { 
   ArrowRight, 
   ArrowLeft,
@@ -259,7 +260,7 @@ export const Welcome: React.FC = () => {
                 {/* Map satellite image preview */}
                 <div 
                   className="absolute inset-0 bg-cover bg-center filter brightness-95"
-                  style={{ backgroundImage: `url('/src/assets/map_preview.jpg')` }}
+                  style={{ backgroundImage: `url(${mapPreviewImg})` }}
                 />
 
                 {/* Styled pins overlay */}

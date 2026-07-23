@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../services/authService';
-import type { UserProfile } from '../types';
+import type { UserProfile, UserRole } from '../types';
 import { User, Award, Milestone, KeyRound } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -23,7 +23,7 @@ export const Profile: React.FC = () => {
   }
 
   // Define descriptive role specifications
-  const getRoleDesc = (role: string) => {
+  const getRoleDesc = (role: UserRole) => {
     switch (role) {
       case 'Administrator':
         return 'Overall administrative control, user permissions configuration, database registers review, settings management, and e-Governance logs audit.';
@@ -31,10 +31,8 @@ export const Profile: React.FC = () => {
         return 'Executive approval authority, trade license generation, field survey observations verification, renewal authorizations, and analytics reports view.';
       case 'Ward Member':
         return 'Assigned ward boundary supervisor, unlicensed building monitoring, field survey entries submission, and ward performance statistics review.';
-      case 'VEO':
-        return 'Panchayath Section Officer - Physical asset inspections supervisor, GPS coordinate tags capture, field verification data logs submission, and local survey drafts offline caching.';
-      case 'Data Entry Operator':
-        return 'Manual asset registers digitizer, commercial building metadata registry entry, documentation upload, and file properties modifications.';
+      case 'Panchayat Section Clerk':
+        return 'Panchayat section clerk responsible for K-SMART import, establishment register updates, license workflow support, and controlled data entry duties.';
       default:
         return 'Portal auditor/viewer. Read-only permissions across GIS maps, dashboard indicators, registries, and reports logs. Administrative actions restricted.';
     }
