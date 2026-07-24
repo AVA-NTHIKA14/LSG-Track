@@ -65,7 +65,11 @@ export const Login: React.FC = () => {
       const user = await authService.loginWithCredentials(email, password, panchayatCode);
       if (user) {
         localStorage.setItem('cp_active_panchayat_code', panchayatCode);
-        await dbService.addAuditLog('LOGIN', `User logged in using credentials: ${user.email} (Panchayat Code: ${panchayatCode})`);
+        try {
+          await dbService.addAuditLog('LOGIN', `User logged in using credentials: ${user.email} (Panchayat Code: ${panchayatCode})`);
+        } catch {
+          // Silent fallback for audit log during demo sign-in
+        }
         navigate('/');
       } else {
         setError(`Invalid personnel credentials, password, or access mismatch for selected Panchayat code. Only ${AUTHORIZED_PORTAL_ROLES.join(', ')} accounts can sign in.`);
@@ -103,7 +107,11 @@ export const Login: React.FC = () => {
       const user = await authService.loginWithCredentials(targetEmail, 'demo123', panchayatCode);
       if (user) {
         localStorage.setItem('cp_active_panchayat_code', panchayatCode);
-        await dbService.addAuditLog('LOGIN', `Quick Demo Sign-In: ${user.email} (${panchayatCode})`);
+        try {
+          await dbService.addAuditLog('LOGIN', `Quick Demo Sign-In: ${user.email} (${panchayatCode})`);
+        } catch {
+          // Silent fallback for audit log during demo sign-in
+        }
         navigate('/');
       }
     } catch (err: any) {

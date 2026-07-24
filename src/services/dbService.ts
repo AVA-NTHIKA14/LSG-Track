@@ -406,26 +406,42 @@ export const dbService = {
     };
 
     if (isFirebaseEnabled && db) {
-      await addDoc(collection(db, 'panchayaths', activePId, 'auditLogs'), log);
-    } else {
-      initPanchayatLocalStorage(activePId);
-      const keys = getKeys(activePId);
-      const logs = JSON.parse(localStorage.getItem(keys.AUDIT_LOGS) || '[]');
-      logs.unshift(log);
-      localStorage.setItem(keys.AUDIT_LOGS, JSON.stringify(logs));
-      notifySubscribers('auditLogs', logs);
+      try {
+        await addDoc(collection(db, 'panchayaths', activePId, 'auditLogs'), log);
+        return;
+      } catch (err) {
+        // Fallback to local storage if Firestore rules block unauthenticated write
+      }
     }
+
+    initPanchayatLocalStorage(activePId);
+    const keys = getKeys(activePId);
+    const logs = JSON.parse(localStorage.getItem(keys.AUDIT_LOGS) || '[]');
+    logs.unshift(log);
+    localStorage.setItem(keys.AUDIT_LOGS, JSON.stringify(logs));
+    notifySubscribers('auditLogs', logs);
   },
 
   subscribeToAuditLogs(callback: (logs: AuditLogRecord[]) => void): () => void {
     const activePId = getActivePanchayathId();
     if (isFirebaseEnabled && db) {
       const q = query(collection(db, 'panchayaths', activePId, 'auditLogs'), orderBy('timestamp', 'desc'));
-      return onSnapshot(q, (snapshot) => {
-        const logs: AuditLogRecord[] = [];
-        snapshot.forEach((doc) => logs.push(doc.data() as AuditLogRecord));
-        callback(logs);
-      });
+      const unsub = onSnapshot(q, 
+        (snapshot) => {
+          const logs: AuditLogRecord[] = [];
+          snapshot.forEach((doc) => logs.push(doc.data() as AuditLogRecord));
+          callback(logs);
+        },
+        (_err) => {
+          // On permission error, fallback to LocalStorage
+          initPanchayatLocalStorage(activePId);
+          const keys = getKeys(activePId);
+          const logs = JSON.parse(localStorage.getItem(keys.AUDIT_LOGS) || '[]');
+          callback(logs);
+          subscribers.auditLogs.add(callback);
+        }
+      );
+      return unsub;
     } else {
       initPanchayatLocalStorage(activePId);
       const keys = getKeys(activePId);
