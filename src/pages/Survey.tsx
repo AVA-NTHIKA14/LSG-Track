@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import L from 'leaflet';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
-import type { BuildingRecord, SurveyRecord } from '../types';
+import type { BuildingRecord, SurveyRecord, WardReportRecord } from '../types';
 import { 
   ClipboardCheck, CheckCircle, WifiOff, 
-  RefreshCw, ShieldAlert, MapPin, Send
+  RefreshCw, ShieldAlert, MapPin, Send,
+  Camera, X, History, FileText
 } from 'lucide-react';
 
 interface LocalReportDraft {
@@ -15,22 +17,33 @@ interface LocalReportDraft {
   category: string;
   wardNumber: string;
   gps: { lat: number; lng: number };
+  photoUrl?: string;
   remarks: string;
   surveyDate: string;
 }
 
 export const Survey: React.FC = () => {
+  const location = useLocation();
   const currentUser = authService.getCurrentUser();
   const assignedWard = currentUser?.ward || '1';
   const role = currentUser?.role || 'Guest';
+
+  // Navigation Tab State
+  const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+  const [submittedReports, setSubmittedReports] = useState<WardReportRecord[]>([]);
 
   // Form State
   const [businessName, setBusinessName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [category, setCategory] = useState('Retail');
+  const [customCategory, setCustomCategory] = useState('');
   const [remarks, setRemarks] = useState('');
   const [lat, setLat] = useState<number>(11.57547);
   const [lng, setLng] = useState<number>(75.81649);
+
+  // Geotagged Camera State
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Field Inspection State
   const [activeBuilding, setActiveBuilding] = useState<BuildingRecord | null>(null);
@@ -43,8 +56,20 @@ export const Survey: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Read URL query parameters for tab navigation
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab') === 'history') {
+      setActiveTab('history');
+    }
+  }, [location.search]);
+
   useEffect(() => {
     const unsubBuildings = dbService.subscribeToBuildings(() => {});
+    const unsubReports = dbService.subscribeToWardReports((reports) => {
+      setSubmittedReports(reports);
+    });
+
     const savedDrafts = localStorage.getItem('cp_unlicensed_report_drafts');
     if (savedDrafts) {
       setLocalDrafts(JSON.parse(savedDrafts));
@@ -52,8 +77,54 @@ export const Survey: React.FC = () => {
 
     return () => {
       unsubBuildings();
+      unsubReports();
     };
   }, []);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        // Draw original photo
+        ctx.drawImage(img, 0, 0);
+
+        // Watermark Geotag Overlay Banner
+        const timestamp = new Date().toLocaleString();
+        const geotagText = `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)} | ${timestamp}`;
+
+        const bannerHeight = Math.max(44, Math.floor(img.height * 0.09));
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(0, img.height - bannerHeight, img.width, bannerHeight);
+
+        ctx.fillStyle = '#10B981'; // Emerald GPS dot
+        ctx.beginPath();
+        ctx.arc(20, img.height - bannerHeight / 2, 6, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.fillStyle = '#FFFFFF';
+        const fontSize = Math.max(14, Math.floor(bannerHeight * 0.42));
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(geotagText, 34, img.height - bannerHeight / 2);
+
+        const watermarked = canvas.toDataURL('image/jpeg', 0.85);
+        setPhotoUrl(watermarked);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   // VEO Field Map Initialization
   useEffect(() => {
@@ -96,7 +167,9 @@ export const Survey: React.FC = () => {
     setBusinessName('');
     setOwnerName('');
     setCategory('Retail');
+    setCustomCategory('');
     setRemarks('');
+    setPhotoUrl(null);
     setLat(11.57547);
     setLng(75.81649);
     setActiveBuilding(null);
@@ -104,7 +177,8 @@ export const Survey: React.FC = () => {
 
   // --- WARD MEMBER ACTION: SAVE DRAFT ---
   const handleSaveMemberDraft = () => {
-    if (!businessName || !category) {
+    const finalCategory = category === 'Others' ? (customCategory.trim() || 'Others') : category;
+    if (!businessName || !finalCategory) {
       alert('Please fill in business name and category to save draft.');
       return;
     }
@@ -113,9 +187,10 @@ export const Survey: React.FC = () => {
       id: 'DRAFT-' + Date.now(),
       businessName,
       ownerName: ownerName || 'Proprietor',
-      category,
+      category: finalCategory,
       wardNumber: assignedWard,
       gps: { lat, lng },
+      photoUrl: photoUrl || undefined,
       remarks,
       surveyDate: new Date().toISOString().split('T')[0]
     };
@@ -136,15 +211,17 @@ export const Survey: React.FC = () => {
       return;
     }
 
+    const finalCategory = category === 'Others' ? (customCategory.trim() || 'Others') : category;
     const buildingId = 'BLDG-' + Math.floor(1000 + Math.random() * 9000);
 
     const buildingData: Omit<BuildingRecord, 'history'> = {
       id: buildingId,
       ownerName: ownerName || 'Proprietor',
       businessName,
-      category,
+      category: finalCategory,
       wardNumber: assignedWard,
       coordinates: { lat, lng },
+      photoUrl: photoUrl || undefined,
       status: 'unlicensed',
       remarks
     };
@@ -154,6 +231,7 @@ export const Survey: React.FC = () => {
     const surveyData: Omit<SurveyRecord, 'id' | 'officerId' | 'officerName' | 'surveyDate'> = {
       buildingId,
       gps: { lat, lng },
+      photoUrl: photoUrl || undefined,
       status: 'submitted',
       remarks: `[Ward Member Survey] ${remarks}`,
       isSynced: true
@@ -164,9 +242,10 @@ export const Survey: React.FC = () => {
     await dbService.addWardReport({
       businessName,
       ownerName: ownerName || 'Proprietor',
-      category,
+      category: finalCategory,
       wardNumber: assignedWard,
       coordinates: { lat, lng },
+      photoUrl: photoUrl || undefined,
       landmark: remarks,
       reporterId: currentUser?.id || 'usr-ward',
       reporterName: currentUser?.name || 'Ward Member',
@@ -238,10 +317,20 @@ export const Survey: React.FC = () => {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <ClipboardCheck size={22} className="text-[#0F6E4F]" />
-            <span>{role === 'Ward Member' ? 'Report Suspected Unlicensed Business' : 'Field Inspection Terminal'}</span>
+            <span>
+              {activeTab === 'history'
+                ? 'My Submitted Field Reports'
+                : role === 'Ward Member'
+                ? 'Report Suspected Unlicensed Business'
+                : 'Field Inspection Terminal'}
+            </span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {role === 'Ward Member' ? `Field reporting workspace for Ward Member (Ward ${assignedWard})` : 'Physical site verification terminal for Panchayat Section Clerk.'}
+            {activeTab === 'history'
+              ? `Verification status & audit log of reports submitted for Ward ${assignedWard}`
+              : role === 'Ward Member'
+              ? `Field reporting workspace for Ward Member (Ward ${assignedWard})`
+              : 'Physical site verification terminal for Panchayat Section Clerk.'}
           </p>
         </div>
 
@@ -263,8 +352,91 @@ export const Survey: React.FC = () => {
         </div>
       )}
 
-      {/* Main Grid Form */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Tab 2: My Submitted Reports History Workspace */}
+      {activeTab === 'history' ? (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+          <div className="border-b pb-3 flex justify-between items-center">
+            <div>
+              <h3 className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center space-x-2">
+                <History size={16} className="text-[#0F6E4F]" />
+                <span>My Submitted Field Reports History</span>
+              </h3>
+              <p className="text-xs text-slate-500">Track verification status of reports submitted to Panchayat Secretary.</p>
+            </div>
+            <span className="text-xs font-mono font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-xl">
+              Total Reports: {submittedReports.length}
+            </span>
+          </div>
+
+          {submittedReports.length === 0 ? (
+            <div className="text-center py-16 text-slate-400 space-y-2">
+              <FileText size={36} className="mx-auto text-slate-300" />
+              <p className="text-xs font-semibold">No field reports submitted yet.</p>
+              <button
+                onClick={() => setActiveTab('new')}
+                className="bg-[#0F6E4F] text-white px-4 py-2 rounded-xl text-xs font-extrabold shadow-sm"
+              >
+                Submit First Report
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {submittedReports.map(report => (
+                <div key={report.id} className="border border-slate-200 rounded-2xl p-4 space-y-3 bg-slate-50/50 hover:bg-slate-50 transition shadow-2xs">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[10px] font-mono font-bold text-slate-400">Ward {report.wardNumber}</span>
+                      <h4 className="font-extrabold text-slate-900 text-sm">{report.businessName}</h4>
+                    </div>
+                    {report.status === 'pending_verification' && (
+                      <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded-md">
+                        Pending Verification
+                      </span>
+                    )}
+                    {report.status === 'verified_licensed' && (
+                      <span className="bg-emerald-100 text-[#0F6E4F] text-[10px] font-extrabold px-2 py-0.5 rounded-md">
+                        Verified Licensed
+                      </span>
+                    )}
+                    {report.status === 'confirmed_unlicensed' && (
+                      <span className="bg-red-100 text-red-900 text-[10px] font-extrabold px-2 py-0.5 rounded-md">
+                        Confirmed Unlicensed
+                      </span>
+                    )}
+                    {report.status === 'closed' && (
+                      <span className="bg-slate-200 text-slate-700 text-[10px] font-extrabold px-2 py-0.5 rounded-md">
+                        Closed
+                      </span>
+                    )}
+                  </div>
+
+                  {report.photoUrl && (
+                    <div className="relative rounded-xl overflow-hidden border border-slate-200 h-28">
+                      <img src={report.photoUrl} alt={report.businessName} className="w-full h-full object-cover" />
+                      <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-white text-[9px] font-mono px-2 py-0.5 flex justify-between">
+                        <span>📍 GPS Stamped</span>
+                        <span>{report.coordinates.lat.toFixed(4)}, {report.coordinates.lng.toFixed(4)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="text-xs text-slate-600 space-y-1 font-medium">
+                    <div><strong className="text-slate-700">Category:</strong> {report.category}</div>
+                    <div><strong className="text-slate-700">Proprietor:</strong> {report.ownerName || 'Proprietor'}</div>
+                    {report.landmark && <div><strong className="text-slate-700">Remarks:</strong> {report.landmark}</div>}
+                    <div className="text-[10px] text-slate-400 pt-2 border-t border-slate-200 flex justify-between">
+                      <span>Reported: {new Date(report.createdAt).toLocaleDateString()}</span>
+                      <span>By: {report.reporterName}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Main Grid Form */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Form Container (7 cols) */}
         <div className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
@@ -306,8 +478,23 @@ export const Survey: React.FC = () => {
                   <option value="Textiles">Textiles & Garments</option>
                   <option value="Workshop">Automobile Workshop</option>
                   <option value="Bakery">Bakery / Confectionery</option>
-                  <option value="General Trade">General Trade / Other</option>
+                  <option value="General Trade">General Trade</option>
+                  <option value="Others">Others (Specify category below)</option>
                 </select>
+
+                {category === 'Others' && (
+                  <div className="mt-2.5">
+                    <label className="block text-slate-900 font-extrabold mb-1">Specify Custom Business Category *</label>
+                    <input
+                      type="text"
+                      required
+                      value={customCategory}
+                      onChange={e => setCustomCategory(e.target.value)}
+                      placeholder="e.g. Chemical Processing / Storage Unit"
+                      className="w-full border border-[#0F6E4F] bg-emerald-50/40 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#0F6E4F]"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -321,7 +508,7 @@ export const Survey: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGetGPS}
-                  className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 px-3 py-1 rounded-xl text-[11px] font-bold transition"
+                  className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 px-3 py-1 rounded-xl text-[11px] font-bold transition shadow-sm"
                 >
                   Capture Live GPS
                 </button>
@@ -330,6 +517,61 @@ export const Survey: React.FC = () => {
                 <span>Lat: {lat.toFixed(5)}</span>
                 <span>Lng: {lng.toFixed(5)}</span>
               </div>
+            </div>
+
+            {/* Geotagged Camera Photo Upload Field */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="font-extrabold text-slate-900 flex items-center space-x-1.5">
+                  <Camera size={15} className="text-[#0F6E4F]" />
+                  <span>Geotagged Establishment Photograph</span>
+                </span>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  ref={fileInputRef}
+                  onChange={handlePhotoChange}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-white hover:bg-slate-100 text-[#0F6E4F] border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-1.5 shadow-sm"
+                >
+                  <Camera size={14} />
+                  <span>{photoUrl ? 'Retake Photo' : 'Capture / Upload Photo'}</span>
+                </button>
+              </div>
+
+              {photoUrl ? (
+                <div className="relative rounded-2xl overflow-hidden border border-slate-300 shadow-sm group">
+                  <img src={photoUrl} alt="Geotagged building photo" className="w-full h-44 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setPhotoUrl(null)}
+                    className="absolute top-2.5 right-2.5 bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-full shadow-md transition"
+                    title="Remove Photo"
+                  >
+                    <X size={14} />
+                  </button>
+                  <div className="absolute bottom-0 inset-x-0 bg-slate-950/80 text-white px-3 py-1.5 text-[11px] font-mono flex justify-between items-center">
+                    <span>📍 Geotagged: Lat {lat.toFixed(5)}, Lng {lng.toFixed(5)}</span>
+                    <span className="text-emerald-400 font-bold">GPS Stamped</span>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-300 hover:border-[#0F6E4F] bg-white rounded-2xl p-5 text-center cursor-pointer transition space-y-1"
+                >
+                  <Camera size={22} className="mx-auto text-slate-400" />
+                  <p className="text-xs font-bold text-slate-700">Click to capture building photo with camera</p>
+                  <p className="text-[10px] text-slate-400">Onsite GPS coordinates (Lat: {lat.toFixed(5)}, Lng: {lng.toFixed(5)}) will be stamped on photo</p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -401,8 +643,8 @@ export const Survey: React.FC = () => {
             )}
           </div>
         </div>
-
       </div>
+      )}
 
     </div>
   );

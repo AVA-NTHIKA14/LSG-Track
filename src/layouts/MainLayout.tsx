@@ -119,8 +119,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       // DEO Scoped Navigation
       return [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Synchronization', path: '/sync', icon: Database },
-        { name: 'Sync History', path: '/sync', icon: BarChart3 },
+        { name: 'K-SMART Data Sync', path: '/sync', icon: Database },
         { name: 'Profile & Settings', path: '/settings', icon: Settings },
       ];
     }
@@ -129,7 +128,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       // Ward Member Scoped Navigation
       return [
         { name: 'Report Establishment', path: '/survey', icon: Smartphone },
-        { name: 'My Reports', path: '/survey', icon: ShieldCheck },
+        { name: 'My Reports', path: '/survey?tab=history', icon: ShieldCheck },
         { name: 'Profile & Settings', path: '/settings', icon: Settings },
       ];
     }

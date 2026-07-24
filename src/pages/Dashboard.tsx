@@ -26,9 +26,7 @@ export const Dashboard: React.FC = () => {
 
   // Role check & navigation safety
   useEffect(() => {
-    if (currentUser?.role === 'Panchayat Section Clerk') {
-      navigate('/sync', { replace: true });
-    } else if (currentUser?.role === 'Ward Member') {
+    if (currentUser?.role === 'Ward Member') {
       navigate('/survey', { replace: true });
     }
   }, [currentUser, navigate]);

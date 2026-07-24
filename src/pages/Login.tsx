@@ -96,31 +96,50 @@ export const Login: React.FC = () => {
     }
   };
 
+  const handleQuickRoleLogin = async (targetEmail: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const user = await authService.loginWithCredentials(targetEmail, 'demo123', panchayatCode);
+      if (user) {
+        localStorage.setItem('cp_active_panchayat_code', panchayatCode);
+        await dbService.addAuditLog('LOGIN', `Quick Demo Sign-In: ${user.email} (${panchayatCode})`);
+        navigate('/');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Quick login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
       
-      {/* LEFT COLUMN - Brand and Product Features Info */}
-      <div className="w-full md:w-[40%] bg-[#0F6E4F] text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden select-none">
+      {/* LEFT COLUMN - Institutional Brand Banner */}
+      <div className="w-full md:w-[40%] bg-[#0F6E4F] text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden shrink-0">
         
-        {/* Background Decorative Rings */}
-        <div className="absolute top-[-20%] left-[-20%] w-[90%] h-[90%] rounded-full bg-white/5 pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-white/5 pointer-events-none" />
+        {/* Background Overlay Graphic */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/30 via-transparent to-transparent pointer-events-none" />
 
         {/* Top Header Logo */}
-        <div className="flex items-center space-x-2.5 z-10">
-          <svg viewBox="0 0 20 25" className="w-6 h-7 text-white" fill="currentColor">
+        <div className="flex items-center space-x-3 z-10">
+          <svg viewBox="0 0 20 25" className="w-7 h-8 text-white fill-current" aria-hidden="true">
             <path d="M10 12.5C10.6875 12.5 11.276 12.2552 11.7656 11.7656C12.2552 11.276 12.5 10.6875 12.5 10C12.5 9.3125 12.2552 8.72396 11.7656 8.23438C11.276 7.74479 10.6875 7.5 10 7.5C9.3125 7.5 8.72396 7.74479 8.23438 8.23438C7.74479 8.72396 7.5 9.3125 7.5 10C7.5 10.6875 7.74479 11.276 8.23438 11.7656C8.72396 12.2552 9.3125 12.5 10 12.5ZM10 25C6.64583 22.1458 4.14062 19.4948 2.48438 17.0469C0.828125 14.599 0 12.3333 0 10.25C0 7.125 1.00521 4.63542 3.01562 2.78125C5.02604 0.927083 7.35417 0 10 0C12.6458 0 14.974 0.927083 16.9844 2.78125C18.9948 4.63542 20 7.125 20 10.25C20 12.3333 19.1719 14.599 17.5156 17.0469C15.8594 19.4948 13.3542 22.1458 10 25Z" />
           </svg>
-          <span className="font-extrabold text-xl tracking-wider">LSG Track</span>
+          <div>
+            <span className="font-extrabold text-xl tracking-wider block leading-tight">LSG Track</span>
+            <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Grama Panchayat Portal</span>
+          </div>
         </div>
 
-        {/* Center Copy and Feature Bullet List */}
-        <div className="my-auto py-12 md:py-0 z-10 space-y-8">
-          <div className="space-y-3">
+        {/* Center Main Text */}
+        <div className="my-auto space-y-6 z-10 py-8">
+          <div className="space-y-2">
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight">
               Trade License Compliance Portal
             </h1>
-            <p className="text-sm text-emerald-100/90 leading-relaxed font-normal">
+            <p className="text-xs text-emerald-100/90 leading-relaxed font-normal">
               A dynamic GIS-enabled SaaS platform for monitoring trade license compliance across Kerala Grama Panchayats.
             </p>
           </div>
@@ -162,20 +181,66 @@ export const Login: React.FC = () => {
       <div className="w-full md:w-[60%] bg-white p-8 md:p-12 flex flex-col justify-between relative overflow-y-auto">
         
         {/* Warning Banner */}
-        <div className="bg-red-50 border border-red-100 text-red-800 rounded-2xl p-4 text-[11px] flex items-start space-x-2.5 max-w-xl mx-auto w-full mb-6">
+        <div className="bg-red-50 border border-red-100 text-red-800 rounded-2xl p-4 text-[11px] flex items-start space-x-2.5 max-w-xl mx-auto w-full mb-4">
           <ShieldAlert size={16} className="text-red-600 shrink-0 mt-0.5" />
           <div className="leading-relaxed">
             <span className="font-bold block text-red-700">RESTRICTED ADMINISTRATIVE CHANNEL</span>
-            This portal is restricted to authorized officers of Kerala Grama Panchayats. Unauthorised access attempts are logged and punishable under the Information Technology Act 2000.
+            This portal is restricted to authorized officers of Kerala Grama Panchayats.
           </div>
         </div>
 
         {/* Sign In Core Card */}
-        <div className="max-w-md w-full mx-auto my-auto py-4 space-y-6">
+        <div className="max-w-md w-full mx-auto my-auto py-2 space-y-5">
           
           <div className="space-y-1 text-center md:text-left">
             <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Welcome Back</h2>
-            <p className="text-xs text-slate-400 font-medium">Sign in to continue to your dashboard</p>
+            <p className="text-xs text-slate-400 font-medium">Sign in using credentials or quick demo buttons below</p>
+          </div>
+
+          {/* Quick One-Click Demo Role Sign-In Bar */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+            <div className="flex justify-between items-center text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
+              <span>Quick Demo Sign-In (1-Click)</span>
+              <span className="bg-emerald-100 text-[#0F6E4F] px-2 py-0.5 rounded-full font-mono font-bold">Instant Access</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs font-extrabold">
+              <button
+                type="button"
+                onClick={() => handleQuickRoleLogin('secretary@lsgtrack.gov.in')}
+                className="bg-emerald-50 hover:bg-emerald-100 text-[#0F6E4F] border border-emerald-200 py-2 px-2.5 rounded-xl transition text-left flex items-center justify-between"
+              >
+                <span>Secretary</span>
+                <Compass size={13} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickRoleLogin('clerk@lsgtrack.gov.in')}
+                className="bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 py-2 px-2.5 rounded-xl transition text-left flex items-center justify-between"
+              >
+                <span>DEO / Clerk</span>
+                <Compass size={13} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickRoleLogin('ward@lsgtrack.gov.in')}
+                className="bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 py-2 px-2.5 rounded-xl transition text-left flex items-center justify-between"
+              >
+                <span>Ward Member</span>
+                <Compass size={13} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickRoleLogin('admin@lsgtrack.gov.in')}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 py-2 px-2.5 rounded-xl transition text-left flex items-center justify-between"
+              >
+                <span>Administrator</span>
+                <Compass size={13} />
+              </button>
+            </div>
           </div>
 
           {error && (

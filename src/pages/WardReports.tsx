@@ -4,7 +4,7 @@ import { authService } from '../services/authService';
 import type { WardReportRecord, BuildingRecord } from '../types';
 import { 
   ClipboardCheck, CheckCircle2, Search, 
-  MapPin, ShieldAlert, FileText, ExternalLink, User
+  MapPin, ShieldAlert, FileText, ExternalLink, User, Camera
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -241,6 +241,23 @@ export const WardReports: React.FC = () => {
                   <div><strong className="text-slate-700">Reported Date:</strong> {new Date(selectedReport.createdAt).toLocaleDateString()}</div>
                   <div><strong className="text-slate-700">Ward Member:</strong> {selectedReport.reporterName}</div>
                 </div>
+
+                {/* Geotagged Photo Preview */}
+                {selectedReport.photoUrl && (
+                  <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+                    <div className="text-[11px] font-extrabold text-slate-800 flex items-center space-x-1.5">
+                      <Camera size={13} className="text-[#0F6E4F]" />
+                      <span>Onsite Geotagged Photograph</span>
+                    </div>
+                    <div className="relative rounded-xl overflow-hidden border border-slate-300">
+                      <img src={selectedReport.photoUrl} alt="Geotagged Establishment" className="w-full h-48 object-cover" />
+                      <div className="absolute bottom-0 inset-x-0 bg-slate-950/80 text-white px-3 py-1 text-[10px] font-mono flex justify-between">
+                        <span>📍 Lat: {selectedReport.coordinates.lat.toFixed(5)}, Lng: {selectedReport.coordinates.lng.toFixed(5)}</span>
+                        <span className="text-emerald-400 font-bold">GPS Stamped</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* K-SMART Cross Reference Check */}
                 <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 space-y-2">
