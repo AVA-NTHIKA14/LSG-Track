@@ -88,7 +88,7 @@ export const MapPage: React.FC = () => {
   const [whatsappRecipient, setWhatsappRecipient] = useState('7025643678');
   const [surveySyncStatus, setSurveySyncStatus] = useState<string | null>(null);
 
-  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
+  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || 'G110706';
 
   // Load database state
   useEffect(() => {
@@ -99,7 +99,7 @@ export const MapPage: React.FC = () => {
     const unsubWhatsappLogs = dbService.subscribeToWhatsAppLogs(setWhatsappLogs);
 
     const unsubPanchayaths = dbService.subscribeToPanchayaths((list) => {
-      const activeP = list.find(p => p.id === activePanchayatCode);
+      const activeP = list.find(p => p.id === activePanchayatCode) || list.find(p => p.id === 'G110706') || list[0];
       if (activeP) {
         setPanchayatName(activeP.name);
         if (activeP.boundaryGeoJSON) {
@@ -110,7 +110,7 @@ export const MapPage: React.FC = () => {
           }
         }
       } else {
-        setPanchayatName(`Panchayat (${activePanchayatCode})`);
+        setPanchayatName(`Panangad Grama Panchayat`);
         setBoundaryGeoJSON(null);
       }
     });
@@ -158,7 +158,6 @@ export const MapPage: React.FC = () => {
       if (match) {
         setWhatsappRecipient(match[0]);
       } else {
-        // Fallback to Sreya
         setWhatsappRecipient('7025643678');
       }
     }
@@ -166,31 +165,33 @@ export const MapPage: React.FC = () => {
 
   // Initialize Map
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
+    if (!mapContainerRef.current) return;
+    if (mapRef.current || (mapContainerRef.current as any)._leaflet_id) {
+      return;
+    }
 
-    // Center map around Chakkittapara coordinates
+    // Default center around Panangad coordinates (11.4580, 75.8850)
     const map = L.map(mapContainerRef.current, {
       doubleClickZoom: false,
       zoomControl: false 
-    }).setView([11.57547, 75.81649], 13);
+    }).setView([11.4580, 75.8850], 13);
     mapRef.current = map;
 
-    // Base Tile layers definitions: Google Maps Hybrid & Google Maps Roadmap
+    // Base Tile layer: OpenStreetMap & CartoDB Positron
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    });
+
     const googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
       maxZoom: 20,
       attribution: 'Tiles &copy; Google Maps'
     });
 
-    const googleRoadmap = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-      maxZoom: 20,
-      attribution: 'Tiles &copy; Google Maps'
-    });
-
-    // Default tile style
     if (mapStyle === 'satellite') {
       googleSatellite.addTo(map);
     } else {
-      googleRoadmap.addTo(map);
+      osmLayer.addTo(map);
     }
 
     // Initialize marker and heatmap groups
