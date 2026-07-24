@@ -380,9 +380,16 @@ export const dbService = {
 
   subscribeToPanchayaths(callback: (list: Panchayath[]) => void): () => void {
     if (isFirebaseEnabled && db) {
-      return onSnapshot(doc(db, 'config', 'panchayaths'), (snapshot) => {
-        callback(snapshot.exists() ? (snapshot.data()?.list || []) : []);
-      });
+      return onSnapshot(
+        doc(db, 'config', 'panchayaths'), 
+        (snapshot) => {
+          callback(snapshot.exists() ? (snapshot.data()?.list || []) : []);
+        },
+        async (_err) => {
+          const list = await this.getPanchayaths();
+          callback(list);
+        }
+      );
     } else {
       const list = JSON.parse(localStorage.getItem(GLOBAL_PANCHARATH_KEY) || '[]');
       callback(list);
@@ -456,11 +463,21 @@ export const dbService = {
   subscribeToWards(callback: (wards: WardRecord[]) => void): () => void {
     const activePId = getActivePanchayathId();
     if (isFirebaseEnabled && db) {
-      return onSnapshot(collection(db, 'panchayaths', activePId, 'wards'), (snapshot) => {
-        const wards: WardRecord[] = [];
-        snapshot.forEach((doc) => wards.push(doc.data() as WardRecord));
-        callback(wards);
-      });
+      return onSnapshot(
+        collection(db, 'panchayaths', activePId, 'wards'), 
+        (snapshot) => {
+          const wards: WardRecord[] = [];
+          snapshot.forEach((doc) => wards.push(doc.data() as WardRecord));
+          callback(wards);
+        },
+        (_err) => {
+          initPanchayatLocalStorage(activePId);
+          const keys = getKeys(activePId);
+          const wards = JSON.parse(localStorage.getItem(keys.WARDS) || '[]');
+          callback(wards);
+          subscribers.wards.add(callback);
+        }
+      );
     } else {
       initPanchayatLocalStorage(activePId);
       const keys = getKeys(activePId);
@@ -528,11 +545,21 @@ export const dbService = {
   subscribeToBuildings(callback: (buildings: BuildingRecord[]) => void): () => void {
     const activePId = getActivePanchayathId();
     if (isFirebaseEnabled && db) {
-      return onSnapshot(collection(db, 'panchayaths', activePId, 'establishments'), (snapshot) => {
-        const buildings: BuildingRecord[] = [];
-        snapshot.forEach((doc) => buildings.push(doc.data() as BuildingRecord));
-        callback(buildings);
-      });
+      return onSnapshot(
+        collection(db, 'panchayaths', activePId, 'establishments'), 
+        (snapshot) => {
+          const buildings: BuildingRecord[] = [];
+          snapshot.forEach((doc) => buildings.push(doc.data() as BuildingRecord));
+          callback(buildings);
+        },
+        (_err) => {
+          initPanchayatLocalStorage(activePId);
+          const keys = getKeys(activePId);
+          const buildings = JSON.parse(localStorage.getItem(keys.BUILDINGS) || '[]');
+          callback(buildings);
+          subscribers.buildings.add(callback);
+        }
+      );
     } else {
       initPanchayatLocalStorage(activePId);
       const keys = getKeys(activePId);
