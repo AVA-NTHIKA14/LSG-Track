@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gov-light text-gov-text font-sans antialiased;
+  }
+}
+
+/* ==================== HIGH CONTRAST ACCESSIBILITY MODE ==================== */
+html.high-contrast,
+body.high-contrast,
+.high-contrast {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+}
+
+.high-contrast header,
+.high-contrast aside,
+.high-contrast main,
+.high-contrast footer {
+  background-color: #0F172A !important;
+  border-color: #334155 !important;
+}
+
+.high-contrast div[class*="bg-white"],
+.high-contrast div[class*="bg-slate"],
+.high-contrast div[class*="bg-emerald"],
+.high-contrast div[class*="bg-[#"] {
+  background-color: #1E293B !important;
+  border-color: #475569 !important;
+  color: #FFFFFF !important;
+}
+
+.high-contrast p,
+.high-contrast span,
+.high-contrast h1,
+.high-contrast h2,
+.high-contrast h3,
+.high-contrast h4,
+.high-contrast label {
+  color: #FFFFFF !important;
+}
+
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea {
+  background-color: #0F172A !important;
+  color: #FFFFFF !important;
+  border-color: #94A3B8 !important;
+}
+
+.high-contrast table {
+  border-color: #475569 !important;
+}
+
+.high-contrast thead {
+  background-color: #0F172A !important;
+  color: #F8FAFC !important;
+}
+
+.high-contrast tr {
+  border-color: #334155 !important;
+}
+
+.high-contrast tr:hover {
+  background-color: #334155 !important;
+}
+
+/* ==================== LARGER TEXT ACCESSIBILITY MODE ==================== */
+html.larger-text,
+.larger-text {
+  font-size: 125% !important;
+}
+
+.larger-text p,
+.larger-text span,
+.larger-text button,
+.larger-text input,
+.larger-text select,
+.larger-text textarea,
+.larger-text label,
+.larger-text a,
+.larger-text td,
+.larger-text th {
+  font-size: 120% !important;
+  line-height: 1.4 !important;
+}
+
+.larger-text th,
+.larger-text td {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+/* ==================== LEAFLET MAP & PRINT ==================== */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.custom-leaflet-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 10px;
+}
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-card {
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+}

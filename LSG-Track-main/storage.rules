@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function user() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    function belongsTo(panchayathId) {
+      return signedIn() && (user().role == 'Administrator' || user().panchayathId == panchayathId);
+    }
+    function canUpload() {
+      return user().role == 'Administrator' || user().role == 'Secretary' ||
+        user().role == 'Data Entry Operator' || user().role == 'VEO';
+    }
+    function safeUpload() {
+      return request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('^(image/(jpeg|png|webp)|application/pdf)$');
+    }
+
+    match /panchayaths/{panchayathId}/uploads/{userId}/{fileName} {
+      allow read: if belongsTo(panchayathId);
+      allow create: if belongsTo(panchayathId) && canUpload() && request.auth.uid == userId && safeUpload();
+      allow update: if belongsTo(panchayathId) && safeUpload() && (request.auth.uid == userId || user().role == 'Administrator' || user().role == 'Secretary');
+      allow delete: if belongsTo(panchayathId) && (request.auth.uid == userId || user().role == 'Administrator' || user().role == 'Secretary');
+    }
+
+    match /panchayaths/{panchayathId}/gis/{fileName} {
+      allow read: if belongsTo(panchayathId);
+      allow create, update, delete: if belongsTo(panchayathId) && user().role == 'Administrator';
+    }
+
+    // Deny every path that does not follow the controlled tenant layout.
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}

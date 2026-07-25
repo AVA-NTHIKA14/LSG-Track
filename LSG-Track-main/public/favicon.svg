@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24">
+  <!-- Solid foundation line -->
+  <path d="M2 22h20" stroke="#0f172a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Main building outline -->
+  <path d="M4 22V9l8-5 8 5v13" stroke="#004d40" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Central double door entrance -->
+  <path d="M9 22v-7h6v7" stroke="#004d40" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Windows -->
+  <rect x="7" y="11" width="3" height="3" rx="0.5" fill="#004d40"/>
+  <rect x="14" y="11" width="3" height="3" rx="0.5" fill="#004d40"/>
+</svg>
