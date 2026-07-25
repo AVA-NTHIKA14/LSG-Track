@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
+import { authService } from '../services/authService';
 import { Reports } from './Reports';
 import { WardReports } from './WardReports';
 import { BarChart3, ClipboardCheck } from 'lucide-react';
@@ -8,7 +9,10 @@ import { BarChart3, ClipboardCheck } from 'lucide-react';
 export const Report: React.FC = () => {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') === 'ward' ? 'ward' : 'executive';
+  const currentUser = authService.getCurrentUser();
+  const isWardMember = currentUser?.role === 'Ward Member' || currentUser?.role === 'ward_member';
+  const paramTab = searchParams.get('tab');
+  const initialTab = paramTab ? (paramTab === 'ward' ? 'ward' : 'executive') : (isWardMember ? 'ward' : 'executive');
   const [activeSubTab, setActiveSubTab] = useState<'executive' | 'ward'>(initialTab);
 
   const handleTabChange = (tab: 'executive' | 'ward') => {

@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# User uploaded data files
+*.xlsx
+*.xls
+*.csv

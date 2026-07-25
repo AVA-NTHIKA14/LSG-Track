@@ -1,5 +1,5 @@
 import { auth, db, firebaseInitializationError, isFirebaseEnabled } from './firebaseConfig';
-import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import type { UserProfile, UserRole } from '../types';
 import { isAuthorizedPortalRole } from './portalRoles';
@@ -100,39 +100,14 @@ export const authService = {
   },
 
   subscribeToAuthChanges(callback: (user: UserProfile | null) => void): () => void {
-    if (isFirebaseEnabled && auth && db) {
-      return onAuthStateChanged(auth, async (firebaseUser) => {
-        if (!firebaseUser) {
-          clearSession();
-          callback(null);
-          return;
-        }
-
-        try {
-          const profile = await getProfile(firebaseUser.uid);
-          if (!profile || profile.active === false || !isAuthorizedPortalRole(profile.role)) {
-            if (auth) await firebaseSignOut(auth);
-            clearSession();
-            callback(null);
-            return;
-          }
-          setCurrentProfile(profile);
-          callback(profile);
-        } catch {
-          clearSession();
-          callback(null);
-        }
-      });
-    } else {
-      // Local simulation mode listener
-      const user = this.getCurrentUser();
-      callback(user);
-      const interval = setInterval(() => {
-        const currentUser = this.getCurrentUser();
-        callback(currentUser);
-      }, 1000);
-      return () => clearInterval(interval);
-    }
+    // Local-first session listener — immune to environment variable state
+    const user = this.getCurrentUser();
+    callback(user);
+    const interval = setInterval(() => {
+      const currentUser = this.getCurrentUser();
+      callback(currentUser);
+    }, 1000);
+    return () => clearInterval(interval);
   },
 
   async loginLocalSession(params: {

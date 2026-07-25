@@ -5,7 +5,7 @@ import { authService } from '../services/authService';
 import type { WardReportRecord, BuildingRecord } from '../types';
 import { 
   ClipboardCheck, CheckCircle2, Search, 
-  MapPin, ShieldAlert, FileText, ExternalLink, User, Camera
+  MapPin, FileText, ExternalLink, User, Camera
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,17 +39,7 @@ export const WardReports: React.FC = () => {
     };
   }, []);
 
-  if (!isSecretaryOrAdmin) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center max-w-md mx-auto my-12 shadow-sm">
-        <ShieldAlert size={40} className="mx-auto text-red-600 mb-3" />
-        <h3 className="font-extrabold text-slate-900 text-base">Access Restricted</h3>
-        <p className="text-xs text-slate-500 mt-2">
-          The Ward Member Reports Verification Workspace is restricted to Panchayat Secretaries and System Administrators.
-        </p>
-      </div>
-    );
-  }
+
 
   const filteredReports = reports.filter(r => {
     const matchStatus = filterStatus === 'all' || r.status === filterStatus;
@@ -288,50 +278,58 @@ export const WardReports: React.FC = () => {
                 <span className="font-bold text-slate-700 block">Ward Member Field Remarks:</span>
                 <p className="text-slate-600 italic">"{selectedReport.remarks || 'No specific remarks entered.'}"</p>
               </div>
+              
+              {/* Secretary Verification Controls (or Status Badge for Ward Members) */}
+              {isSecretaryOrAdmin ? (
+                <div className="border-t pt-4 space-y-3">
+                  <span className="block font-bold text-slate-900 text-xs">Panchayat Secretary Verification Action:</span>
+                  
+                  <textarea
+                    rows={2}
+                    value={verificationNote}
+                    onChange={e => setVerificationNote(e.target.value)}
+                    placeholder="e.g. Verified against K-SMART registry. Directed for physical inspection..."
+                    className="w-full border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                  />
 
-              {/* Secretary Action Form */}
-              <div className="border-t pt-4 space-y-3">
-                <label className="block text-xs font-extrabold text-slate-900">
-                  Secretary Decision Remarks / Notes:
-                </label>
-                <textarea
-                  rows={2}
-                  value={verificationNote}
-                  onChange={e => setVerificationNote(e.target.value)}
-                  placeholder="e.g. Verified against K-SMART registry. Directed for physical inspection..."
-                  className="w-full border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
-                />
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs font-extrabold">
+                    <button
+                      onClick={() => handleAction('confirmed_unlicensed')}
+                      className="bg-red-700 hover:bg-red-800 text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
+                    >
+                      Confirm Unlicensed
+                    </button>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs font-extrabold">
-                  <button
-                    onClick={() => handleAction('confirmed_unlicensed')}
-                    className="bg-red-700 hover:bg-red-800 text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
-                  >
-                    Confirm Unlicensed
-                  </button>
+                    <button
+                      onClick={() => handleAction('verified_licensed')}
+                      className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
+                    >
+                      Mark Verified Licensed
+                    </button>
 
-                  <button
-                    onClick={() => handleAction('verified_licensed')}
-                    className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
-                  >
-                    Mark Verified Licensed
-                  </button>
+                    <button
+                      onClick={() => handleAction('inspection_required')}
+                      className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
+                    >
+                      Require Inspection
+                    </button>
 
-                  <button
-                    onClick={() => handleAction('inspection_required')}
-                    className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
-                  >
-                    Require Inspection
-                  </button>
-
-                  <button
-                    onClick={() => handleAction('closed')}
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl py-2.5 px-3 transition shadow-sm text-center"
-                  >
-                    Close / Duplicate
-                  </button>
+                    <button
+                      onClick={() => handleAction('closed')}
+                      className="bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl py-2.5 px-3 transition shadow-sm text-center"
+                    >
+                      Close / Duplicate
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="border-t pt-4 bg-emerald-50/60 border-emerald-100 rounded-2xl p-4 flex items-center justify-between text-xs font-bold">
+                  <span className="text-slate-700">Verification Status:</span>
+                  <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-emerald-100 text-[#0F6E4F] border border-emerald-300">
+                    {selectedReport.status.replace('_', ' ')}
+                  </span>
+                </div>
+              )}
 
             </div>
           ) : (

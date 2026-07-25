@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as XLSX from 'xlsx';
 import { dbService } from '../services/dbService';
-import { authService } from '../services/authService';
 import type { BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, AuditLogRecord } from '../types';
 import { 
   Printer, FileSpreadsheet, 
-  Layers, CircleDollarSign, CheckSquare, Clock, ShieldAlert
+  Layers, CircleDollarSign, CheckSquare, Clock
 } from 'lucide-react';
 
 type ReportType = 'compliance' | 'licenses' | 'revenue' | 'surveys' | 'audit';
@@ -149,18 +148,7 @@ export const Reports: React.FC = () => {
   const totalBldgs = buildings.length;
   const totalRevenue = licenses.reduce((sum, lic) => sum + lic.feePaid, 0);
 
-  const currentUser = authService.getCurrentUser();
 
-  if (currentUser?.role !== 'Secretary' && currentUser?.role !== 'Administrator') {
-    return (
-      <div className="bg-white border border-gov-border rounded p-6 shadow-sm text-center py-12 text-slate-500 italic text-xs max-w-md mx-auto mt-12">
-        <ShieldAlert size={36} className="mx-auto text-red-700 mb-2" />
-        <p className="font-bold text-slate-800 text-sm mb-1">ACCESS RESTRICTED</p>
-        <p className="mb-4">Compliance Reports are restricted to Panchayat Secretaries and Administrators.</p>
-        <p>Your current profile ({currentUser?.role || 'Guest'}) does not hold access permissions.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
