@@ -123,6 +123,11 @@ export const MapPage: React.FC = () => {
         ? (i18n.language === 'ml' ? panchayathObj.nameMl : panchayathObj.name)
         : (activeP ? activeP.name : `Grama Panchayat (${activePanchayatCode})`);
 
+      const centerCoords = getPanchayathCenterCoordinates(activePanchayatCode);
+      if (mapRef.current) {
+        mapRef.current.setView(centerCoords, 13);
+      }
+
       setPanchayatName(resolvedName);
 
       // 1. Check if custom GeoJSON is in activeP record
@@ -137,7 +142,12 @@ export const MapPage: React.FC = () => {
 
       // 2. Query authentic OpenDataKerala statewide LSG boundary dataset dynamically for entered Panchayath
       if (panchayathObj) {
-        const authenticBoundary = await getBoundaryGeoJSONForPanchayath(panchayathObj.name, panchayathObj.nameMl);
+        const authenticBoundary = await getBoundaryGeoJSONForPanchayath(
+          panchayathObj.name,
+          panchayathObj.nameMl,
+          panchayathObj.code,
+          panchayathObj.district
+        );
         if (authenticBoundary) {
           setBoundaryGeoJSON(authenticBoundary);
           return;

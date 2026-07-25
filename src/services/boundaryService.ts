@@ -136,39 +136,125 @@ export function createWardDelimitationGeoJSON(lsgFeature: any, wardCount = 15, p
 
 export async function getBoundaryGeoJSONForPanchayath(
   panchayathNameEn: string,
-  panchayathNameMl?: string
+  panchayathNameMl?: string,
+  panchayathCode?: string,
+  districtName?: string
 ): Promise<any | null> {
   const dataset = await loadLSGBoundaries();
-  if (!dataset || !dataset.features) return null;
 
-  const cleanEn = panchayathNameEn.toLowerCase().replace(/grama\s*panchayat/i, '').trim();
-  const cleanMl = panchayathNameMl ? panchayathNameMl.replace(/ഗ്രാമപഞ്ചായത്ത്/g, '').trim() : '';
+  const normalize = (str: string) => 
+    str.toLowerCase()
+       .replace(/grama\s*panchayat/gi, '')
+       .replace(/gramapanchayat/gi, '')
+       .replace(/panchayat/gi, '')
+       .replace(/ഗാമപഞ്ചായത്ത്/g, '')
+       .replace(/ഗ്രാമപഞ്ചായത്ത്/g, '')
+       .replace(/പഞ്ചായത്ത്/g, '')
+       .replace(/[-_'\s]/g, '')
+       .trim();
 
-  // 1. Try exact or partial match on English name
-  const matchEn = dataset.features.find((f) => {
-    const fName = (f.properties.name || f.properties['name:en'] || '').toLowerCase();
-    return fName && (fName === cleanEn || fName.includes(cleanEn) || cleanEn.includes(fName));
-  });
+  const targetEn = normalize(panchayathNameEn);
+  const targetMl = panchayathNameMl ? normalize(panchayathNameMl) : '';
 
-  if (matchEn) {
-    return {
-      type: 'FeatureCollection',
-      features: [matchEn]
-    };
+  if (dataset && dataset.features) {
+    // 1. Exact match first on local dataset
+    for (const feature of dataset.features) {
+      const props = feature.properties || {};
+      const propValues = [
+        props.name,
+        props['name:en'],
+        props['name:ml'],
+        props.LSGD_NAME,
+        props.LB_NAME,
+        props.LOCALBODY,
+        props.PANCHAYAT
+      ].filter(Boolean).map(v => String(v));
+
+      for (const val of propValues) {
+        const normVal = normalize(val);
+        if (normVal && (normVal === targetEn || (targetMl && normVal === targetMl))) {
+          return {
+            type: 'FeatureCollection',
+            features: [feature]
+          };
+        }
+      }
+    }
+
+    // 2. Clean prefix match second on local dataset (only if target length >= 4)
+    if (targetEn.length >= 4) {
+      for (const feature of dataset.features) {
+        const props = feature.properties || {};
+        const propValues = [
+          props.name,
+          props['name:en'],
+          props['name:ml'],
+          props.LSGD_NAME,
+          props.LB_NAME,
+          props.LOCALBODY,
+          props.PANCHAYAT
+        ].filter(Boolean).map(v => String(v));
+
+        for (const val of propValues) {
+          const normVal = normalize(val);
+          if (normVal && normVal.length >= 4 && (normVal.startsWith(targetEn) || targetEn.startsWith(normVal))) {
+            return {
+              type: 'FeatureCollection',
+              features: [feature]
+            };
+          }
+        }
+      }
+    }
   }
 
-  // 2. Try match on Malayalam name if provided
-  if (cleanMl) {
-    const matchMl = dataset.features.find((f) => {
-      const fMl = f.properties['name:ml'] || '';
-      return fMl && (fMl.includes(cleanMl) || cleanMl.includes(fMl));
-    });
+  // 3. Automated live fetch from AVA-NTHIKA14/lsg-kerala-data and opendatakerala/map.opendatakerala.org repositories
+  const baseNames = Array.from(new Set([
+    panchayathNameEn.replace(/Grama\s*Panchayat/i, '').trim().toLowerCase().replace(/\s+/g, '_'),
+    panchayathNameEn.replace(/Grama\s*Panchayat/i, '').trim().toLowerCase().replace(/\s+/g, '-'),
+    panchayathNameEn.replace(/Grama\s*Panchayat/i, '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''),
+    panchayathCode ? panchayathCode.toLowerCase() : '',
+    panchayathCode ? panchayathCode.toUpperCase() : ''
+  ].filter(Boolean)));
 
-    if (matchMl) {
-      return {
-        type: 'FeatureCollection',
-        features: [matchMl]
-      };
+  const districts = districtName ? [districtName.toLowerCase(), districtName.toLowerCase().replace(/\s+/g, '_')] : [];
+
+  const repos = [
+    'https://raw.githubusercontent.com/AVA-NTHIKA14/lsg-kerala-data/main',
+    'https://raw.githubusercontent.com/AVA-NTHIKA14/lsg-kerala-data/master',
+    'https://raw.githubusercontent.com/opendatakerala/map.opendatakerala.org/main',
+    'https://raw.githubusercontent.com/opendatakerala/map.opendatakerala.org/master',
+    'https://raw.githubusercontent.com/opendatakerala/lsg-kerala-data/main',
+    'https://raw.githubusercontent.com/opendatakerala/lsg-kerala-data/master',
+    'https://raw.githubusercontent.com/opendatakerala/lsg-boundaries/main'
+  ];
+
+  const githubUrls: string[] = [];
+  for (const repo of repos) {
+    for (const name of baseNames) {
+      githubUrls.push(`${repo}/data/${name}.geojson`);
+      githubUrls.push(`${repo}/geojson/${name}.geojson`);
+      githubUrls.push(`${repo}/boundaries/${name}.geojson`);
+      githubUrls.push(`${repo}/lsg/${name}.geojson`);
+      githubUrls.push(`${repo}/${name}.geojson`);
+      for (const dist of districts) {
+        githubUrls.push(`${repo}/data/${dist}/${name}.geojson`);
+        githubUrls.push(`${repo}/${dist}/${name}.geojson`);
+      }
+    }
+  }
+
+  for (const url of githubUrls) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const geojson = await res.json();
+        if (geojson && (geojson.type === 'FeatureCollection' || geojson.type === 'Feature' || geojson.geometry)) {
+          return geojson.type === 'FeatureCollection' ? geojson : { type: 'FeatureCollection', features: [geojson] };
+        }
+      }
+    } catch (e) {
+      // Continue to next URL
     }
   }
 
