@@ -797,14 +797,7 @@ export const MapPage: React.FC = () => {
           <div className="flex items-center space-x-3">
             
             {/* K-SMART Official Ward Map Link Button */}
-            <button
-              onClick={() => setShowKsmartModal(true)}
-              className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-[#0F6E4F] hover:bg-emerald-100 text-xs font-bold transition shadow-xs"
-              title="Open K-SMART Official Ward Delimitation Map Portal"
-            >
-              <ExternalLink size={13} />
-              <span>K-SMART Ward Map</span>
-            </button>
+
 
             {/* Filters Button */}
             <div className="relative">
@@ -1154,13 +1147,7 @@ export const MapPage: React.FC = () => {
               <div>
                 <span className="text-[10px] font-bold text-[#15803D] uppercase tracking-wider block">Grama Panchayat Boundary</span>
                 <strong className="text-slate-900 text-base block font-bold mt-0.5">{panchayatName}</strong>
-                <button
-                  onClick={() => setShowKsmartModal(true)}
-                  className="text-[10px] text-[#0F6E4F] font-bold hover:underline flex items-center space-x-1 mt-0.5 text-left"
-                >
-                  <span>Verify K-SMART Ward Delimitation</span>
-                  <ExternalLink size={10} />
-                </button>
+
               </div>
               <span className="bg-[#15803D] text-white px-2 py-0.5 rounded font-mono font-bold text-xs shrink-0">
                 Code: {activePanchayatCode}

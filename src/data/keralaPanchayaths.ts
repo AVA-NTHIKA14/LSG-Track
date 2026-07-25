@@ -1628,6 +1628,12 @@ export const KERALA_PANCHAYATHS: PanchayathOption[] = [
     "district": "Ernakulam"
   },
   {
+    "code": "G110504",
+    "name": "Mavoor Grama Panchayat",
+    "nameMl": "മാവൂർ ഗ്രാമപഞ്ചായത്ത്",
+    "district": "Kozhikode"
+  },
+  {
     "code": "G110706",
     "name": "Panangad Grama Panchayat",
     "nameMl": "പനങ്ങാട് ഗ്രാമപഞ്ചായത്ത്",
@@ -1656,6 +1662,14 @@ export function getPanchayathByCode(code: string): PanchayathOption | undefined 
 }
 
 export function getPanchayathCenterCoordinates(code: string): [number, number] {
+  const specificCoords: Record<string, [number, number]> = {
+    'G110504': [11.2618, 75.9082],
+    'G110706': [11.4580, 75.8850],
+    '204902': [11.5750, 75.8160],
+    'G070702': [10.0261, 76.3625]
+  };
+  if (specificCoords[code]) return specificCoords[code];
+
   const panchayath = getPanchayathByCode(code);
   const districtCoords: Record<string, [number, number]> = {
     'Thiruvananthapuram': [8.5241, 76.9366],
