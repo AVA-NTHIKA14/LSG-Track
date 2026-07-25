@@ -5,17 +5,17 @@ export type UserRole =
 export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface UserProfile {
-  uid: string;
+  uid?: string;
   id?: string;
   name: string;
   email: string;
-  panchayatCode: string;
+  panchayatCode?: string;
   panchayathId?: string;
   role: UserRole;
   wardNumber?: number | string | null;
   ward?: string;
-  status: UserStatus;
-  createdAt: string;
+  status?: UserStatus;
+  createdAt?: string;
   permissions?: string[];
   active?: boolean;
 }

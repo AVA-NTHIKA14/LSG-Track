@@ -256,6 +256,6 @@ export const authService = {
   hasPermission(permission: string): boolean {
     const user = this.getCurrentUser();
     if (!user || !user.permissions) return true;
-    return Boolean(user.permissions.includes('all') || user.permissions.includes(permission));
+    return Boolean(user.permissions?.includes('all') || user.permissions?.includes(permission));
   }
 };

@@ -42,9 +42,9 @@ export const Profile: React.FC = () => {
     }
   };
 
-  const userId = currentUser?.uid || currentUser?.id || 'usr-officer';
-  const userPermissions = currentUser?.permissions || ['view_only'];
-  const userWard = currentUser?.wardNumber || currentUser?.ward;
+  const userId = currentUser?.id || currentUser?.uid || 'USR-2026-000';
+  const userPermissions = currentUser?.permissions || [];
+  const userWard = currentUser?.ward || currentUser?.wardNumber;
 
   return (
     <div className="space-y-6">
