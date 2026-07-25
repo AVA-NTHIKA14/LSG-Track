@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 import { authService } from '../services/authService';
 import { dbService } from '../services/dbService';
-import type { UserProfile, SystemNotification, Panchayath } from '../types';
+import { KERALA_PANCHAYATHS, KERALA_DISTRICTS } from '../data/keralaPanchayaths';
+import type { UserProfile, SystemNotification } from '../types';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -42,7 +43,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   
   // Multi-tenancy states
-  const [panchayaths, setPanchayaths] = useState<Panchayath[]>([]);
   const [, setActivePanchayatName] = useState('Loading Panchayat...');
   const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
 
@@ -71,7 +71,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     // Subscribe to Panchayats list and active name
     const unsubscribePanchayaths = dbService.subscribeToPanchayaths((list) => {
-      setPanchayaths(list);
       const activeP = list.find(p => p.id === activePanchayatCode);
       if (activeP) {
         setActivePanchayatName(activeP.name);
@@ -393,24 +392,32 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 </div>
               </div>
 
-              {/* Tenant context switcher for System Admins */}
-              {currentUser?.role === 'Administrator' && panchayaths.length > 0 && (
-                <div className="pt-2">
-                  <label className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">{i18n.language === 'ml' ? 'പ്രവർത്തന സജ്ജമായ പഞ്ചായത്ത്' : 'Active Tenant'}</label>
-                  <select
-                    value={activePanchayatCode}
-                    onChange={(e) => {
-                      localStorage.setItem('cp_active_panchayat_code', e.target.value);
-                      window.location.reload(); 
-                    }}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1 text-[10px] font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0F6E4F]"
-                  >
-                    {panchayaths.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Statewide LSG Tenant Context Switcher */}
+              <div className="pt-2">
+                <label className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">
+                  {i18n.language === 'ml' ? 'പ്രവർത്തന സജ്ജമായ പഞ്ചായത്ത്' : 'Active LSG Tenant'}
+                </label>
+                <select
+                  value={activePanchayatCode}
+                  onChange={(e) => {
+                    localStorage.setItem('cp_active_panchayat_code', e.target.value);
+                    window.location.reload(); 
+                  }}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-[10px] font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F6E4F] shadow-xs cursor-pointer"
+                >
+                  {KERALA_DISTRICTS.map(district => {
+                    const districtPanchayaths = KERALA_PANCHAYATHS.filter(p => p.district === district);
+                    if (districtPanchayaths.length === 0) return null;
+                    return (
+                      <optgroup key={district} label={`📍 ${district} District`}>
+                        {districtPanchayaths.map(p => (
+                          <option key={p.code} value={p.code}>{p.name}</option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+              </div>
             </div>
 
             {/* Navigation links */}
