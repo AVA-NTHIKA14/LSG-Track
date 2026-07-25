@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
 import type { WardRecord, BuildingRecord } from '../types';
-import { Users, ArrowUpRight, ShieldAlert } from 'lucide-react';
+import { Users, ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const Wards: React.FC = () => {
@@ -33,16 +33,7 @@ export const Wards: React.FC = () => {
     ? buildings.filter(b => b.wardNumber === selectedWard.id)
     : [];
 
-  if (currentUser?.role !== 'Secretary' && currentUser?.role !== 'Administrator') {
-    return (
-      <div className="bg-white border border-gov-border rounded p-6 shadow-sm text-center py-12 text-slate-500 italic text-xs max-w-md mx-auto mt-12">
-        <ShieldAlert size={36} className="mx-auto text-red-700 mb-2" />
-        <p className="font-bold text-slate-800 text-sm mb-1">ACCESS RESTRICTED</p>
-        <p className="mb-4">Ward Management metrics are restricted to Panchayat Secretaries and Administrators.</p>
-        <p>Your current profile ({currentUser?.role || 'Guest'}) does not hold access permissions.</p>
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-6">
