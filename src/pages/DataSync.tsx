@@ -15,12 +15,12 @@ export const DataSync: React.FC = () => {
   const [syncHistory, setSyncHistory] = useState<SyncHistoryRecord[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [fileData, setFileData] = useState<ArrayBuffer | string | null>(null);
   const [importResult, setImportResult] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const currentUser = authService.getCurrentUser();
-  const panchayatCode = profile?.panchayatCode || localStorage.getItem('cp_active_panchayat_code') || 'G070702';
+  const panchayatCode = profile?.panchayatCode || localStorage.getItem('cp_active_panchayat_code') || 'G110706';
   const isDEOOrAdmin = profile?.role === 'clerk' || profile?.role === 'secretary' || currentUser?.role === 'Panchayat Section Clerk' || currentUser?.role === 'Administrator';
 
   useEffect(() => {
@@ -50,14 +50,19 @@ export const DataSync: React.FC = () => {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      setFileContent(event.target?.result as string);
+      setFileData(event.target?.result || null);
     };
-    reader.readAsText(file);
+
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
+    }
   };
 
   const handleProcessImport = async () => {
-    if (!selectedFile || !fileContent) {
-      setErrorMsg("Please select a valid K-SMART CSV export file first.");
+    if (!selectedFile || !fileData) {
+      setErrorMsg("Please select a valid K-SMART CSV or Excel export file first.");
       return;
     }
 
@@ -66,13 +71,13 @@ export const DataSync: React.FC = () => {
 
     try {
       const result = await dbService.processKSmartImport(
-        fileContent,
+        fileData,
         selectedFile.name,
         currentUser?.name || 'Data Entry Operator'
       );
       setImportResult(result);
       setSelectedFile(null);
-      setFileContent(null);
+      setFileData(null);
     } catch (err: any) {
       setErrorMsg(err?.message || "Failed to process K-SMART export. Check column formatting.");
     } finally {
@@ -141,11 +146,11 @@ export const DataSync: React.FC = () => {
           <div className="border-2 border-dashed border-slate-200 hover:border-[#0F6E4F] rounded-3xl p-8 text-center bg-slate-50/50 transition">
             <FileSpreadsheet size={44} className="mx-auto text-emerald-800/80 mb-3" />
             <h4 className="font-extrabold text-slate-900 text-sm mb-1">Select K-SMART CSV / Excel File</h4>
-            <p className="text-xs text-slate-400 mb-4">Supported formats: .csv, .txt (Comma or Semicolon delimited)</p>
+            <p className="text-xs text-slate-400 mb-4">Supported formats: .xlsx, .xls, .csv, .txt</p>
 
             <input
               type="file"
-              accept=".csv,.txt"
+              accept=".csv,.txt,.xlsx,.xls"
               onChange={handleFileSelect}
               id="file-upload-input"
               className="hidden"
