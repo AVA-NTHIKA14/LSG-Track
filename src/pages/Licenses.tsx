@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
 import type { LicenseRecord, BuildingRecord, SurveyRecord } from '../types';
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 
 export const Licenses: React.FC = () => {
+  const { t } = useTranslation();
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [surveys, setSurveys] = useState<SurveyRecord[]>([]);
@@ -574,10 +576,10 @@ export const Licenses: React.FC = () => {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <ShieldCheck size={22} className="text-[#0F6E4F]" />
-            <span>License Monitoring</span>
+            <span>{t('licenses.heading')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Operational monitoring portal to filter, track, and manage commercial D&O trade licenses across Panchayat wards.
+            {t('licenses.subheading', { code: localStorage.getItem('cp_active_panchayat_code') || 'G070702' })}
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { auth, db, firebaseInitializationError, isFirebaseEnabled } from './firebaseConfig';
 import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import type { UserProfile } from '../types';
+import type { UserProfile, UserRole } from '../types';
 import { isAuthorizedPortalRole } from './portalRoles';
 
 const AUTH_KEY = 'cp_license_active_user';
@@ -11,39 +11,57 @@ let currentProfile: UserProfile | null = null;
 // Mock local accounts for local simulation mode
 const LOCAL_MOCK_USERS: UserProfile[] = [
   {
+    uid: 'usr-admin',
     id: 'usr-admin',
     name: 'System Administrator',
     email: 'admin@lsgtrack.gov.in',
     role: 'Administrator',
     permissions: ['all'],
-    panchayathId: 'all',
+    panchayatCode: 'G070702',
+    panchayathId: 'G070702',
+    status: 'APPROVED',
+    createdAt: '2026-01-01T00:00:00.000Z',
     active: true
   },
   {
+    uid: 'usr-secretary',
     id: 'usr-secretary',
     name: 'Panchayat Secretary',
     email: 'secretary@lsgtrack.gov.in',
     role: 'Secretary',
     permissions: ['approve_license', 'verify_survey', 'view_reports'],
-    panchayathId: 'G110706',
+    panchayatCode: 'G070702',
+    panchayathId: 'G070702',
+    status: 'APPROVED',
+    createdAt: '2026-01-01T00:00:00.000Z',
     active: true
   },
   {
+    uid: 'usr-clerk',
     id: 'usr-clerk',
     name: 'Panchayat Section Clerk',
     email: 'clerk@lsgtrack.gov.in',
     role: 'Panchayat Section Clerk',
     permissions: ['register_building', 'view_only'],
-    panchayathId: 'G110706',
+    panchayatCode: 'G070702',
+    panchayathId: 'G070702',
+    status: 'APPROVED',
+    createdAt: '2026-01-01T00:00:00.000Z',
     active: true
   },
   {
+    uid: 'usr-ward',
     id: 'usr-ward',
     name: 'Ward Member / Field Inspector',
     email: 'ward@lsgtrack.gov.in',
     role: 'Ward Member',
+    wardNumber: 1,
+    ward: '1',
     permissions: ['submit_survey', 'view_only'],
-    panchayathId: 'G110706',
+    panchayatCode: 'G070702',
+    panchayathId: 'G070702',
+    status: 'APPROVED',
+    createdAt: '2026-01-01T00:00:00.000Z',
     active: true
   }
 ];
@@ -93,7 +111,7 @@ export const authService = {
         try {
           const profile = await getProfile(firebaseUser.uid);
           if (!profile || profile.active === false || !isAuthorizedPortalRole(profile.role)) {
-            await firebaseSignOut(auth);
+            if (auth) await firebaseSignOut(auth);
             clearSession();
             callback(null);
             return;
@@ -115,6 +133,34 @@ export const authService = {
       }, 1000);
       return () => clearInterval(interval);
     }
+  },
+
+  async loginLocalSession(params: {
+    panchayatCode: string;
+    role: UserRole;
+    name: string;
+    wardNumber?: string | number | null;
+  }): Promise<UserProfile> {
+    const formattedCode = params.panchayatCode.trim().toUpperCase();
+    const profile: UserProfile = {
+      uid: 'local-' + Date.now(),
+      id: 'local-' + Date.now(),
+      name: params.name || 'Grama Officer',
+      email: `${params.name.toLowerCase().replace(/\s+/g, '.')}@${formattedCode.toLowerCase()}.local`,
+      role: params.role,
+      panchayatCode: formattedCode,
+      panchayathId: formattedCode,
+      wardNumber: params.wardNumber || null,
+      ward: params.wardNumber ? String(params.wardNumber) : undefined,
+      status: 'APPROVED',
+      createdAt: new Date().toISOString(),
+      permissions: ['all'],
+      active: true
+    };
+
+    setCurrentProfile(profile);
+    localStorage.setItem(ACTIVE_PANCHAYAT_KEY, formattedCode);
+    return profile;
   },
 
   async loginWithCredentials(email: string, password: string, panchayathId: string): Promise<UserProfile | null> {
@@ -209,6 +255,7 @@ export const authService = {
 
   hasPermission(permission: string): boolean {
     const user = this.getCurrentUser();
-    return Boolean(user && (user.permissions.includes('all') || user.permissions.includes(permission)));
+    if (!user || !user.permissions) return true;
+    return Boolean(user.permissions.includes('all') || user.permissions.includes(permission));
   }
 };

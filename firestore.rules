@@ -2,142 +2,96 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function user() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function isAdmin() { return signedIn() && user().role == 'Administrator'; }
-    function belongsTo(panchayathId) {
-      return signedIn() && (isAdmin() || user().panchayathId == panchayathId);
+    function signedIn() { 
+      return request.auth != null; 
     }
-    function hasRole(role) { return signedIn() && (isAdmin() || user().role == role); }
-    function isSecretary() { return hasRole('Secretary'); }
-    function canManageEstablishments() {
-      return isSecretary() || hasRole('Panchayat Section Clerk');
+    
+    function getUserData() { 
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; 
     }
-    function canSubmitSurveys() {
-      return isSecretary() || hasRole('Ward Member');
+    
+    function isApproved() {
+      return signedIn() && getUserData().status == 'APPROVED';
     }
-    function validBuildingStatus(status) {
-      return status in ['licensed', 'unlicensed', 'pending', 'govt', 'ngo', 'inactive'];
+    
+    function isSecretary() { 
+      return isApproved() && getUserData().role == 'secretary'; 
     }
-    function validBuildingShape() {
-      return request.resource.data.keys().hasOnly([
-        'id', 'ownerName', 'businessName', 'category', 'wardNumber', 'coordinates', 'photoUrl',
-        'licenseId', 'status', 'remarks', 'history', 'attachments', 'createdBy', 'assignedTo',
-        'isReturnedForCorrection', 'submittedAt'
-      ])
-      && request.resource.data.id is string
-      && request.resource.data.ownerName is string
-      && request.resource.data.businessName is string
-      && request.resource.data.category is string
-      && request.resource.data.wardNumber is string
-      && request.resource.data.coordinates is map
-      && request.resource.data.coordinates.lat is number
-      && request.resource.data.coordinates.lng is number
-      && request.resource.data.coordinates.lat >= 8
-      && request.resource.data.coordinates.lat <= 13
-      && request.resource.data.coordinates.lng >= 74
-      && request.resource.data.coordinates.lng <= 78
-      && validBuildingStatus(request.resource.data.status)
-      && request.resource.data.remarks is string
-      && (request.resource.data.photoUrl == null || request.resource.data.photoUrl is string)
-      && (request.resource.data.licenseId == null || request.resource.data.licenseId is string)
-      && (request.resource.data.history == null || request.resource.data.history is list)
-      && (request.resource.data.attachments == null || request.resource.data.attachments is list)
-      && (request.resource.data.createdBy == null || request.resource.data.createdBy is string)
-      && (request.resource.data.assignedTo == null || request.resource.data.assignedTo is string)
-      && (request.resource.data.isReturnedForCorrection == null || request.resource.data.isReturnedForCorrection is bool)
-      && (request.resource.data.submittedAt == null || request.resource.data.submittedAt is string);
-    }
-    function canCreateEstablishment() {
-      return belongsTo(panchayathId) && canManageEstablishments()
-        && validBuildingShape()
-        && request.resource.data.id == request.resource.id
-        && request.resource.data.createdBy == request.auth.uid
-        && (isSecretary() || request.resource.data.status in ['unlicensed', 'pending', 'ngo'])
-        && (hasRole('Panchayat Section Clerk') ? request.resource.data.licenseId == null : true);
-    }
-    function canUpdateEstablishment(buildingId) {
-      return belongsTo(panchayathId) && validBuildingShape()
-        && request.resource.data.id == buildingId
-        && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.assignedTo == resource.data.assignedTo
-        && (isSecretary() || (
-          hasRole('Panchayat Section Clerk')
-          && request.resource.data.status in ['unlicensed', 'pending', 'ngo']
-          && request.resource.data.licenseId == resource.data.licenseId
-        ));
+    
+    function belongsToPanchayat(panchayatCode) {
+      return isApproved() && (getUserData().panchayatCode == panchayatCode || getUserData().role == 'admin');
     }
 
-    // Account documents are provisioned only by Firebase Admin SDK / trusted backend.
-    // This blocks self-service role or tenant changes.
+    // User profile documents for onboarding and secretarial approval
     match /users/{userId} {
-      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
-      allow create, update, delete: if isAdmin();
+      allow read: if signedIn() && (
+        request.auth.uid == userId || 
+        (isSecretary() && getUserData().panchayatCode == resource.data.panchayatCode)
+      );
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn() && (
+        (isSecretary() && getUserData().panchayatCode == resource.data.panchayatCode) ||
+        request.auth.uid == userId
+      );
+      allow delete: if signedIn() && request.auth.uid == userId;
     }
 
     match /config/{configId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow write: if isSecretary();
     }
 
-    match /panchayaths/{panchayathId} {
-      allow read: if belongsTo(panchayathId);
-      allow create, update, delete: if isAdmin();
+    // Multi-tenant Panchayat document collections
+    match /panchayats/{panchayatCode} {
+      allow read: if belongsToPanchayat(panchayatCode);
+      allow write: if isSecretary() && getUserData().panchayatCode == panchayatCode;
 
-      match /establishments/{buildingId} {
-        allow read: if belongsTo(panchayathId);
-        allow create: if canCreateEstablishment();
-        allow update: if canUpdateEstablishment(buildingId);
-        allow delete: if belongsTo(panchayathId) && isSecretary();
+      match /buildings/{buildingId} {
+        allow read, write: if belongsToPanchayat(panchayatCode);
       }
 
       match /licenses/{licenseId} {
-        allow read: if belongsTo(panchayathId);
-        allow create, update, delete: if belongsTo(panchayathId) && isSecretary();
+        allow read, write: if belongsToPanchayat(panchayatCode);
       }
 
       match /wards/{wardId} {
-        allow read: if belongsTo(panchayathId);
-        allow create, update, delete: if belongsTo(panchayathId) && isSecretary();
+        allow read, write: if belongsToPanchayat(panchayatCode);
       }
 
       match /surveys/{surveyId} {
-        allow read: if belongsTo(panchayathId);
-        allow create: if belongsTo(panchayathId) && canSubmitSurveys()
-          && request.resource.data.officerId == request.auth.uid;
-        allow update: if belongsTo(panchayathId) && (
-          isSecretary() || (hasRole('Ward Member') && resource.data.officerId == request.auth.uid
-            && request.resource.data.officerId == request.auth.uid)
-        );
-        allow delete: if belongsTo(panchayathId) && isSecretary();
+        allow read, write: if belongsToPanchayat(panchayatCode);
+      }
+
+      match /wardReports/{reportId} {
+        allow read, write: if belongsToPanchayat(panchayatCode);
       }
 
       match /notifications/{notificationId} {
-        allow read: if belongsTo(panchayathId);
-        allow create, update, delete: if belongsTo(panchayathId) && isSecretary();
+        allow read, write: if belongsToPanchayat(panchayatCode);
       }
 
       match /settings/{settingId} {
-        allow read: if belongsTo(panchayathId);
-        allow create, update, delete: if belongsTo(panchayathId) && isSecretary();
+        allow read, write: if belongsToPanchayat(panchayatCode);
       }
 
       match /syncHistory/{syncId} {
-        allow read: if belongsTo(panchayathId);
-        allow create: if belongsTo(panchayathId) && isSecretary();
-        allow update, delete: if false;
+        allow read, write: if belongsToPanchayat(panchayatCode);
       }
 
       match /whatsappLogs/{logId} {
-        allow read: if belongsTo(panchayathId) && isSecretary();
-        allow create: if belongsTo(panchayathId) && isSecretary();
-        allow update, delete: if false;
+        allow read, write: if belongsToPanchayat(panchayatCode);
       }
 
       match /auditLogs/{logId} {
-        allow read: if belongsTo(panchayathId) && isSecretary();
-        allow create: if belongsTo(panchayathId) && isSecretary();
-        allow update, delete: if false;
+        allow read, write: if belongsToPanchayat(panchayatCode);
+      }
+    }
+
+    // Fallback for legacy collections during migration
+    match /panchayaths/{panchayathId} {
+      allow read, write: if signedIn();
+      match /{document=**} {
+        allow read, write: if signedIn();
       }
     }
   }

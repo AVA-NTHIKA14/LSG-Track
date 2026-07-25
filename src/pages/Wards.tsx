@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
 import type { WardRecord, BuildingRecord } from '../types';
@@ -6,6 +7,7 @@ import { Users, ArrowUpRight, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const Wards: React.FC = () => {
+  const { t } = useTranslation();
   const currentUser = authService.getCurrentUser();
   const assignedWard = currentUser?.ward || '1';
   const isWardMember = currentUser?.role === 'Ward Member';
@@ -46,9 +48,15 @@ export const Wards: React.FC = () => {
     <div className="space-y-6">
       
       {/* Title */}
-      <div className="border-b pb-4">
-        <h2 className="text-xl font-bold text-gov-navy">Ward Management & Boundaries</h2>
-        <p className="text-xs text-slate-500">Compliance distribution, inspection officer assignments, and spatial records for the 6 local body wards.</p>
+      <div className="border-b pb-4 flex justify-between items-center flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-bold text-gov-navy">{t('wards.heading')}</h2>
+          <p className="text-xs text-slate-500">{t('wards.subheading')}</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 text-[#0F6E4F] px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5">
+          <Users size={14} />
+          <span>Kerala Delimitation Commission: {wards.length} Ward Boundaries Defined</span>
+        </div>
       </div>
 
       {/* Grid of Wards */}
@@ -89,15 +97,15 @@ export const Wards: React.FC = () => {
                 <div className="grid grid-cols-3 gap-2 border-t border-b py-2 my-2 text-center text-[10px] text-slate-500 font-mono">
                   <div>
                     <span className="block font-bold text-slate-800 text-xs">{w.totalBuildings}</span>
-                    <span>Buildings</span>
+                    <span>{t('dashboard.total_buildings')}</span>
                   </div>
                   <div>
                     <span className="block font-bold text-status-licensed text-xs">{w.licensedBuildings}</span>
-                    <span>Licensed</span>
+                    <span>{t('dashboard.licensed')}</span>
                   </div>
                   <div>
                     <span className="block font-bold text-status-unlicensed text-xs">{w.unlicensedBuildings}</span>
-                    <span>Unlicensed</span>
+                    <span>{t('dashboard.unlicensed')}</span>
                   </div>
                 </div>
               </div>
@@ -108,7 +116,7 @@ export const Wards: React.FC = () => {
                   <span>Officer: {w.assignedOfficer}</span>
                 </div>
                 <span className="text-gov-green font-bold uppercase tracking-wider flex items-center space-x-0.5">
-                  <span>Drill down</span>
+                  <span>{t('dashboard.inspect')}</span>
                   <ArrowUpRight size={10} />
                 </span>
               </div>
@@ -124,7 +132,7 @@ export const Wards: React.FC = () => {
           <div className="border-b pb-3 mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div>
               <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">Expanded View: Ward {selectedWard.id}</span>
-              <h3 className="font-bold text-slate-800 text-sm mt-1">Establishment directory inside {selectedWard.name}</h3>
+              <h3 className="font-bold text-slate-800 text-sm mt-1">{selectedWard.name}</h3>
             </div>
             <div className="text-[10px] text-slate-400 font-mono">
               Assigned Inspection Officer: <strong>{selectedWard.assignedOfficer}</strong>
@@ -141,12 +149,12 @@ export const Wards: React.FC = () => {
                 <thead className="bg-slate-50 border-b border-gov-border text-slate-500 font-bold uppercase">
                   <tr>
                     <th className="px-3 py-2">ID</th>
-                    <th className="px-3 py-2">Business Name</th>
-                    <th className="px-3 py-2">Owner Name</th>
-                    <th className="px-3 py-2">Category</th>
+                    <th className="px-3 py-2">{t('survey.business_name')}</th>
+                    <th className="px-3 py-2">{t('survey.owner_name')}</th>
+                    <th className="px-3 py-2">{t('survey.category')}</th>
                     <th className="px-3 py-2">License ID</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2 text-right">Details</th>
+                    <th className="px-3 py-2">{t('dashboard.th_action')}</th>
+                    <th className="px-3 py-2 text-right">{t('dashboard.th_action')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gov-border">

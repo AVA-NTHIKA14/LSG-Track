@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
 import type { WardReportRecord, BuildingRecord } from '../types';
@@ -9,6 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 export const WardReports: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [reports, setReports] = useState<WardReportRecord[]>([]);
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
@@ -97,10 +99,10 @@ export const WardReports: React.FC = () => {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <ClipboardCheck size={22} className="text-[#0F6E4F]" />
-            <span>Ward Member Unlicensed Field Reports</span>
+            <span>{t('nav.ward_reports')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Panchayat Secretary Decision Workspace to verify field submissions against synchronized K-SMART ERP records.
+            {t('dashboard.subheading', { code: localStorage.getItem('cp_active_panchayat_code') || 'G070702' })}
           </p>
         </div>
 

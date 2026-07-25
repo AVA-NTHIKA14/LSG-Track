@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import { whatsappService } from '../services/whatsappService';
 import type { BuildingRecord, LicenseRecord, WhatsAppLogRecord } from '../types';
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 
 export const CommunicationHub: React.FC = () => {
+  const { t } = useTranslation();
   // Database States
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
@@ -123,10 +125,10 @@ export const CommunicationHub: React.FC = () => {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <MessageSquare size={22} className="text-[#0F6E4F]" />
-            <span>Renewal Alerts</span>
+            <span>{t('communication.heading')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Automated WhatsApp renewal reminder dispatch hub for expired and expiring trade license establishments.
+            {t('communication.subheading')}
           </p>
         </div>
       </div>

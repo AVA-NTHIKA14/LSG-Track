@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,6 +28,7 @@ const buildingFormSchema = z.object({
 type BuildingFormData = z.infer<typeof buildingFormSchema>;
 
 export const Buildings: React.FC = () => {
+  const { t } = useTranslation();
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [wards, setWards] = useState<WardRecord[]>([]);
   
@@ -377,9 +379,9 @@ export const Buildings: React.FC = () => {
             <>
               <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
                 <Building2 size={22} className="text-[#0F6E4F]" />
-                <span>Commercial Establishments</span>
+                <span>{t('buildings.heading')}</span>
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">Complete master directory of commercial establishments, active trade licenses, and risk scores across Panchayat wards.</p>
+              <p className="text-xs text-slate-500 mt-0.5">{t('buildings.subheading', { code: localStorage.getItem('cp_active_panchayat_code') || 'G070702' })}</p>
             </>
           )}
         </div>

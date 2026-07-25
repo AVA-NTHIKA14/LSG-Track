@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
 import type { SystemSettings, SyncHistoryRecord } from '../types';
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react';
 
 export const Settings: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
 
@@ -66,10 +68,10 @@ export const Settings: React.FC = () => {
       <div className="border-b pb-3 flex justify-between items-center">
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            Profile & Settings
+            {t('settings.heading')}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Officer profile details, display accessibility options, K-SMART synchronization status, and technical support.
+            {t('settings.subheading')}
           </p>
         </div>
       </div>
@@ -273,12 +275,12 @@ export const Settings: React.FC = () => {
             </button>
 
             <button
-              onClick={() => alert("Connecting to State IT Support Desk (Toll-Free 1800-425-1000)...")}
+              onClick={() => alert("Contact student developers: support@lsgtrack.local")}
               className="bg-emerald-50 hover:bg-emerald-100 text-[#0F6E4F] border border-emerald-200 p-3 rounded-2xl flex items-center justify-between transition"
             >
               <div className="flex items-center space-x-2">
                 <Phone size={16} />
-                <span>Contact IT Support</span>
+                <span>Contact Project Support</span>
               </div>
               <ArrowRight size={14} className="text-[#0F6E4F]" />
             </button>
@@ -287,12 +289,12 @@ export const Settings: React.FC = () => {
           <div className="border-t pt-3 flex flex-col sm:flex-row justify-between text-xs text-slate-500 font-medium gap-2">
             <div>
               <span>Application Version: </span>
-              <span className="font-mono font-bold text-slate-800">2.0.0 (Production)</span>
+              <span className="font-mono font-bold text-slate-800">2.0.0 (Independent Pilot)</span>
             </div>
             <div className="flex items-center space-x-1">
               <Mail size={12} className="text-slate-400" />
               <span>Support Email: </span>
-              <span className="font-mono text-[#0F6E4F] font-bold">helpdesk.lsgd@kerala.gov.in</span>
+              <span className="font-mono text-[#0F6E4F] font-bold">support@lsgtrack.local</span>
             </div>
           </div>
         </div>

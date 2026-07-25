@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   CheckCircle2, AlertTriangle, Clock, AlertCircle,
   MapPin, ShieldAlert, Send, ClipboardCheck, 
-  ArrowRight, CheckSquare, History, FileText
+  ArrowRight, CheckSquare, History, FileText, Building2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { dbService } from '../services/dbService';
@@ -10,6 +11,7 @@ import { authService } from '../services/authService';
 import type { BuildingRecord, WardRecord, LicenseRecord, SyncHistoryRecord, WardReportRecord, AuditLogRecord } from '../types';
 
 export const Dashboard: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [wards, setWards] = useState<WardRecord[]>([]);
@@ -71,6 +73,10 @@ export const Dashboard: React.FC = () => {
 
   const pendingWardReports = wardReports.filter(r => r.status === 'pending_verification').length;
   const highPriorityInspections = buildings.filter(b => b.status === 'unlicensed' || b.riskScore === 'High').length;
+  const totalNgos = buildings.filter(b => {
+    const cat = (b.category || '').toLowerCase();
+    return cat.includes('ngo') || cat.includes('society') || cat.includes('trust');
+  }).length;
   const lastSync = syncHistory.length > 0 ? syncHistory[0] : null;
 
   // Ranked Wards by lowest compliance first
@@ -85,19 +91,19 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center space-x-2 text-slate-400 text-xs font-mono font-bold uppercase tracking-wider mb-0.5">
             <span>LSGD CODE: {activePanchayatCode}</span>
             <span>•</span>
-            <span>TRADE LICENSE MONITORING</span>
+            <span>{t('app.subtitle')}</span>
           </div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">{panchayatName}</h2>
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">{panchayatName} — {t('dashboard.heading')}</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Panchayat Secretary Decision Support & Compliance Workspace
+            {t('dashboard.subheading', { code: activePanchayatCode })}
           </p>
         </div>
 
         <div className="flex items-center space-x-3 text-xs shrink-0">
           <div className="bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-2xl text-right">
-            <span className="block text-[10px] text-slate-400 font-extrabold uppercase">Last K-SMART Sync</span>
+            <span className="block text-[10px] text-slate-400 font-extrabold uppercase">{t('dashboard.last_sync')}</span>
             <span className="font-bold text-slate-800 text-xs">
-              {lastSync ? `${new Date(lastSync.timestamp).toLocaleDateString()} (${lastSync.operatorName})` : 'No Sync Today'}
+              {lastSync ? `${new Date(lastSync.timestamp).toLocaleDateString()} (${lastSync.operatorName})` : t('dashboard.no_sync')}
             </span>
           </div>
 
@@ -106,20 +112,20 @@ export const Dashboard: React.FC = () => {
             className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white px-4 py-2.5 rounded-2xl font-extrabold text-xs transition shadow-sm flex items-center space-x-1.5"
           >
             <MapPin size={14} />
-            <span>Open Map View</span>
+            <span>{t('dashboard.open_map')}</span>
           </button>
         </div>
       </div>
 
-      {/* 2. TODAY'S TASKS WIDGET (Positioned above analytics for immediate action) */}
+      {/* 2. TODAY'S TASKS WIDGET */}
       <div className="bg-emerald-50/60 border border-emerald-200 rounded-3xl p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
           <h3 className="font-extrabold text-[#0F6E4F] text-sm flex items-center space-x-2">
             <CheckSquare size={16} />
-            <span>Today's Secretary Action Tasks</span>
+            <span>{t('dashboard.today_tasks')}</span>
           </h3>
           <span className="text-[10px] font-mono font-extrabold text-[#0F6E4F] bg-white px-2 py-0.5 rounded-md border border-emerald-200">
-            {pendingWardReports + (totalExpired > 0 ? 1 : 0) + (totalUnlicensed > 0 ? 1 : 0) + 1} Tasks Requiring Attention
+            {t('dashboard.tasks_req', { count: pendingWardReports + (totalExpired > 0 ? 1 : 0) + (totalUnlicensed > 0 ? 1 : 0) + 1 })}
           </span>
         </div>
 
@@ -131,8 +137,8 @@ export const Dashboard: React.FC = () => {
             className="bg-white border border-emerald-100 p-3 rounded-2xl hover:border-[#0F6E4F] transition cursor-pointer flex items-center justify-between shadow-2xs"
           >
             <div className="space-y-0.5">
-              <span className="text-slate-900 font-bold block">Verify Ward Member Reports</span>
-              <span className="text-slate-500 text-[11px] font-medium">{pendingWardReports} Pending Submissions</span>
+              <span className="text-slate-900 font-bold block">{t('dashboard.task1_title')}</span>
+              <span className="text-slate-500 text-[11px] font-medium">{t('dashboard.task1_sub', { count: pendingWardReports })}</span>
             </div>
             <ArrowRight size={14} className="text-[#0F6E4F] shrink-0" />
           </div>
@@ -143,8 +149,8 @@ export const Dashboard: React.FC = () => {
             className="bg-white border border-emerald-100 p-3 rounded-2xl hover:border-[#0F6E4F] transition cursor-pointer flex items-center justify-between shadow-2xs"
           >
             <div className="space-y-0.5">
-              <span className="text-slate-900 font-bold block">Review Expired Licenses</span>
-              <span className="text-slate-500 text-[11px] font-medium">{totalExpired} Overdue Units</span>
+              <span className="text-slate-900 font-bold block">{t('dashboard.task2_title')}</span>
+              <span className="text-slate-500 text-[11px] font-medium">{t('dashboard.task2_sub', { count: totalExpired })}</span>
             </div>
             <ArrowRight size={14} className="text-[#0F6E4F] shrink-0" />
           </div>
@@ -155,8 +161,8 @@ export const Dashboard: React.FC = () => {
             className="bg-white border border-emerald-100 p-3 rounded-2xl hover:border-[#0F6E4F] transition cursor-pointer flex items-center justify-between shadow-2xs"
           >
             <div className="space-y-0.5">
-              <span className="text-slate-900 font-bold block">Schedule Inspections</span>
-              <span className="text-slate-500 text-[11px] font-medium">{totalUnlicensed} Unlicensed Businesses</span>
+              <span className="text-slate-900 font-bold block">{t('dashboard.task3_title')}</span>
+              <span className="text-slate-500 text-[11px] font-medium">{t('dashboard.task3_sub', { count: totalUnlicensed })}</span>
             </div>
             <ArrowRight size={14} className="text-[#0F6E4F] shrink-0" />
           </div>
@@ -167,8 +173,8 @@ export const Dashboard: React.FC = () => {
             className="bg-white border border-emerald-100 p-3 rounded-2xl hover:border-[#0F6E4F] transition cursor-pointer flex items-center justify-between shadow-2xs"
           >
             <div className="space-y-0.5">
-              <span className="text-slate-900 font-bold block">Generate Monthly Report</span>
-              <span className="text-slate-500 text-[11px] font-medium">Ward Compliance Digest</span>
+              <span className="text-slate-900 font-bold block">{t('dashboard.task4_title')}</span>
+              <span className="text-slate-500 text-[11px] font-medium">{t('dashboard.task4_sub')}</span>
             </div>
             <ArrowRight size={14} className="text-[#0F6E4F] shrink-0" />
           </div>
@@ -176,131 +182,152 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. KPI CARDS (Each card has ONLY 1 clear action button) */}
+      {/* 3. KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         
-        {/* Card 1: Licensed Establishments -> Open List */}
+        {/* Card 1: Licensed Establishments */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Licensed Establishments</span>
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dashboard.kpi1_title')}</span>
             <div className="w-8 h-8 rounded-full bg-emerald-50 text-[#0F6E4F] flex items-center justify-center font-bold">
               <CheckCircle2 size={16} />
             </div>
           </div>
           <div>
             <div className="text-3xl font-extrabold text-slate-900">{totalLicensed}</div>
-            <div className="text-[11px] text-slate-500 font-medium">Active K-SMART Trade Permits</div>
+            <div className="text-[11px] text-slate-500 font-medium">{t('dashboard.kpi1_sub')}</div>
           </div>
           <button
             onClick={() => navigate('/licenses')}
             className="w-full bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 py-2 px-3 rounded-xl font-extrabold text-xs transition flex items-center justify-center space-x-1"
           >
-            <span>Open List</span>
+            <span>{t('dashboard.open_list')}</span>
             <ArrowRight size={12} />
           </button>
         </div>
 
-        {/* Card 2: Expired Licenses -> View on Map */}
+        {/* Card 2: Expired Licenses */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Expired Licenses</span>
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dashboard.kpi2_title')}</span>
             <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
               <Clock size={16} />
             </div>
           </div>
           <div>
             <div className="text-3xl font-extrabold text-amber-700">{totalExpired}</div>
-            <div className="text-[11px] text-slate-500 font-medium">Overdue for Renewal</div>
+            <div className="text-[11px] text-slate-500 font-medium">{t('dashboard.kpi2_sub')}</div>
           </div>
           <button
             onClick={() => navigate('/map?filter=expired')}
             className="w-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 py-2 px-3 rounded-xl font-extrabold text-xs transition flex items-center justify-center space-x-1"
           >
-            <span>View on Map</span>
+            <span>{t('dashboard.view_on_map')}</span>
             <ArrowRight size={12} />
           </button>
         </div>
 
-        {/* Card 3: Expiring Soon -> Send Reminders */}
+        {/* Card 3: Expiring Soon */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Expiring Soon (7 Days)</span>
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dashboard.kpi3_title')}</span>
             <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
               <AlertCircle size={16} />
             </div>
           </div>
           <div>
             <div className="text-3xl font-extrabold text-blue-700">{expiring7Days}</div>
-            <div className="text-[11px] text-slate-500 font-medium">Critical Expiry Window</div>
+            <div className="text-[11px] text-slate-500 font-medium">{t('dashboard.kpi3_sub')}</div>
           </div>
           <button
             onClick={() => navigate('/communication')}
             className="w-full bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 py-2 px-3 rounded-xl font-extrabold text-xs transition flex items-center justify-center space-x-1"
           >
             <Send size={12} />
-            <span>Send Reminders</span>
+            <span>{t('dashboard.send_reminders')}</span>
           </button>
         </div>
 
-        {/* Card 4: Unlicensed Establishments -> Schedule Inspection */}
+        {/* Card 4: Unlicensed Businesses */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Unlicensed Businesses</span>
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dashboard.kpi4_title')}</span>
             <div className="w-8 h-8 rounded-full bg-red-50 text-red-700 flex items-center justify-center font-bold">
               <AlertTriangle size={16} />
             </div>
           </div>
           <div>
             <div className="text-3xl font-extrabold text-red-700">{totalUnlicensed}</div>
-            <div className="text-[11px] text-slate-500 font-medium">Operating Without Permit</div>
+            <div className="text-[11px] text-slate-500 font-medium">{t('dashboard.kpi4_sub')}</div>
           </div>
           <button
             onClick={() => navigate('/map?filter=unlicensed')}
             className="w-full bg-red-50 hover:bg-red-100 text-red-900 border border-red-200 py-2 px-3 rounded-xl font-extrabold text-xs transition flex items-center justify-center space-x-1"
           >
-            <span>Schedule Inspection</span>
+            <span>{t('dashboard.schedule_inspection')}</span>
             <ArrowRight size={12} />
           </button>
         </div>
 
-        {/* Card 5: Pending Field Reports -> Review Reports */}
+        {/* Card 5: Pending Field Reports */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Pending Field Reports</span>
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dashboard.kpi5_title')}</span>
             <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
               <ClipboardCheck size={16} />
             </div>
           </div>
           <div>
             <div className="text-3xl font-extrabold text-purple-700">{pendingWardReports}</div>
-            <div className="text-[11px] text-slate-500 font-medium">Ward Member Submissions</div>
+            <div className="text-[11px] text-slate-500 font-medium">{t('dashboard.kpi5_sub')}</div>
           </div>
           <button
             onClick={() => navigate('/ward-reports')}
             className="w-full bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 py-2 px-3 rounded-xl font-extrabold text-xs transition flex items-center justify-center space-x-1"
           >
-            <span>Review Reports</span>
+            <span>{t('dashboard.review_reports')}</span>
             <ArrowRight size={12} />
           </button>
         </div>
 
-        {/* Card 6: High Priority Inspections -> Open Queue */}
+        {/* Card 6: High Priority Inspections */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">High Priority Inspections</span>
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dashboard.kpi6_title')}</span>
             <div className="w-8 h-8 rounded-full bg-orange-50 text-orange-700 flex items-center justify-center font-bold">
               <ShieldAlert size={16} />
             </div>
           </div>
           <div>
             <div className="text-3xl font-extrabold text-[#0F6E4F]">{highPriorityInspections}</div>
-            <div className="text-[11px] text-slate-500 font-medium">Risk Score Flagged Units</div>
+            <div className="text-[11px] text-slate-500 font-medium">{t('dashboard.kpi6_sub')}</div>
           </div>
           <button
-            onClick={() => navigate('/buildings?filter=high-risk')}
+            onClick={() => navigate('/registry?filter=high-risk')}
             className="w-full bg-emerald-50 hover:bg-emerald-100 text-[#0F6E4F] border border-emerald-200 py-2 px-3 rounded-xl font-extrabold text-xs transition flex items-center justify-center space-x-1"
           >
-            <span>Open Queue</span>
+            <span>{t('dashboard.open_queue')}</span>
+            <ArrowRight size={12} />
+          </button>
+        </div>
+
+        {/* Card 7: Registered NGOs */}
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">No. of NGO's</span>
+            <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
+              <Building2 size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-teal-800">{totalNgos}</div>
+            <div className="text-[11px] text-slate-500 font-medium">Registered Non-Profit & Trust Permits</div>
+          </div>
+          <button
+            onClick={() => navigate('/registry?category=ngo')}
+            className="w-full bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 py-2 px-3 rounded-xl font-extrabold text-xs transition flex items-center justify-center space-x-1"
+          >
+            <span>{t('dashboard.open_list')}</span>
             <ArrowRight size={12} />
           </button>
         </div>
@@ -310,14 +337,14 @@ export const Dashboard: React.FC = () => {
       {/* 4. OPERATIONAL TABLES & RECENT ACTIVITY WIDGET */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Ward Compliance Ranking Table (7 cols) */}
+        {/* Ward Compliance Ranking Table */}
         <div className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex justify-between items-center border-b pb-3">
             <div>
               <h3 className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center space-x-2">
-                <span>Panchayat Ward Compliance Ranking</span>
+                <span>{t('dashboard.table_title')}</span>
               </h3>
-              <p className="text-[11px] text-slate-500">Sorted by lowest compliance rate for inspection prioritization.</p>
+              <p className="text-[11px] text-slate-500">{t('dashboard.table_sub')}</p>
             </div>
           </div>
 
@@ -325,11 +352,11 @@ export const Dashboard: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                  <th className="pb-2">Ward #</th>
-                  <th className="pb-2">Ward Name</th>
-                  <th className="pb-2 text-center">Compliance Rate</th>
-                  <th className="pb-2 text-right">Unlicensed</th>
-                  <th className="pb-2 text-right">Action</th>
+                  <th className="pb-2">{t('dashboard.th_ward')}</th>
+                  <th className="pb-2">{t('dashboard.th_name')}</th>
+                  <th className="pb-2 text-center">{t('dashboard.th_compliance')}</th>
+                  <th className="pb-2 text-right">{t('dashboard.th_unlicensed')}</th>
+                  <th className="pb-2 text-right">{t('dashboard.th_action')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -360,7 +387,7 @@ export const Dashboard: React.FC = () => {
                         onClick={() => navigate(`/map?ward=${w.id}`)}
                         className="text-[#0F6E4F] hover:text-[#0B5A3E] inline-flex items-center space-x-0.5 text-[11px]"
                       >
-                        <span>Inspect</span>
+                        <span>{t('dashboard.inspect')}</span>
                         <ArrowRight size={12} />
                       </button>
                     </td>
@@ -371,15 +398,15 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Recent Administrative Activity Widget (5 cols) */}
+        {/* Recent Administrative Activity Widget */}
         <div className="lg:col-span-5 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex justify-between items-center border-b pb-3">
             <div>
               <h3 className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center space-x-2">
                 <History size={16} className="text-[#0F6E4F]" />
-                <span>Recent Administrative Activity</span>
+                <span>{t('dashboard.recent_activity')}</span>
               </h3>
-              <p className="text-[11px] text-slate-500">Chronological log of verified Secretary actions.</p>
+              <p className="text-[11px] text-slate-500">{t('dashboard.activity_sub')}</p>
             </div>
           </div>
 
@@ -387,7 +414,7 @@ export const Dashboard: React.FC = () => {
             {auditLogs.length === 0 ? (
               <div className="text-center py-10 text-slate-400 text-xs">
                 <FileText size={28} className="mx-auto text-slate-300 mb-1" />
-                <p>No administrative activity recorded today.</p>
+                <p>{t('dashboard.no_activity')}</p>
               </div>
             ) : (
               auditLogs.map(log => (

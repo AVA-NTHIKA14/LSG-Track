@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import type { SystemNotification } from '../types';
 import { Bell, Check, Info, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export const Notifications: React.FC = () => {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
   useEffect(() => {
@@ -20,8 +22,7 @@ export const Notifications: React.FC = () => {
       
       {/* Title */}
       <div className="border-b pb-4">
-        <h2 className="text-xl font-bold text-gov-navy">Notifications & System Alerts</h2>
-        <p className="text-xs text-slate-500">Official warnings, expiration notices, pending survey alerts, and workflow update feeds.</p>
+        <h2 className="text-xl font-bold text-gov-navy">{t('notifications.heading')}</h2>
       </div>
 
       <div className="bg-white border border-gov-border rounded p-4 shadow-sm max-w-3xl mx-auto space-y-4">

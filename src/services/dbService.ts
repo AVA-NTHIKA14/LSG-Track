@@ -6,18 +6,17 @@ import {
 import type { 
   BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, 
   SystemNotification, AuditLogRecord, SystemSettings, Panchayath, SyncHistoryRecord, WhatsAppLogRecord,
-  WardReportRecord, WardReportStatus 
+  WardReportRecord, WardReportStatus, StaffProfile 
 } from '../types';
 import { authService } from './authService';
 
 // Resolve current tenant context dynamically
 export const getActivePanchayathId = (): string => {
   const currentUser = authService.getCurrentUser();
-  if (!currentUser) return localStorage.getItem('cp_active_panchayat_code') || '204902';
-  if (currentUser.role === 'Administrator') {
-    return localStorage.getItem('cp_active_panchayat_code') || '204902';
-  }
-  return currentUser.panchayathId || '204902';
+  const saved = localStorage.getItem('cp_active_panchayat_code');
+  if (saved) return saved;
+  if (currentUser?.panchayatCode) return currentUser.panchayatCode;
+  return 'G070702';
 };
 
 // Dynamic LocalStorage Keys per tenant
@@ -31,7 +30,8 @@ const getKeys = (panchayathId: string) => ({
   SETTINGS: `cp_${panchayathId}_settings`,
   SYNC_HISTORY: `cp_${panchayathId}_sync_history`,
   WHATSAPP_LOGS: `cp_${panchayathId}_whatsapp_logs`,
-  WARD_REPORTS: `cp_${panchayathId}_ward_reports`
+  WARD_REPORTS: `cp_${panchayathId}_ward_reports`,
+  STAFF: `cp_${panchayathId}_staff`
 });
 
 // Initialize localStorage partitions if empty
@@ -1357,5 +1357,180 @@ export const dbService = {
       duplicateCount,
       errors
     };
+  },
+
+  // --- LOCAL STAFF PROFILES MANAGEMENT ---
+  getStaffProfiles(panchayatCode?: string): StaffProfile[] {
+    const activePId = panchayatCode || getActivePanchayathId();
+    initPanchayatLocalStorage(activePId);
+    const keys = getKeys(activePId);
+    return JSON.parse(localStorage.getItem(keys.STAFF) || '[]');
+  },
+
+  async addStaffProfile(staff: Omit<StaffProfile, 'id' | 'createdAt'>, panchayatCode?: string): Promise<StaffProfile> {
+    const activePId = panchayatCode || getActivePanchayathId();
+    initPanchayatLocalStorage(activePId);
+    const keys = getKeys(activePId);
+    const staffList: StaffProfile[] = JSON.parse(localStorage.getItem(keys.STAFF) || '[]');
+
+    const newStaff: StaffProfile = {
+      ...staff,
+      id: 'STF-' + Date.now(),
+      createdAt: new Date().toISOString()
+    };
+
+    staffList.unshift(newStaff);
+    localStorage.setItem(keys.STAFF, JSON.stringify(staffList));
+    await this.addAuditLog('ADD_STAFF', `Added local staff profile: ${newStaff.name} (${newStaff.role}) for Ward ${newStaff.wardNumber || 'All'}.`);
+    return newStaff;
+  },
+
+  async deleteStaffProfile(staffId: string, panchayatCode?: string): Promise<void> {
+    const activePId = panchayatCode || getActivePanchayathId();
+    initPanchayatLocalStorage(activePId);
+    const keys = getKeys(activePId);
+    let staffList: StaffProfile[] = JSON.parse(localStorage.getItem(keys.STAFF) || '[]');
+    const target = staffList.find(s => s.id === staffId);
+    staffList = staffList.filter(s => s.id !== staffId);
+    localStorage.setItem(keys.STAFF, JSON.stringify(staffList));
+    if (target) {
+      await this.addAuditLog('REMOVE_STAFF', `Removed local staff profile: ${target.name} (${target.role}).`);
+    }
+  },
+
+  verifyStaffPin(staffId: string, pin: string, panchayatCode?: string): boolean {
+    const activePId = panchayatCode || getActivePanchayathId();
+    const staffList = this.getStaffProfiles(activePId);
+    const target = staffList.find(s => s.id === staffId);
+    if (!target) return false;
+    if (!target.pin) return true;
+    return target.pin === pin.trim();
+  },
+
+  // --- FULL PANCHAYATH JSON BACKUP & RESTORE ---
+  exportPanchayatJSON(panchayatCode?: string): string {
+    const activePId = panchayatCode || getActivePanchayathId();
+    initPanchayatLocalStorage(activePId);
+    const keys = getKeys(activePId);
+
+    const backupData = {
+      app: 'LSG-Track',
+      version: '2.0-local-first',
+      panchayatCode: activePId,
+      exportedAt: new Date().toISOString(),
+      data: {
+        wards: JSON.parse(localStorage.getItem(keys.WARDS) || '[]'),
+        buildings: JSON.parse(localStorage.getItem(keys.BUILDINGS) || '[]'),
+        licenses: JSON.parse(localStorage.getItem(keys.LICENSES) || '[]'),
+        surveys: JSON.parse(localStorage.getItem(keys.SURVEYS) || '[]'),
+        notifications: JSON.parse(localStorage.getItem(keys.NOTIFICATIONS) || '[]'),
+        auditLogs: JSON.parse(localStorage.getItem(keys.AUDIT_LOGS) || '[]'),
+        settings: JSON.parse(localStorage.getItem(keys.SETTINGS) || '{}'),
+        syncHistory: JSON.parse(localStorage.getItem(keys.SYNC_HISTORY) || '[]'),
+        whatsappLogs: JSON.parse(localStorage.getItem(keys.WHATSAPP_LOGS) || '[]'),
+        wardReports: JSON.parse(localStorage.getItem(keys.WARD_REPORTS) || '[]'),
+        staff: JSON.parse(localStorage.getItem(keys.STAFF) || '[]')
+      }
+    };
+
+    return JSON.stringify(backupData, null, 2);
+  },
+
+  async importPanchayatJSON(jsonString: string): Promise<{ success: boolean; panchayatCode: string; recordCounts: Record<string, number> }> {
+    try {
+      const parsed = JSON.parse(jsonString);
+      const pCode = parsed.panchayatCode || getActivePanchayathId();
+      const keys = getKeys(pCode);
+
+      if (!parsed.data) {
+        throw new Error('Invalid backup file. Missing "data" section.');
+      }
+
+      const d = parsed.data;
+      if (d.wards) localStorage.setItem(keys.WARDS, JSON.stringify(d.wards));
+      if (d.buildings) localStorage.setItem(keys.BUILDINGS, JSON.stringify(d.buildings));
+      if (d.licenses) localStorage.setItem(keys.LICENSES, JSON.stringify(d.licenses));
+      if (d.surveys) localStorage.setItem(keys.SURVEYS, JSON.stringify(d.surveys));
+      if (d.notifications) localStorage.setItem(keys.NOTIFICATIONS, JSON.stringify(d.notifications));
+      if (d.auditLogs) localStorage.setItem(keys.AUDIT_LOGS, JSON.stringify(d.auditLogs));
+      if (d.settings) localStorage.setItem(keys.SETTINGS, JSON.stringify(d.settings));
+      if (d.syncHistory) localStorage.setItem(keys.SYNC_HISTORY, JSON.stringify(d.syncHistory));
+      if (d.whatsappLogs) localStorage.setItem(keys.WHATSAPP_LOGS, JSON.stringify(d.whatsappLogs));
+      if (d.wardReports) localStorage.setItem(keys.WARD_REPORTS, JSON.stringify(d.wardReports));
+      if (d.staff) localStorage.setItem(keys.STAFF, JSON.stringify(d.staff));
+
+      notifySubscribers('buildings', d.buildings || []);
+      notifySubscribers('licenses', d.licenses || []);
+      notifySubscribers('wards', d.wards || []);
+
+      await this.addAuditLog('RESTORE_BACKUP', `Restored full JSON backup for Panchayat: ${pCode}.`);
+
+      return {
+        success: true,
+        panchayatCode: pCode,
+        recordCounts: {
+          buildings: d.buildings?.length || 0,
+          licenses: d.licenses?.length || 0,
+          surveys: d.surveys?.length || 0,
+          wardReports: d.wardReports?.length || 0,
+          staff: d.staff?.length || 0
+        }
+      };
+    } catch (err: any) {
+      throw new Error(err?.message || 'Failed to parse JSON backup file.');
+    }
+  },
+
+  // --- LIGHTWEIGHT FIELD SURVEY HAND-OFF EXPORT/IMPORT ---
+  exportWardSurveysJSON(wardNumber?: string): string {
+    const activePId = getActivePanchayathId();
+    const keys = getKeys(activePId);
+    const surveys: SurveyRecord[] = JSON.parse(localStorage.getItem(keys.SURVEYS) || '[]');
+    const wardReports: WardReportRecord[] = JSON.parse(localStorage.getItem(keys.WARD_REPORTS) || '[]');
+
+    const filteredSurveys = wardNumber ? surveys.filter(s => s.buildingId.includes(`W${wardNumber}`)) : surveys;
+    const filteredReports = wardNumber ? wardReports.filter(r => r.wardNumber === wardNumber) : wardReports;
+
+    const payload = {
+      type: 'LSG-Track-Survey-Batch',
+      panchayatCode: activePId,
+      wardNumber: wardNumber || 'all',
+      exportedAt: new Date().toISOString(),
+      surveys: filteredSurveys,
+      wardReports: filteredReports
+    };
+
+    return JSON.stringify(payload, null, 2);
+  },
+
+  async importWardSurveysJSON(jsonString: string): Promise<{ importedCount: number }> {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (parsed.type !== 'LSG-Track-Survey-Batch') {
+        throw new Error('Invalid survey hand-off file. File must be an LSG-Track survey batch export.');
+      }
+
+      const activePId = getActivePanchayathId();
+      const keys = getKeys(activePId);
+      const currentReports: WardReportRecord[] = JSON.parse(localStorage.getItem(keys.WARD_REPORTS) || '[]');
+
+      let importedCount = 0;
+      if (parsed.wardReports && Array.isArray(parsed.wardReports)) {
+        parsed.wardReports.forEach((rep: WardReportRecord) => {
+          const exists = currentReports.some(r => r.id === rep.id);
+          if (!exists) {
+            currentReports.unshift(rep);
+            importedCount++;
+          }
+        });
+        localStorage.setItem(keys.WARD_REPORTS, JSON.stringify(currentReports));
+        notifySubscribers('wardReports', currentReports);
+      }
+
+      await this.addAuditLog('IMPORT_FIELD_SURVEYS', `Imported field survey hand-off batch (${importedCount} new entries).`);
+      return { importedCount };
+    } catch (err: any) {
+      throw new Error(err?.message || 'Failed to import field survey batch.');
+    }
   }
 };

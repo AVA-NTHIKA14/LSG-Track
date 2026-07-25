@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   LayoutDashboard, 
   Map, 
-  ShieldCheck, 
   BarChart3, 
   Settings, 
   HelpCircle, 
@@ -15,7 +15,6 @@ import {
   Building2,
   Smartphone,
   MessageSquare,
-  ShieldAlert,
   Menu,
   X,
   Database,
@@ -30,6 +29,7 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(authService.getCurrentUser());
@@ -43,7 +43,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   
   // Multi-tenancy states
   const [panchayaths, setPanchayaths] = useState<Panchayath[]>([]);
-  const [activePanchayatName, setActivePanchayatName] = useState('Loading Panchayat...');
+  const [, setActivePanchayatName] = useState('Loading Panchayat...');
   const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
 
   useEffect(() => {
@@ -111,45 +111,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Navigation Items mapped to match Secretary-centric governance requirements
+  // Consolidated Navigation Items (6 core items) per wireframe decisions
   const getNavItems = () => {
     const role = currentUser?.role;
 
-    if (role === 'Panchayat Section Clerk') {
-      // DEO Scoped Navigation
+    if (role === 'Panchayat Section Clerk' || role === 'clerk') {
       return [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'K-SMART Data Sync', path: '/sync', icon: Database },
-        { name: 'Profile & Settings', path: '/settings', icon: Settings },
+        { name: t('nav.dashboard'), path: '/', icon: LayoutDashboard },
+        { name: `${t('nav.buildings')} / Registry`, path: '/registry', icon: Building2 },
+        { name: t('nav.sync'), path: '/sync', icon: Database },
+        { name: t('nav.settings'), path: '/settings', icon: Settings },
       ];
     }
 
-    if (role === 'Ward Member') {
-      // Ward Member Scoped Navigation
+    if (role === 'Ward Member' || role === 'ward_member') {
       return [
-        { name: 'Report Establishment', path: '/survey', icon: Smartphone },
-        { name: 'My Reports', path: '/survey?tab=history', icon: ShieldCheck },
-        { name: 'Profile & Settings', path: '/settings', icon: Settings },
+        { name: t('nav.survey'), path: '/survey', icon: Smartphone },
+        { name: `${t('nav.ward_reports')}`, path: '/report?tab=ward', icon: ClipboardCheck },
+        { name: t('nav.settings'), path: '/settings', icon: Settings },
       ];
     }
 
-    // Secretary & Administrator Navigation
-    const items = [
-      { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-      { name: 'Map View', path: '/map', icon: Map },
-      { name: 'Commercial Establishments', path: '/buildings', icon: Building2 },
-      { name: 'Licenses', path: '/licenses', icon: ShieldCheck },
-      { name: 'Field Reports', path: '/ward-reports', icon: ClipboardCheck },
-      { name: 'Renewal Alerts', path: '/communication', icon: MessageSquare },
-      { name: 'Reports', path: '/reports', icon: BarChart3 },
-      { name: 'Profile & Settings', path: '/settings', icon: Settings },
+    // Consolidated 6 Items for Secretary & Administrators
+    return [
+      { name: t('nav.dashboard'), path: '/', icon: LayoutDashboard },
+      { name: t('nav.map'), path: '/map', icon: Map },
+      { name: t('nav.communication'), path: '/communication', icon: MessageSquare },
+      { name: 'Registry', path: '/registry', icon: Building2 },
+      { name: 'Report', path: '/report', icon: BarChart3 },
+      { name: t('nav.settings'), path: '/settings', icon: Settings },
     ];
-
-    if (role === 'Administrator') {
-      items.push({ name: 'Administration', path: '/administration', icon: ShieldAlert });
-    }
-
-    return items;
   };
 
   const navItems = getNavItems();
@@ -203,9 +194,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
               <input
                 type="text"
-                placeholder="Search businesses, owners or licenses..."
+                placeholder={t('common.search')}
                 value={searchQuery}
-                aria-label="Search businesses, owners or licenses"
+                aria-label={t('common.search')}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="border border-slate-200 bg-slate-50/50 rounded-full pl-9 pr-4 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] w-64 transition"
               />
@@ -217,9 +208,33 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         </div>
 
-        {/* Right Side: Status Pill, Notifications, Help & User Dropdown */}
-        <div className="flex items-center space-x-3 md:space-x-5">
+        {/* Right Side: Status Pill, Language Toggle, Notifications, Help & User Dropdown */}
+        <div className="flex items-center space-x-3 md:space-x-4">
           
+          {/* Language Switcher Toggle */}
+          <div className="flex items-center border border-slate-200 bg-slate-100/80 rounded-full p-0.5 text-[11px] font-bold">
+            <button
+              type="button"
+              onClick={() => {
+                i18n.changeLanguage('en');
+                localStorage.setItem('cp_language', 'en');
+              }}
+              className={`px-2.5 py-0.5 rounded-full transition ${i18n.language === 'en' ? 'bg-[#0F6E4F] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                i18n.changeLanguage('ml');
+                localStorage.setItem('cp_language', 'ml');
+              }}
+              className={`px-2.5 py-0.5 rounded-full transition ${i18n.language === 'ml' ? 'bg-[#0F6E4F] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              മലയാളം
+            </button>
+          </div>
+
           {/* K-SMART Dynamic Integration Pill with live status binding */}
           <div className="bg-[#EBF7F2] text-[#0F6E4F] px-3 py-1.5 rounded-full text-[11px] font-semibold hidden lg:flex items-center space-x-1.5 shadow-sm border border-emerald-100">
             <span className="relative flex h-2 w-2">
@@ -227,7 +242,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span className="tracking-wide">
-              {lastSyncTime ? `K-SMART Synced (${lastSyncTime})` : 'K-SMART Dynamic Integration'}
+              {lastSyncTime ? `${t('dashboard.last_sync')} (${lastSyncTime})` : t('sync.heading')}
             </span>
           </div>
 
@@ -266,8 +281,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 {getUserInitials()}
               </div>
               <div className="text-left text-[11px] leading-tight pr-1 hidden sm:block">
-                <span className="block font-bold text-slate-700 capitalize">{currentUser?.name.split(' ')[0] || 'Secretary'}</span>
-                <span className="text-[9px] text-slate-400 font-medium block leading-none">{currentUser?.role || 'Secretary'}</span>
+                <span className="block font-bold text-slate-700 capitalize">{currentUser?.name.split(' ')[0] || t('roles.secretary')}</span>
+                <span className="text-[9px] text-slate-400 font-medium block leading-none">
+                  {currentUser?.role === 'Panchayat Section Clerk' ? t('roles.clerk') : currentUser?.role === 'Ward Member' ? t('roles.ward_member') : currentUser?.role === 'Administrator' ? t('roles.admin') : t('roles.secretary')}
+                </span>
               </div>
               <ChevronDown size={12} className="text-slate-400" />
             </button>
@@ -371,15 +388,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                   <Compass size={14} className="text-[#0F6E4F]" />
                 </div>
                 <div className="leading-tight">
-                  <div className="text-xs font-extrabold text-slate-800">LSG Admin Portal</div>
-                  <div className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Kerala State</div>
+                  <div className="text-xs font-extrabold text-slate-800">{i18n.language === 'ml' ? 'എൽ.എസ്.ജി അഡ്മിൻ പോർട്ടൽ' : 'LSG Admin Portal'}</div>
+                  <div className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">{i18n.language === 'ml' ? 'കേരള സംസ്ഥാനം' : 'Kerala State'}</div>
                 </div>
               </div>
 
               {/* Tenant context switcher for System Admins */}
               {currentUser?.role === 'Administrator' && panchayaths.length > 0 && (
                 <div className="pt-2">
-                  <label className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">Active Tenant</label>
+                  <label className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">{i18n.language === 'ml' ? 'പ്രവർത്തന സജ്ജമായ പഞ്ചായത്ത്' : 'Active Tenant'}</label>
                   <select
                     value={activePanchayatCode}
                     onChange={(e) => {
@@ -452,14 +469,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       </div>
 
-      {/* ==================== DARK GREEN FOOTER ==================== */}
+      {/* ==================== FOOTER ==================== */}
       <footer className="bg-[#0B3B24] text-emerald-100/70 py-6 border-t border-emerald-950/20 text-center text-xs no-print select-none leading-relaxed">
         <div className="max-w-7xl mx-auto px-6 space-y-1.5">
           <div className="font-semibold text-[11px] tracking-wide">
-            © 2026 {activePanchayatName}, Local Self-Government Department, Kerala. All Rights Reserved.
+            LSG-Track — Independent Local-First Licensing Platform for Grama Panchayaths
           </div>
           <div className="text-[10px] text-emerald-200/50">
-            Maintained by LSGD Information Kerala Mission (IKM). Software version 2.0.0 (Multi-Tenant Production). For support: helpdesk.lsgd@kerala.gov.in
+            Built by students for Panchayat Secretaries & Ward Members. Unofficial tool with zero government affiliation. Developed and piloted with Panangad Grama Panchayat. For support: support@lsgtrack.local
           </div>
         </div>
       </footer>

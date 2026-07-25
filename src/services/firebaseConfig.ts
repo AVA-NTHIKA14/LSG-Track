@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,31 +21,39 @@ const requiredConfigKeys = [
   'VITE_FIREBASE_APP_ID'
 ] as const;
 
+// Debug log to pinpoint missing keys in browser console
+requiredConfigKeys.forEach((key) => {
+  if (!import.meta.env[key]) {
+    console.error(`❌ Firebase Config Missing: ${key} is undefined in .env`);
+  }
+});
+
 export const isFirebaseEnabled = requiredConfigKeys.every((key) => Boolean(import.meta.env[key]));
 export let firebaseInitializationError: string | null = isFirebaseEnabled
   ? null
-  : 'Firebase configuration is incomplete.';
+  : 'Firebase configuration is incomplete. Check your .env file.';
 
 let app;
-let auth: any = null;
-let db: any = null;
-let storage: any = null;
-let googleProvider: any = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
+let googleProvider: GoogleAuthProvider | null = null;
 
 if (isFirebaseEnabled) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+    storage = getStorage(app);
+
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
+        tabManager: persistentMultipleTabManager(),
+      }),
     });
-    storage = getStorage(app);
-    googleProvider = new GoogleAuthProvider();
-  } catch (error) {
-    firebaseInitializationError = error instanceof Error ? error.message : 'Firebase initialization failed.';
-    console.error('Firebase initialization failed:', error);
+  } catch (error: any) {
+    console.error("Firebase Initialization Error:", error);
+    firebaseInitializationError = error.message;
   }
 }
 

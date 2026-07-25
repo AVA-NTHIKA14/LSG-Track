@@ -25,18 +25,26 @@ export const Profile: React.FC = () => {
   // Define descriptive role specifications
   const getRoleDesc = (role: UserRole) => {
     switch (role) {
+      case 'admin':
       case 'Administrator':
         return 'Overall administrative control, user permissions configuration, database registers review, settings management, and e-Governance logs audit.';
+      case 'secretary':
       case 'Secretary':
         return 'Executive approval authority, trade license generation, field survey observations verification, renewal authorizations, and analytics reports view.';
+      case 'ward_member':
       case 'Ward Member':
         return 'Assigned ward boundary supervisor, unlicensed building monitoring, field survey entries submission, and ward performance statistics review.';
+      case 'clerk':
       case 'Panchayat Section Clerk':
         return 'Panchayat section clerk responsible for K-SMART import, establishment register updates, license workflow support, and controlled data entry duties.';
       default:
         return 'Portal auditor/viewer. Read-only permissions across GIS maps, dashboard indicators, registries, and reports logs. Administrative actions restricted.';
     }
   };
+
+  const userId = currentUser?.uid || currentUser?.id || 'usr-officer';
+  const userPermissions = currentUser?.permissions || ['view_only'];
+  const userWard = currentUser?.wardNumber || currentUser?.ward;
 
   return (
     <div className="space-y-6">
@@ -55,7 +63,7 @@ export const Profile: React.FC = () => {
             <User size={32} className="text-gov-green-light" />
           </div>
           <div>
-            <span className="font-mono text-[9px] text-slate-300 uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded">e-Governance ID: {currentUser.id.substring(0, 10)}</span>
+            <span className="font-mono text-[9px] text-slate-300 uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded">e-Governance ID: {String(userId).substring(0, 10)}</span>
             <h3 className="font-bold text-base mt-1 leading-none">{currentUser.name}</h3>
             <p className="text-[11px] text-slate-400 mt-1 font-mono">{currentUser.email}</p>
           </div>
@@ -69,7 +77,7 @@ export const Profile: React.FC = () => {
             <Award size={18} className="text-gov-green shrink-0 mt-0.5" />
             <div>
               <span className="block font-bold text-slate-500 uppercase text-[9px]">Designated User Role</span>
-              <span className="block font-bold text-slate-900 text-sm mt-0.5">{currentUser.role}</span>
+              <span className="block font-bold text-slate-900 text-sm mt-0.5 uppercase">{currentUser.role.replace('_', ' ')}</span>
               <p className="text-slate-600 mt-1 leading-relaxed font-medium">
                 {getRoleDesc(currentUser.role)}
               </p>
@@ -77,14 +85,14 @@ export const Profile: React.FC = () => {
           </div>
 
           {/* Ward assignment (if any) */}
-          {currentUser.ward && (
+          {userWard && (
             <div className="flex items-start space-x-3 border-t pt-4">
               <Milestone size={18} className="text-gov-green shrink-0 mt-0.5" />
               <div>
                 <span className="block font-bold text-slate-500 uppercase text-[9px]">Assigned Ward Jurisdiction</span>
-                <span className="block font-bold text-slate-900 text-sm mt-0.5">Ward {currentUser.ward} Boundary</span>
+                <span className="block font-bold text-slate-900 text-sm mt-0.5">Ward {userWard} Boundary</span>
                 <p className="text-slate-600 mt-1 leading-relaxed font-medium">
-                  Authorised to perform inspections and monitor compliance aggregates within Ward {currentUser.ward} boundaries.
+                  Authorised to perform inspections and monitor compliance aggregates within Ward {userWard} boundaries.
                 </p>
               </div>
             </div>
@@ -97,12 +105,12 @@ export const Profile: React.FC = () => {
               <span className="block font-bold text-slate-500 uppercase text-[9px] mb-2">Authorized Administrative Permissions</span>
               
               <div className="flex flex-wrap gap-1.5 font-mono">
-                {currentUser.permissions.includes('all') ? (
+                {userPermissions.includes('all') ? (
                   <span className="bg-slate-100 border text-slate-800 px-2 py-0.5 rounded text-[10px] font-bold">
                     * ALL AUTHORIZATIONS (ROOT_ADMIN)
                   </span>
                 ) : (
-                  currentUser.permissions.map((p, i) => (
+                  userPermissions.map((p: string, i: number) => (
                     <span key={i} className="bg-slate-50 border text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold">
                       {p.toUpperCase()}
                     </span>

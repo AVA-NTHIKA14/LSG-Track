@@ -43,7 +43,7 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', 'Noto Sans', 'ui-sans-serif', 'system-ui'],
+        sans: ['Inter', 'Noto Sans Malayalam', 'Noto Sans', 'ui-sans-serif', 'system-ui'],
       }
     }
   },

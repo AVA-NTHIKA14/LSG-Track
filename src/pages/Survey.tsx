@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
@@ -23,6 +24,7 @@ interface LocalReportDraft {
 }
 
 export const Survey: React.FC = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const currentUser = authService.getCurrentUser();
   const assignedWard = currentUser?.ward || '1';
@@ -157,10 +159,25 @@ export const Survey: React.FC = () => {
   }, [activeBuilding, lat, lng, role]);
 
   const handleGetGPS = () => {
-    const offsetLat = +(Math.random() * 0.006 - 0.003).toFixed(5);
-    const offsetLng = +(Math.random() * 0.006 - 0.003).toFixed(5);
-    setLat(+(11.57547 + offsetLat).toFixed(5));
-    setLng(+(75.81649 + offsetLng).toFixed(5));
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLat(+pos.coords.latitude.toFixed(5));
+          setLng(+pos.coords.longitude.toFixed(5));
+        },
+        () => {
+          const offsetLat = +(Math.random() * 0.006 - 0.003).toFixed(5);
+          const offsetLng = +(Math.random() * 0.006 - 0.003).toFixed(5);
+          setLat(+(11.57547 + offsetLat).toFixed(5));
+          setLng(+(75.81649 + offsetLng).toFixed(5));
+        }
+      );
+    } else {
+      const offsetLat = +(Math.random() * 0.006 - 0.003).toFixed(5);
+      const offsetLng = +(Math.random() * 0.006 - 0.003).toFixed(5);
+      setLat(+(11.57547 + offsetLat).toFixed(5));
+      setLng(+(75.81649 + offsetLng).toFixed(5));
+    }
   };
 
   const clearForm = () => {
@@ -317,20 +334,10 @@ export const Survey: React.FC = () => {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <ClipboardCheck size={22} className="text-[#0F6E4F]" />
-            <span>
-              {activeTab === 'history'
-                ? 'My Submitted Field Reports'
-                : role === 'Ward Member'
-                ? 'Report Suspected Unlicensed Business'
-                : 'Field Inspection Terminal'}
-            </span>
+            <span>{t('survey.heading')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {activeTab === 'history'
-              ? `Verification status & audit log of reports submitted for Ward ${assignedWard}`
-              : role === 'Ward Member'
-              ? `Field reporting workspace for Ward Member (Ward ${assignedWard})`
-              : 'Physical site verification terminal for Panchayat Section Clerk.'}
+            {t('survey.subheading')}
           </p>
         </div>
 

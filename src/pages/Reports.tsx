@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as XLSX from 'xlsx';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
@@ -11,6 +12,7 @@ import {
 type ReportType = 'compliance' | 'licenses' | 'revenue' | 'surveys' | 'audit';
 
 export const Reports: React.FC = () => {
+  const { t } = useTranslation();
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [wards, setWards] = useState<WardRecord[]>([]);
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
@@ -166,8 +168,8 @@ export const Reports: React.FC = () => {
       {/* Title */}
       <div className="border-b pb-4 flex justify-between items-center no-print">
         <div>
-          <h2 className="text-xl font-bold text-gov-navy">Administrative Report Centre</h2>
-          <p className="text-xs text-slate-500">Query and compile LSGD audit records, compliance indexes, and treasury collections.</p>
+          <h2 className="text-xl font-bold text-gov-navy">{t('reports.heading')}</h2>
+          <p className="text-xs text-slate-500">{t('reports.subheading')}</p>
         </div>
         <div className="flex space-x-2">
           <button
@@ -243,9 +245,9 @@ export const Reports: React.FC = () => {
         
         {/* Printable Official Header */}
         <div className="text-center border-b-2 border-slate-800 pb-5">
-          <div className="text-xs uppercase tracking-widest font-bold text-slate-600">Local Self Government Department</div>
+          <div className="text-xs uppercase tracking-widest font-bold text-slate-600">Local Licensing Management Platform</div>
           <h2 className="text-lg font-extrabold uppercase text-gov-navy mt-1">{panchayatName} Office</h2>
-          <p className="text-[10px] text-slate-500">Kerala State, India | Dynamic Multi-Tenant Portal</p>
+          <p className="text-[10px] text-slate-500">Local-First Licensing Platform | Independent System</p>
           <div className="mt-4 px-3 py-1 bg-slate-50 rounded border inline-block text-[10px] font-mono text-slate-700">
             REF NO: LSGD/CP/LIC/2026/RP-{reportType.toUpperCase()} | DATE OF COMPILE: 2026-06-28
           </div>

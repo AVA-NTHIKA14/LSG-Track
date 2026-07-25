@@ -1,133 +1,143 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ShieldAlert, 
-  Eye, 
-  EyeOff, 
+import { useTranslation } from 'react-i18next';
+import { 
+  Building2, 
+  Compass, 
   User, 
-  HelpCircle, 
-  Map, 
-  RefreshCw, 
-  Bell, 
-  Compass
+  CheckCircle2, 
+  ArrowRight,
+  HardDrive,
+  RefreshCw,
+  MapPin
 } from 'lucide-react';
-import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
-import { AUTHORIZED_PORTAL_ROLES } from '../services/portalRoles';
-import type { Panchayath } from '../types';
+import type { UserRole } from '../types';
+import { 
+  KERALA_DISTRICTS, 
+  getPanchayathsByDistrict, 
+  getPanchayathByCode,
+  type PanchayathOption 
+} from '../data/keralaPanchayaths';
 
 export const Login: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+
+  // Onboarding / Selection state
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('Kozhikode');
+  const [panchayathList, setPanchayathList] = useState<PanchayathOption[]>([]);
+  const [selectedPanchayathCode, setSelectedPanchayathCode] = useState<string>('G110706'); // Default Panangad
+  const [manualMode, setManualMode] = useState<boolean>(false);
+  const [manualCodeInput, setManualCodeInput] = useState<string>('');
+
+  // Login Form State
+  const [role, setRole] = useState<UserRole>('Secretary');
+  const [staffName, setStaffName] = useState<string>('');
+  const [wardNumber, setWardNumber] = useState<string>('1');
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  
-  // Login Inputs
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [panchayatCode, setPanchayatCode] = useState('G110706');
-  const [rememberMe, setRememberMe] = useState(false);
 
-  // Dynamic tenant list
-  const [panchayaths, setPanchayaths] = useState<Panchayath[]>([]);
+  // Active Resolved Panchayath Meta
+  const [resolvedPanchayath, setResolvedPanchayath] = useState<PanchayathOption>({
+    code: 'G110706',
+    name: 'Panangad Grama Panchayat',
+    nameMl: 'പനങ്ങാട് ഗ്രാമപഞ്ചായത്ത്',
+    district: 'Kozhikode'
+  });
 
+  // Step state: 'picker' or 'login'
+  const [step, setStep] = useState<'picker' | 'login'>('picker');
+
+  // Load Panchayaths in official SEC Kerala Local Body order
   useEffect(() => {
-    const fetchTenantsAndUsers = async () => {
-      try {
-        const list = await dbService.getPanchayaths();
-        setPanchayaths(list);
+    const list = getPanchayathsByDistrict(selectedDistrict);
+    setPanchayathList(list);
+    if (list.length > 0 && !list.find(p => p.code === selectedPanchayathCode)) {
+      setSelectedPanchayathCode(list[0].code);
+    }
+  }, [selectedDistrict]);
 
-        const hasPanangad = list.some(p => p.id === 'G110706');
-        if (hasPanangad) {
-          setPanchayatCode('G110706');
-        } else if (list.length > 0) {
-          setPanchayatCode(list[0].id);
-        }
-      } catch {
-        // Tenant metadata is protected until authentication; officers can enter their assigned code.
-        setPanchayaths([]);
+  // Check if a Panchayath is already saved in LocalStorage
+  useEffect(() => {
+    const savedCode = localStorage.getItem('cp_active_panchayat_code');
+    if (savedCode) {
+      const match = getPanchayathByCode(savedCode);
+      if (match) {
+        setResolvedPanchayath(match);
+        setSelectedPanchayathCode(match.code);
+        setSelectedDistrict(match.district);
+        setStep('login');
+      } else {
+        setResolvedPanchayath({
+          code: savedCode,
+          name: `Panchayat (${savedCode})`,
+          nameMl: `പഞ്ചായത്ത് (${savedCode})`,
+          district: 'Kerala'
+        });
+        setSelectedPanchayathCode(savedCode);
+        setStep('login');
       }
-    };
-    fetchTenantsAndUsers();
+    }
   }, []);
 
-  const handleCredentialsSignIn = async (e: React.FormEvent) => {
+  const handleConfirmPanchayath = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please provide your official email/username and password.');
-      return;
-    }
-    
-    setLoading(true);
     setError(null);
-    
-    try {
-      const user = await authService.loginWithCredentials(email, password, panchayatCode);
-      if (user) {
-        localStorage.setItem('cp_active_panchayat_code', panchayatCode);
-        try {
-          await dbService.addAuditLog('LOGIN', `User logged in using credentials: ${user.email} (Panchayat Code: ${panchayatCode})`);
-        } catch {
-          // Silent fallback for audit log during demo sign-in
-        }
-        navigate('/');
-      } else {
-        setError(`Invalid personnel credentials, password, or access mismatch for selected Panchayat code. Only ${AUTHORIZED_PORTAL_ROLES.join(', ')} accounts can sign in.`);
+
+    let targetCode = selectedPanchayathCode;
+    if (manualMode) {
+      targetCode = manualCodeInput.trim().toUpperCase();
+      if (!targetCode) {
+        setError('Please enter a valid Panchayath LSGD Code (e.g. G070702).');
+        return;
       }
-    } catch (err: any) {
-      setError(err?.message || 'Credentials sign-in failed. Please contact administrator.');
-    } finally {
-      setLoading(false);
     }
+
+    const match = getPanchayathByCode(targetCode);
+    const panchayathObj: PanchayathOption = match || {
+      code: targetCode,
+      name: `Panchayat (${targetCode})`,
+      nameMl: `പഞ്ചായത്ത് (${targetCode})`,
+      district: selectedDistrict
+    };
+
+    setResolvedPanchayath(panchayathObj);
+    localStorage.setItem('cp_active_panchayat_code', targetCode);
+    setStep('login');
   };
 
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
-      setError('Enter your official email or username first, then use Forgot Password.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      await authService.sendPasswordReset(email.trim());
-      setError('Password reset email sent. Check your inbox and spam folder.');
-    } catch (err: any) {
-      setError(err?.message || 'Unable to send password reset email. Contact the administrator.');
-    } finally {
-      setLoading(false);
-    }
+  const handleSwitchPanchayath = () => {
+    setStep('picker');
   };
 
-  const handleQuickRoleLogin = async (targetEmail: string) => {
-    setLoading(true);
+  const handleEntrySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
+
+    const displayName = staffName.trim() || (
+      role === 'Secretary' ? (i18n.language === 'ml' ? 'പഞ്ചായത്ത് സെക്രട്ടറി' : 'Panchayat Secretary') :
+      role === 'Panchayat Section Clerk' ? (i18n.language === 'ml' ? 'സെക്ഷൻ ക്ലർക്ക്' : 'Section Clerk') :
+      role === 'Ward Member' ? (i18n.language === 'ml' ? `വാർഡ് ${wardNumber} മെമ്പർ` : `Ward ${wardNumber} Member`) : 'Grama Officer'
+    );
+
     try {
-      const user = await authService.loginWithCredentials(targetEmail, 'demo123', panchayatCode);
-      if (user) {
-        localStorage.setItem('cp_active_panchayat_code', panchayatCode);
-        try {
-          await dbService.addAuditLog('LOGIN', `Quick Demo Sign-In: ${user.email} (${panchayatCode})`);
-        } catch {
-          // Silent fallback for audit log during demo sign-in
-        }
-        navigate('/');
-      }
+      await authService.loginLocalSession({
+        panchayatCode: resolvedPanchayath.code,
+        role,
+        name: displayName,
+        wardNumber: role === 'Ward Member' || role === 'ward_member' ? wardNumber : undefined
+      });
+      navigate('/');
     } catch (err: any) {
-      setError(err?.message || 'Quick login failed.');
-    } finally {
-      setLoading(false);
+      setError(err?.message || 'Failed to start local session.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row font-sans">
       
-      {/* LEFT COLUMN - Institutional Brand Banner */}
-      <div className="w-full md:w-[40%] bg-[#0F6E4F] text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden shrink-0">
-        
-        {/* Background Overlay Graphic */}
+      {/* LEFT COLUMN - Honest Standalone Webtool Branding */}
+      <div className="w-full md:w-[42%] bg-[#0F6E4F] text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden shrink-0">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/30 via-transparent to-transparent pointer-events-none" />
 
         {/* Top Header Logo */}
@@ -137,266 +147,258 @@ export const Login: React.FC = () => {
           </svg>
           <div>
             <span className="font-extrabold text-xl tracking-wider block leading-tight">LSG Track</span>
-            <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Grama Panchayat Portal</span>
+            <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Local-First Webtool</span>
           </div>
         </div>
 
-        {/* Center Main Text */}
+        {/* Center Copy Banner */}
         <div className="my-auto space-y-6 z-10 py-8">
           <div className="space-y-2">
+            <span className="bg-emerald-800/80 text-emerald-100 font-mono text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider inline-block">
+              Standalone Desktop & Mobile Webtool
+            </span>
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight">
-              Trade License Compliance Portal
+              {i18n.language === 'ml' ? 'കേരളത്തിലെ ഗ്രാമപഞ്ചായത്തുകൾക്കായി തയാറാക്കിയത്' : 'Built for Kerala Grama Panchayat Secretaries'}
             </h1>
             <p className="text-xs text-emerald-100/90 leading-relaxed font-normal">
-              A dynamic GIS-enabled SaaS platform for monitoring trade license compliance across Kerala Grama Panchayats.
+              {t('app.privacy_banner')}
             </p>
           </div>
 
-          {/* Features checkmarks list */}
-          <div className="space-y-4 pt-4">
-            <div className="flex items-center space-x-3.5">
-              <div className="w-8 h-8 rounded-full border border-emerald-300 flex items-center justify-center shrink-0">
-                <Map size={15} />
-              </div>
-              <span className="text-sm font-semibold tracking-wide">GIS-Based Business Monitoring</span>
+          {/* Device Storage Guarantee */}
+          <div className="bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-4 space-y-2.5 shadow-inner">
+            <div className="flex items-center space-x-2 text-emerald-300 font-bold text-xs">
+              <HardDrive size={16} />
+              <span>{i18n.language === 'ml' ? 'പ്രാദേശിക ഡാറ്റാ സുരക്ഷാ ഉറപ്പ്' : 'Device-Only Storage Guarantee'}</span>
             </div>
+            <p className="text-[11px] text-emerald-100/80 leading-relaxed">
+              {t('app.privacy_banner')}
+            </p>
+          </div>
 
-            <div className="flex items-center space-x-3.5">
-              <div className="w-8 h-8 rounded-full border border-emerald-300 flex items-center justify-center shrink-0">
-                <RefreshCw size={15} />
-              </div>
-              <span className="text-sm font-semibold tracking-wide">K-SMART Dynamic Integration</span>
+          <div className="space-y-3 pt-2 text-xs">
+            <div className="flex items-center space-x-3">
+              <CheckCircle2 size={16} className="text-emerald-300 shrink-0" />
+              <span>Offline GIS Map & Ward Compliance Choropleth</span>
             </div>
-
-            <div className="flex items-center space-x-3.5">
-              <div className="w-8 h-8 rounded-full border border-emerald-300 flex items-center justify-center shrink-0">
-                <Bell size={15} />
-              </div>
-              <span className="text-sm font-semibold tracking-wide">Automated Renewal Notifications</span>
+            <div className="flex items-center space-x-3">
+              <CheckCircle2 size={16} className="text-emerald-300 shrink-0" />
+              <span>Zero Backend & Free wa.me WhatsApp Links</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <CheckCircle2 size={16} className="text-emerald-300 shrink-0" />
+              <span>Full Panchayath Local Backup & Restore</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom Gov Department label */}
-        <div className="z-10 text-[10px] uppercase font-bold tracking-widest text-emerald-200/80 leading-normal">
-          Government of Kerala<br />
-          Local Self Government Department
+        {/* Footer Notice */}
+        <div className="z-10 border-t border-emerald-600/40 pt-4 text-[10px] text-emerald-200/70 font-mono">
+          Free & Open-Source Tool • Copyright © 2026 Avanthika K S, Sredha Manoj
         </div>
-
       </div>
 
-      {/* RIGHT COLUMN - Welcome back Sign in Card */}
-      <div className="w-full md:w-[60%] bg-white p-8 md:p-12 flex flex-col justify-between relative overflow-y-auto">
-        
-        {/* Warning Banner */}
-        <div className="bg-red-50 border border-red-100 text-red-800 rounded-2xl p-4 text-[11px] flex items-start space-x-2.5 max-w-xl mx-auto w-full mb-4">
-          <ShieldAlert size={16} className="text-red-600 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <span className="font-bold block text-red-700">RESTRICTED ADMINISTRATIVE CHANNEL</span>
-            This portal is restricted to authorized officers of Kerala Grama Panchayats.
-          </div>
-        </div>
-
-        {/* Sign In Core Card */}
-        <div className="max-w-md w-full mx-auto my-auto py-2 space-y-5">
+      {/* RIGHT COLUMN - ONBOARDING & LOGIN TERMINAL */}
+      <div className="w-full md:w-[58%] bg-white p-8 md:p-12 flex flex-col justify-center">
+        <div className="max-w-md w-full mx-auto space-y-6">
           
-          <div className="space-y-1 text-center md:text-left">
-            <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Welcome Back</h2>
-            <p className="text-xs text-slate-400 font-medium">Sign in using credentials or quick demo buttons below</p>
-          </div>
-
-          {/* Quick One-Click Demo Role Sign-In Bar */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
-            <div className="flex justify-between items-center text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-              <span>Quick Demo Sign-In (1-Click)</span>
-              <span className="bg-emerald-100 text-[#0F6E4F] px-2 py-0.5 rounded-full font-mono font-bold">Instant Access</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs font-extrabold">
-              <button
-                type="button"
-                onClick={() => handleQuickRoleLogin('secretary@lsgtrack.gov.in')}
-                className="bg-emerald-50 hover:bg-emerald-100 text-[#0F6E4F] border border-emerald-200 py-2 px-2.5 rounded-xl transition text-left flex items-center justify-between"
-              >
-                <span>Secretary</span>
-                <Compass size={13} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRoleLogin('clerk@lsgtrack.gov.in')}
-                className="bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 py-2 px-2.5 rounded-xl transition text-left flex items-center justify-between"
-              >
-                <span>DEO / Clerk</span>
-                <Compass size={13} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRoleLogin('ward@lsgtrack.gov.in')}
-                className="bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 py-2 px-2.5 rounded-xl transition text-left flex items-center justify-between"
-              >
-                <span>Ward Member</span>
-                <Compass size={13} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRoleLogin('admin@lsgtrack.gov.in')}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 py-2 px-2.5 rounded-xl transition text-left flex items-center justify-between"
-              >
-                <span>Administrator</span>
-                <Compass size={13} />
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 text-xs leading-normal">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleCredentialsSignIn} className="space-y-4">
-            
-            {/* Username/Email Input */}
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Official Email / Username
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. admin@lsgtrack.gov.in"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition"
-                />
-                <User size={15} className="absolute right-3.5 top-3.5 text-slate-400" />
+          {/* STEP 1: ONBOARDING PANCHAYATH PICKER */}
+          {step === 'picker' ? (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                  {i18n.language === 'ml' ? 'പഞ്ചായത്ത് തിരഞ്ഞെടുക്കുക' : 'Select Your Grama Panchayat'}
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  {i18n.language === 'ml' ? 'ജില്ലയും ഗ്രാമപഞ്ചായത്തും തിരഞ്ഞെടുത്ത് വർക്ക്‌സ്‌പെയിസ് ആരംഭിക്കുക.' : 'Choose your district and panchayath to resolve your local database bucket.'}
+                </p>
               </div>
-            </div>
 
-            {/* Select Panchayat / LSGD Code */}
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                Panchayat / LSGD Code
-              </label>
-              <div className="relative">
-                {panchayaths.length === 0 ? (
+              {error && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3.5 text-xs font-medium">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleConfirmPanchayath} className="space-y-4 text-xs">
+                
+                {!manualMode ? (
+                  <>
+                    {/* District Dropdown */}
+                    <div>
+                      <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                        <MapPin size={15} className="text-[#0F6E4F]" />
+                        <span>{i18n.language === 'ml' ? 'ജില്ല (District)' : 'Select District'}</span>
+                      </label>
+                      <select
+                        value={selectedDistrict}
+                        onChange={(e) => setSelectedDistrict(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                      >
+                        {KERALA_DISTRICTS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Panchayath Dropdown */}
+                    <div>
+                      <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                        <Building2 size={15} className="text-[#0F6E4F]" />
+                        <span>{i18n.language === 'ml' ? 'ഗ്രാമപഞ്ചായത്ത് (Grama Panchayat)' : 'Select Grama Panchayat'}</span>
+                      </label>
+                      <select
+                        value={selectedPanchayathCode}
+                        onChange={(e) => setSelectedPanchayathCode(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                      >
+                        {panchayathList.map((p) => (
+                          <option key={p.code} value={p.code}>
+                            {i18n.language === 'ml' ? p.nameMl : p.name} ({p.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  /* Manual Code Input Fallback */
+                  <div>
+                    <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                      <Building2 size={15} className="text-[#0F6E4F]" />
+                      <span>{t('entry.code_label')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. G070702 or G110706"
+                      value={manualCodeInput}
+                      onChange={(e) => setManualCodeInput(e.target.value.toUpperCase())}
+                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-[#0F6E4F] uppercase"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setManualMode(!manualMode)}
+                    className="text-[11px] text-[#0F6E4F] hover:underline font-semibold"
+                  >
+                    {manualMode 
+                      ? (i18n.language === 'ml' ? '← ജില്ല തിരിച്ചു തിരഞ്ഞെടുക്കുക' : '← Back to District Picker') 
+                      : (i18n.language === 'ml' ? 'പഞ്ചായത്ത് കോഡ് നേരിട്ട് നൽകുക' : 'Enter LSGD Code Manually')}
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white font-extrabold py-3 px-4 rounded-xl transition text-xs flex items-center justify-center space-x-2 shadow-sm"
+                >
+                  <span>{i18n.language === 'ml' ? 'തുടരുക (Proceed)' : 'Confirm Panchayat & Proceed'}</span>
+                  <ArrowRight size={16} />
+                </button>
+              </form>
+            </div>
+          ) : (
+            /* STEP 2: LOGIN TERMINAL (Free-text Name + Role Selector, Zero PINs) */
+            <div className="space-y-5">
+              
+              {/* Resolved Panchayath Header Badge */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono font-bold text-[#0F6E4F] uppercase tracking-wider block">
+                    LSGD CODE: {resolvedPanchayath.code}
+                  </span>
+                  <h3 className="text-base font-extrabold text-slate-900 mt-0.5">
+                    {i18n.language === 'ml' ? resolvedPanchayath.nameMl : resolvedPanchayath.name}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSwitchPanchayath}
+                  className="text-xs text-[#0F6E4F] hover:text-[#0B5A3E] font-bold flex items-center space-x-1 bg-white border border-emerald-200 px-2.5 py-1.5 rounded-xl shadow-2xs shrink-0"
+                >
+                  <RefreshCw size={12} />
+                  <span>{i18n.language === 'ml' ? 'മാറ്റുക' : 'Switch'}</span>
+                </button>
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">{t('entry.welcome')}</h2>
+                <p className="text-xs text-slate-500 mt-1">{t('entry.sub')}</p>
+              </div>
+
+              {error && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3.5 text-xs font-medium">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleEntrySubmit} className="space-y-4 text-xs">
+                
+                {/* Role Designation Selector */}
+                <div>
+                  <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                    <Compass size={15} className="text-[#0F6E4F]" />
+                    <span>{t('entry.role_label')} *</span>
+                  </label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as UserRole)}
+                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                  >
+                    <option value="Secretary">{t('roles.secretary')}</option>
+                    <option value="Panchayat Section Clerk">{t('roles.clerk')}</option>
+                    <option value="Ward Member">{t('roles.ward_member')}</option>
+                  </select>
+                </div>
+
+                {/* Free-Text Officer Name Input */}
+                <div>
+                  <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                    <User size={15} className="text-[#0F6E4F]" />
+                    <span>{t('entry.name_label')}</span>
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="Enter LSGD Code, e.g. 204902"
-                    value={panchayatCode}
-                    onChange={(e) => setPanchayatCode(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition font-mono"
+                    placeholder={i18n.language === 'ml' ? 'ഉദാഹരണത്തിന്: രമേഷ് വി (ക്ലർക്ക്)' : 'e.g. Ramesh V (Secretary / Clerk)'}
+                    value={staffName}
+                    onChange={(e) => setStaffName(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                   />
-                ) : (
-                  <select
-                    value={panchayatCode}
-                    onChange={(e) => setPanchayatCode(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition font-bold"
-                  >
-                    {panchayaths.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
-                    ))}
-                    <option value="all">System Administrator (Root Access)</option>
-                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {i18n.language === 'ml' ? 'പാസ്‌വേഡ് ആവശ്യമില്ല — പരിശോധനാ രേഖകൾക്കായി നിങ്ങളുടെ പേര് നൽകുക.' : 'No password or PIN needed — enter your name for action attribution.'}
+                  </p>
+                </div>
+
+                {/* Ward Number (If Ward Member) */}
+                {(role === 'Ward Member' || role === 'ward_member') && (
+                  <div>
+                    <label className="block font-extrabold text-slate-900 mb-1.5">{t('entry.ward_label')}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={wardNumber}
+                      onChange={(e) => setWardNumber(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#0F6E4F]"
+                    />
+                  </div>
                 )}
-                <Compass size={15} className="absolute right-3.5 top-3.5 text-[#0F6E4F]" />
-              </div>
-            </div>
 
-            {/* Password Input */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  Password
-                </label>
                 <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="text-[10px] font-bold text-[#0F6E4F] hover:underline transition disabled:text-slate-300 disabled:no-underline"
-                  disabled={loading}
+                  type="submit"
+                  className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white font-extrabold py-3 px-4 rounded-xl transition text-xs flex items-center justify-center space-x-2 shadow-sm"
                 >
-                  Forgot Password?
+                  <span>{t('entry.launch_btn')}</span>
+                  <ArrowRight size={16} />
                 </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-xs text-slate-700 focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] transition"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
-                >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
+              </form>
             </div>
-
-            {/* Remember Me Checkbox */}
-            <div className="flex items-center space-x-2 select-none">
-              <input
-                type="checkbox"
-                id="remember"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded text-[#0F6E4F] focus:ring-[#0F6E4F] border-slate-300"
-              />
-              <label htmlFor="remember" className="text-xs text-slate-500 font-medium cursor-pointer">
-                Remember Me
-              </label>
-            </div>
-
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              Authorized portal roles: {AUTHORIZED_PORTAL_ROLES.join(', ')}.
-            </p>
-
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              Self sign-up is disabled. User accounts are provisioned by the System Administrator or Firebase Admin workflow.
-            </p>
-
-            {/* Submit Sign In */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white rounded-xl py-2.5 text-xs font-semibold uppercase tracking-wider transition shadow-sm"
-            >
-              {loading ? 'Authenticating...' : 'Sign In'}
-            </button>
-
-            <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-slate-100"></div>
-              <span className="flex-shrink mx-3 text-slate-300 text-[9px] uppercase font-bold tracking-widest">support & help</span>
-              <div className="flex-grow border-t border-slate-100"></div>
-            </div>
-
-            <button
-              type="button"
-              className="w-full border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl py-2.5 text-xs font-semibold transition flex items-center justify-center space-x-2"
-            >
-              <HelpCircle size={15} />
-              <span>Help & Support Hotline</span>
-            </button>
-
-          </form>
+          )}
 
         </div>
-
-        {/* Bottom Branding net connection secure */}
-        <div className="w-full max-w-xl mx-auto flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-100 pt-4 mt-6 select-none font-medium">
-          <div>Powered by LSG Track</div>
-          <div className="font-mono">Version 2.0.0 (Production SaaS)</div>
-        </div>
-
       </div>
 
     </div>

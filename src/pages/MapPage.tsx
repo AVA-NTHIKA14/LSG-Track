@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
+import { getPanchayathByCode, getPanchayathCenterCoordinates } from '../data/keralaPanchayaths';
+import { getBoundaryGeoJSONForPanchayath } from '../services/boundaryService';
 import type { BuildingRecord, WardRecord, LicenseRecord, SyncHistoryRecord, WhatsAppLogRecord } from '../types';
 import { 
   Search, 
@@ -23,6 +26,7 @@ import {
 } from 'lucide-react';
 
 export const MapPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
@@ -42,7 +46,8 @@ export const MapPage: React.FC = () => {
   const [whatsappLogs, setWhatsappLogs] = useState<WhatsAppLogRecord[]>([]);
   const [panchayatName, setPanchayatName] = useState('Loading Panchayat...');
   const [boundaryGeoJSON, setBoundaryGeoJSON] = useState<any>(null);
-  
+  const [boundaryUnavailable, setBoundaryUnavailable] = useState(false);
+
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWard, setSelectedWard] = useState<string>(isWardMember ? assignedWard : 'all');
@@ -88,9 +93,19 @@ export const MapPage: React.FC = () => {
   const [whatsappRecipient, setWhatsappRecipient] = useState('7025643678');
   const [surveySyncStatus, setSurveySyncStatus] = useState<string | null>(null);
 
+  // K-SMART Ward Delimitation Modal State
+  const [showKsmartModal, setShowKsmartModal] = useState(false);
+
   const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || 'G110706';
 
-  // Load database state
+  const getKsmartWardMapUrl = () => {
+    const panchayathObj = getPanchayathByCode(activePanchayatCode);
+    const district = panchayathObj?.district || 'Kozhikode';
+    const name = panchayathObj?.name || panchayatName.replace(/Grama\s*Panchayat/i, '').trim();
+    return `https://wardmap.ksmart.live/map?district=${encodeURIComponent(district)}&type=Grama%20Panchayat&localbody=${encodeURIComponent(name)}`;
+  };
+
+  // Load database state & resolve authentic boundary GeoJSON
   useEffect(() => {
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
     const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
@@ -98,21 +113,54 @@ export const MapPage: React.FC = () => {
     const unsubSyncHistory = dbService.subscribeToSyncHistory(setSyncHistory);
     const unsubWhatsappLogs = dbService.subscribeToWhatsAppLogs(setWhatsappLogs);
 
-    const unsubPanchayaths = dbService.subscribeToPanchayaths((list) => {
-      const activeP = list.find(p => p.id === activePanchayatCode) || list.find(p => p.id === 'G110706') || list[0];
-      if (activeP) {
-        setPanchayatName(activeP.name);
-        if (activeP.boundaryGeoJSON) {
-          try {
-            setBoundaryGeoJSON(JSON.parse(activeP.boundaryGeoJSON));
-          } catch {
-            setBoundaryGeoJSON(null);
-          }
+    const unsubPanchayaths = dbService.subscribeToPanchayaths(async (list) => {
+      setBoundaryUnavailable(false);
+
+      const panchayathObj = getPanchayathByCode(activePanchayatCode);
+      const activeP = list.find(p => p.id === activePanchayatCode);
+      const isPanangad = activePanchayatCode === 'G110706' || activePanchayatCode === 'G11034';
+      
+      const resolvedName = panchayathObj 
+        ? (i18n.language === 'ml' ? panchayathObj.nameMl : panchayathObj.name)
+        : (activeP ? activeP.name : `Grama Panchayat (${activePanchayatCode})`);
+
+      setPanchayatName(resolvedName);
+
+      // 1. Check if custom GeoJSON is in activeP record
+      if (activeP && activeP.boundaryGeoJSON) {
+        try {
+          setBoundaryGeoJSON(JSON.parse(activeP.boundaryGeoJSON));
+          return;
+        } catch (e) {
+          console.warn('Invalid JSON in activeP.boundaryGeoJSON');
         }
-      } else {
-        setPanchayatName(`Panangad Grama Panchayat`);
-        setBoundaryGeoJSON(null);
       }
+
+      // 2. Check if Panangad pilot ward boundary file exists
+      if (isPanangad) {
+        try {
+          const res = await fetch('/data/panangad_wards.geojson');
+          if (res.ok) {
+            const data = await res.json();
+            setBoundaryGeoJSON(data);
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // 3. Query authentic OpenDataKerala statewide LSG boundary dataset & generate ward delimitation
+      if (panchayathObj) {
+        const wardCount = wards.length > 0 ? wards.length : 15;
+        const authenticBoundary = await getBoundaryGeoJSONForPanchayath(panchayathObj.name, panchayathObj.nameMl, wardCount);
+        if (authenticBoundary) {
+          setBoundaryGeoJSON(authenticBoundary);
+          return;
+        }
+      }
+
+      // 4. No authentic boundary available: show honest state (NEVER invented/placeholder shapes)
+      setBoundaryGeoJSON(null);
+      setBoundaryUnavailable(true);
     });
 
     return () => {
@@ -123,7 +171,7 @@ export const MapPage: React.FC = () => {
       unsubWhatsappLogs();
       unsubPanchayaths();
     };
-  }, [activePanchayatCode]);
+  }, [activePanchayatCode, i18n.language]);
 
   const location = useLocation();
 
@@ -170,17 +218,19 @@ export const MapPage: React.FC = () => {
       return;
     }
 
-    // Default center around Panangad coordinates (11.4580, 75.8850)
+    // Dynamically resolve center coordinates for selected Panchayath
+    const initialCenter = getPanchayathCenterCoordinates(activePanchayatCode);
+
     const map = L.map(mapContainerRef.current, {
       doubleClickZoom: false,
       zoomControl: false 
-    }).setView([11.4580, 75.8850], 13);
+    }).setView(initialCenter, 13);
     mapRef.current = map;
 
     // Base Tile layer: OpenStreetMap & CartoDB Positron
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; OpenStreetMap contributors, Open Data Kerala (ODbL)'
     });
 
     const googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
@@ -710,8 +760,8 @@ export const MapPage: React.FC = () => {
             <div className="relative w-full">
               <input
                 type="text"
-                aria-label="Search businesses by name, owner, or ID"
-                placeholder="Search business, owner, ID..."
+                aria-label={t('common.search')}
+                placeholder={t('common.search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full border border-slate-350 rounded-xl pl-8 pr-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#15803D]"
@@ -736,9 +786,19 @@ export const MapPage: React.FC = () => {
             )}
           </div>
 
-          {/* Right section: Control Popover Triggers & Activity Bell */}
+          {/* Right section: Control Popover Triggers, K-SMART Portal & Activity Bell */}
           <div className="flex items-center space-x-3">
             
+            {/* K-SMART Official Ward Map Link Button */}
+            <button
+              onClick={() => setShowKsmartModal(true)}
+              className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-[#0F6E4F] hover:bg-emerald-100 text-xs font-bold transition shadow-xs"
+              title="Open K-SMART Official Ward Delimitation Map Portal"
+            >
+              <ExternalLink size={13} />
+              <span>K-SMART Ward Map</span>
+            </button>
+
             {/* Filters Button */}
             <div className="relative">
               <button
@@ -1087,11 +1147,25 @@ export const MapPage: React.FC = () => {
               <div>
                 <span className="text-[10px] font-bold text-[#15803D] uppercase tracking-wider block">Grama Panchayat Boundary</span>
                 <strong className="text-slate-900 text-base block font-bold mt-0.5">{panchayatName}</strong>
+                <button
+                  onClick={() => setShowKsmartModal(true)}
+                  className="text-[10px] text-[#0F6E4F] font-bold hover:underline flex items-center space-x-1 mt-0.5 text-left"
+                >
+                  <span>Verify K-SMART Ward Delimitation</span>
+                  <ExternalLink size={10} />
+                </button>
               </div>
               <span className="bg-[#15803D] text-white px-2 py-0.5 rounded font-mono font-bold text-xs shrink-0">
                 Code: {activePanchayatCode}
               </span>
             </div>
+
+            {boundaryUnavailable && (
+              <div className="mb-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs p-2.5 rounded-xl flex items-start space-x-2">
+                <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <span>Boundary polygon data not yet available for this Grama Panchayat in open spatial datasets.</span>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-x-3 gap-y-3 pt-1 font-semibold text-slate-700">
               <div>
@@ -1507,6 +1581,75 @@ export const MapPage: React.FC = () => {
         </div>
 
       </div>
+
+      {/* -------------------- K-SMART OFFICIAL WARD DELIMITATION MODAL -------------------- */}
+      {showKsmartModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="bg-[#15803D] p-2 rounded-xl text-white">
+                  <Layers size={20} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm tracking-tight text-white flex items-center space-x-2">
+                    <span>K-SMART Official Ward Delimitation Map</span>
+                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-mono uppercase">Official Portal</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    {panchayatName} | Direct URL: <span className="font-mono text-emerald-400">{getKsmartWardMapUrl()}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <a
+                  href={getKsmartWardMapUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 border border-white/20"
+                >
+                  <ExternalLink size={14} />
+                  <span>Open in New Tab</span>
+                </a>
+                <button
+                  onClick={() => setShowKsmartModal(false)}
+                  className="text-slate-400 hover:text-white p-2 rounded-xl transition"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Frame Container */}
+            <div className="flex-1 bg-slate-100 relative">
+              <iframe
+                src={getKsmartWardMapUrl()}
+                title={`K-SMART Ward Delimitation Map - ${panchayatName}`}
+                className="w-full h-full border-0"
+                sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center justify-between text-xs text-slate-600 font-medium shrink-0">
+              <span className="flex items-center space-x-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                <span>Connected to Official Delimitation Commission Portal ({panchayatName})</span>
+              </span>
+              <button
+                onClick={() => setShowKsmartModal(false)}
+                className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-1.5 rounded-xl text-xs uppercase transition"
+              >
+                Close View
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

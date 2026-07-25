@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import type { LicenseRecord, BuildingRecord } from '../types';
 import { 
@@ -13,6 +14,7 @@ import {
 import { authService } from '../services/authService';
 
 export const Renewals: React.FC = () => {
+  const { t } = useTranslation();
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [activeLic, setActiveLic] = useState<LicenseRecord | null>(null);
@@ -76,8 +78,8 @@ export const Renewals: React.FC = () => {
       
       {/* Title */}
       <div className="border-b pb-4">
-        <h2 className="text-xl font-bold text-gov-navy">Renewal & Reminders Management</h2>
-        <p className="text-xs text-slate-500">Monitor upcoming license expiries, send automated notification reminders, and process fiscal year renewals.</p>
+        <h2 className="text-xl font-bold text-gov-navy">{t('renewals.heading')}</h2>
+        <p className="text-xs text-slate-500">{t('renewals.subheading')}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

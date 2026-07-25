@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import type { SyncHistoryRecord } from '../types';
 import { 
   Database, UploadCloud, FileSpreadsheet, CheckCircle2, 
@@ -8,6 +10,8 @@ import {
 } from 'lucide-react';
 
 export const DataSync: React.FC = () => {
+  const { t } = useTranslation();
+  const { profile } = useAuth();
   const [syncHistory, setSyncHistory] = useState<SyncHistoryRecord[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -16,7 +20,8 @@ export const DataSync: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const currentUser = authService.getCurrentUser();
-  const isDEOOrAdmin = currentUser?.role === 'Panchayat Section Clerk' || currentUser?.role === 'Administrator';
+  const panchayatCode = profile?.panchayatCode || localStorage.getItem('cp_active_panchayat_code') || 'G070702';
+  const isDEOOrAdmin = profile?.role === 'clerk' || profile?.role === 'secretary' || currentUser?.role === 'Panchayat Section Clerk' || currentUser?.role === 'Administrator';
 
   useEffect(() => {
     const unsub = dbService.subscribeToSyncHistory(setSyncHistory);
@@ -101,10 +106,10 @@ export const DataSync: React.FC = () => {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <Database size={22} className="text-[#0F6E4F]" />
-            <span>K-SMART ERP Data Synchronization Terminal</span>
+            <span>{t('sync.heading')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Official Data Entry Operator workplace to import K-SMART Trade License exports, validate schema, detect duplicates, and update Panchayat compliance.
+            {t('sync.subheading', { code: panchayatCode })}
           </p>
         </div>
 
@@ -249,6 +254,65 @@ export const DataSync: React.FC = () => {
 
         </div>
 
+      </div>
+
+      {/* Ward Member Field Survey Hand-Off Section */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+        <div className="border-b pb-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+          <div>
+            <h3 className="font-extrabold text-slate-900 text-sm flex items-center space-x-2">
+              <FileText size={18} className="text-[#0F6E4F]" />
+              <span>Ward Member Field Survey Hand-Off (.json)</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Export offline field surveys collected on a Ward Member device, or import survey batches into the central Panchayat registry.
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => {
+                const jsonStr = dbService.exportWardSurveysJSON();
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `Ward_Surveys_Export_${panchayatCode}_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="bg-emerald-50 hover:bg-emerald-100 text-[#0F6E4F] border border-emerald-200 px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center space-x-1.5"
+            >
+              <Download size={14} />
+              <span>Export Survey Batch</span>
+            </button>
+
+            <label className="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center space-x-1.5 cursor-pointer">
+              <UploadCloud size={14} />
+              <span>Import Survey Batch</span>
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = async (evt) => {
+                    try {
+                      const res = await dbService.importWardSurveysJSON(evt.target?.result as string);
+                      alert(`Successfully imported ${res.importedCount} new field survey entries!`);
+                    } catch (err: any) {
+                      alert(err?.message || 'Failed to import survey batch.');
+                    }
+                  };
+                  reader.readAsText(file);
+                }}
+              />
+            </label>
+          </div>
+        </div>
       </div>
 
     </div>

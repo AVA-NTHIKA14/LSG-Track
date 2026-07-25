@@ -1,0 +1,176 @@
+{
+  "app": {
+    "title": "LSG Track",
+    "subtitle": "Grama Panchayat GIS Trade License Webtool",
+    "tagline": "Built for Kerala Grama Panchayat Secretaries",
+    "privacy_banner": "Your panchayat's data stays on this device — nothing is sent to any server."
+  },
+  "entry": {
+    "welcome": "Open Local Workspace",
+    "sub": "Enter your Panchayath Code to load your local database bucket.",
+    "code_label": "Panchayath Code (LSGD Code) *",
+    "staff_label": "Select Local Office Staff Profile (Optional)",
+    "role_label": "Session Role Designation",
+    "name_label": "Officer Name (For Audit Log)",
+    "ward_label": "Assigned Ward Number",
+    "pin_label": "4-Digit Staff PIN (Action Attribution Guard)",
+    "launch_btn": "Launch Local Workspace",
+    "custom_option": "-- Custom Session / Direct Entry --",
+    "pin_hint": "UX attribution guard for shared office PCs (not a network password)."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "map": "GIS Map",
+    "buildings": "Establishments",
+    "wards": "Wards",
+    "survey": "Field Survey",
+    "licenses": "Trade Licenses",
+    "renewals": "Renewals",
+    "reports": "Reports & Analytics",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "profile": "Profile",
+    "administration": "Local Administration",
+    "communication": "WhatsApp Hub",
+    "ward_reports": "Ward Reports",
+    "sync": "K-SMART Sync",
+    "logout": "Exit Workspace"
+  },
+  "roles": {
+    "secretary": "Panchayat Secretary",
+    "clerk": "Panchayat Section Clerk / DEO",
+    "ward_member": "Ward Member / Inspector",
+    "admin": "Administrator"
+  },
+  "dashboard": {
+    "heading": "Operational Dashboard",
+    "subheading": "Real-time trade license compliance & GIS monitoring for Panchayath {{code}}.",
+    "compliance_rate": "Compliance Rate",
+    "total_buildings": "Total Establishments",
+    "licensed": "Licensed",
+    "unlicensed": "Unlicensed",
+    "pending": "Pending Verification",
+    "quick_actions": "Quick Compliance Actions",
+    "today_tasks": "Today's Secretary Action Tasks",
+    "tasks_req": "{{count}} Tasks Requiring Attention",
+    "open_map": "Open Map View",
+    "last_sync": "Last K-SMART Sync",
+    "no_sync": "No Sync Today",
+    "task1_title": "Verify Ward Member Reports",
+    "task1_sub": "{{count}} Pending Submissions",
+    "task2_title": "Review Expired Licenses",
+    "task2_sub": "{{count}} Overdue Units",
+    "task3_title": "Schedule Inspections",
+    "task3_sub": "{{count}} Unlicensed Businesses",
+    "task4_title": "Generate Monthly Report",
+    "task4_sub": "Ward Compliance Digest",
+    "kpi1_title": "Licensed Establishments",
+    "kpi1_sub": "Active K-SMART Trade Permits",
+    "kpi2_title": "Expired Licenses",
+    "kpi2_sub": "Overdue for Renewal",
+    "kpi3_title": "Expiring Soon (7 Days)",
+    "kpi3_sub": "Critical Expiry Window",
+    "kpi4_title": "Unlicensed Businesses",
+    "kpi4_sub": "Operating Without Permit",
+    "kpi5_title": "Pending Field Reports",
+    "kpi5_sub": "Ward Member Submissions",
+    "kpi6_title": "High Priority Inspections",
+    "kpi6_sub": "Risk Score Flagged Units",
+    "open_list": "Open List",
+    "view_on_map": "View on Map",
+    "send_reminders": "Send Reminders",
+    "schedule_inspection": "Schedule Inspection",
+    "review_reports": "Review Reports",
+    "open_queue": "Open Queue",
+    "table_title": "Panchayat Ward Compliance Ranking",
+    "table_sub": "Sorted by lowest compliance rate for inspection prioritization.",
+    "th_ward": "Ward #",
+    "th_name": "Ward Name",
+    "th_compliance": "Compliance Rate",
+    "th_unlicensed": "Unlicensed",
+    "th_action": "Action",
+    "inspect": "Inspect",
+    "recent_activity": "Recent Administrative Activity",
+    "activity_sub": "Chronological log of verified Secretary actions.",
+    "no_activity": "No administrative activity recorded today."
+  },
+  "map": {
+    "heading": "GIS Commercial Establishment Map",
+    "subheading": "Spatial distribution of licensed and unlicensed commercial buildings across wards.",
+    "attribution": "Map data © OpenStreetMap contributors, Open Data Kerala (ODbL)",
+    "all_wards": "All Wards",
+    "all_statuses": "All Statuses",
+    "all_categories": "All Categories",
+    "filter_ward": "Filter Ward",
+    "filter_status": "Filter Status",
+    "filter_category": "Filter Category"
+  },
+  "buildings": {
+    "heading": "Establishment Register",
+    "subheading": "Master database of commercial buildings and trade premises in Panchayat {{code}}.",
+    "add_building": "Add Building",
+    "search_placeholder": "Search by owner, business name, or ID..."
+  },
+  "wards": {
+    "heading": "Ward Compliance Directory",
+    "subheading": "Ward-wise compliance aggregates and assigned field inspection officers."
+  },
+  "survey": {
+    "heading": "Field Inspection & Survey Entry",
+    "subheading": "Submit new commercial building observations directly into local database.",
+    "business_name": "Business / Establishment Name",
+    "owner_name": "Owner / Proprietor Name",
+    "category": "Business Category",
+    "ward": "Ward Number",
+    "remarks": "Field Inspection Remarks",
+    "submit": "Submit Inspection Survey"
+  },
+  "licenses": {
+    "heading": "Trade License Registry",
+    "subheading": "Issued, active, and pending trade licenses for Panchayat {{code}}.",
+    "issue_new": "Issue New License"
+  },
+  "renewals": {
+    "heading": "License Renewals & Expiry Register",
+    "subheading": "Track expiring trade licenses and dispatch renewal notices."
+  },
+  "reports": {
+    "heading": "Executive Compliance & Revenue Reports",
+    "subheading": "Statistical breakdown of commercial compliance and license fee collections."
+  },
+  "notifications": {
+    "heading": "System Notifications & Audit Log",
+    "mark_all": "Mark All as Read"
+  },
+  "settings": {
+    "heading": "Profile & Settings",
+    "subheading": "Officer profile details, accessibility options, and local workspace tools.",
+    "high_contrast": "High Contrast Mode",
+    "larger_text": "Larger Text Size"
+  },
+  "administration": {
+    "heading": "Local Administration & Staff Terminal",
+    "subheading": "Manage local staff profiles and perform full device JSON backups for Panchayat {{code}}.",
+    "create_staff": "Create Local Staff Profile",
+    "export_backup": "Export Full Backup (.json)",
+    "restore_backup": "Restore Backup"
+  },
+  "communication": {
+    "heading": "WhatsApp Renewal Alerts Hub",
+    "subheading": "Automated WhatsApp renewal reminder dispatch hub for trade license holders."
+  },
+  "sync": {
+    "heading": "K-SMART ERP Data Synchronization Terminal",
+    "subheading": "Import K-SMART Trade License exports and synchronize local database for Panchayat {{code}}."
+  },
+  "common": {
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "export": "Export JSON",
+    "import": "Import JSON",
+    "search": "Search...",
+    "language": "Language",
+    "english": "English",
+    "malayalam": "മലയാളം"
+  }
+}
