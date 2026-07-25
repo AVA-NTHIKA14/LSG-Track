@@ -7,16 +7,16 @@
   },
   "entry": {
     "welcome": "Open Local Workspace",
-    "sub": "Enter your Panchayath Code to load your local database bucket.",
+    "sub": "Enter your Panchayath Code to open your panchayath's data on this device.",
     "code_label": "Panchayath Code (LSGD Code) *",
     "staff_label": "Select Local Office Staff Profile (Optional)",
     "role_label": "Session Role Designation",
     "name_label": "Officer Name (For Audit Log)",
     "ward_label": "Assigned Ward Number",
-    "pin_label": "4-Digit Staff PIN (Action Attribution Guard)",
+    "pin_label": "4-Digit PIN (optional — helps track who made changes)",
     "launch_btn": "Launch Local Workspace",
     "custom_option": "-- Custom Session / Direct Entry --",
-    "pin_hint": "UX attribution guard for shared office PCs (not a network password)."
+    "pin_hint": "Helps identify who did what on a shared computer — not a real password."
   },
   "nav": {
     "dashboard": "Dashboard",

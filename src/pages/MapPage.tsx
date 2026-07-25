@@ -118,7 +118,6 @@ export const MapPage: React.FC = () => {
 
       const panchayathObj = getPanchayathByCode(activePanchayatCode);
       const activeP = list.find(p => p.id === activePanchayatCode);
-      const isPanangad = activePanchayatCode === 'G110706' || activePanchayatCode === 'G11034';
       
       const resolvedName = panchayathObj 
         ? (i18n.language === 'ml' ? panchayathObj.nameMl : panchayathObj.name)
@@ -136,29 +135,16 @@ export const MapPage: React.FC = () => {
         }
       }
 
-      // 2. Check if Panangad pilot ward boundary file exists
-      if (isPanangad) {
-        try {
-          const res = await fetch('/data/panangad_wards.geojson');
-          if (res.ok) {
-            const data = await res.json();
-            setBoundaryGeoJSON(data);
-            return;
-          }
-        } catch (e) {}
-      }
-
-      // 3. Query authentic OpenDataKerala statewide LSG boundary dataset & generate ward delimitation
+      // 2. Query authentic OpenDataKerala statewide LSG boundary dataset dynamically for entered Panchayath
       if (panchayathObj) {
-        const wardCount = wards.length > 0 ? wards.length : 15;
-        const authenticBoundary = await getBoundaryGeoJSONForPanchayath(panchayathObj.name, panchayathObj.nameMl, wardCount);
+        const authenticBoundary = await getBoundaryGeoJSONForPanchayath(panchayathObj.name, panchayathObj.nameMl);
         if (authenticBoundary) {
           setBoundaryGeoJSON(authenticBoundary);
           return;
         }
       }
 
-      // 4. No authentic boundary available: show honest state (NEVER invented/placeholder shapes)
+      // 3. No authentic boundary available: show honest state (NEVER invented/placeholder/fallback shapes)
       setBoundaryGeoJSON(null);
       setBoundaryUnavailable(true);
     });
@@ -275,6 +261,16 @@ export const MapPage: React.FC = () => {
         },
         style: (feature) => {
           const wardNum = feature?.properties?.ward_number;
+          if (!wardNum) {
+            return {
+              color: '#15803D',
+              weight: 3.5,
+              opacity: showBoundaries ? 1.0 : 0.0,
+              fillColor: '#166534',
+              fillOpacity: showBoundaries ? 0.10 : 0.0
+            };
+          }
+
           const wardObj = wards.find(w => w.id === wardNum);
           const comp = wardObj ? wardObj.compliancePercentage : 75;
 
@@ -296,23 +292,33 @@ export const MapPage: React.FC = () => {
           };
         },
         onEachFeature: (feature, layer) => {
-          const props = feature.properties;
-          const wardObj = wards.find(w => w.id === props.ward_number);
-          
-          layer.bindTooltip(`
-            <div style="font-family:sans-serif;padding:4px;font-size:11px;font-weight:bold;color:#0f172a;">
-              Ward ${props.ward_number}: ${props.ward_name || `Ward ${props.ward_number}`}<br/>
-              <span style="font-size:10px;color:#166534;">Compliance: ${wardObj?.compliancePercentage || 100}%</span>
-            </div>
-          `, { permanent: false, direction: 'center' });
+          const props = feature?.properties || {};
+          const wardNum = props.ward_number;
 
-          // Click Ward Boundary opens Ward Drawer
-          layer.on('click', () => {
-            setSelectedWard(props.ward_number);
-            setActiveBuilding(null); 
-            setShowActivityDrawer(false); 
-            if (wardObj) setActiveWardObj(wardObj);
-          });
+          if (!wardNum) {
+            const displayName = props.name || props['name:en'] || panchayatName;
+            layer.bindTooltip(`
+              <div style="font-family:sans-serif;padding:4px;font-size:11px;font-weight:bold;color:#0f172a;">
+                ${displayName}<br/>
+                <span style="font-size:10px;color:#166534;">Authentic LSG Outer Boundary</span>
+              </div>
+            `, { permanent: false, direction: 'center' });
+          } else {
+            const wardObj = wards.find(w => w.id === wardNum);
+            layer.bindTooltip(`
+              <div style="font-family:sans-serif;padding:4px;font-size:11px;font-weight:bold;color:#0f172a;">
+                Ward ${wardNum}: ${props.ward_name || `Ward ${wardNum}`}<br/>
+                <span style="font-size:10px;color:#166534;">Compliance: ${wardObj?.compliancePercentage || 100}%</span>
+              </div>
+            `, { permanent: false, direction: 'center' });
+
+            layer.on('click', () => {
+              setSelectedWard(wardNum);
+              setActiveBuilding(null); 
+              setShowActivityDrawer(false); 
+              if (wardObj) setActiveWardObj(wardObj);
+            });
+          }
 
           // Double Click zooms into locality
           layer.on('dblclick', (e) => {

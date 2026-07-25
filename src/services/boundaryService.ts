@@ -136,8 +136,7 @@ export function createWardDelimitationGeoJSON(lsgFeature: any, wardCount = 15, p
 
 export async function getBoundaryGeoJSONForPanchayath(
   panchayathNameEn: string,
-  panchayathNameMl?: string,
-  wardCount = 15
+  panchayathNameMl?: string
 ): Promise<any | null> {
   const dataset = await loadLSGBoundaries();
   if (!dataset || !dataset.features) return null;
@@ -152,9 +151,6 @@ export async function getBoundaryGeoJSONForPanchayath(
   });
 
   if (matchEn) {
-    const wardGeoJSON = createWardDelimitationGeoJSON(matchEn, wardCount, panchayathNameEn);
-    if (wardGeoJSON) return wardGeoJSON;
-
     return {
       type: 'FeatureCollection',
       features: [matchEn]
@@ -169,9 +165,6 @@ export async function getBoundaryGeoJSONForPanchayath(
     });
 
     if (matchMl) {
-      const wardGeoJSON = createWardDelimitationGeoJSON(matchMl, wardCount, panchayathNameEn);
-      if (wardGeoJSON) return wardGeoJSON;
-
       return {
         type: 'FeatureCollection',
         features: [matchMl]
