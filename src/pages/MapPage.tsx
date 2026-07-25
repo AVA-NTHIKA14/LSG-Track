@@ -105,42 +105,24 @@ export const MapPage: React.FC = () => {
     return `https://wardmap.ksmart.live/map?district=${encodeURIComponent(district)}&type=Grama%20Panchayat&localbody=${encodeURIComponent(name)}`;
   };
 
-  // Load database state & resolve authentic boundary GeoJSON
+  // Immediate & dynamic resolution when activePanchayatCode or language changes
   useEffect(() => {
-    const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
-    const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
-    const unsubWards = dbService.subscribeToWards(setWards);
-    const unsubSyncHistory = dbService.subscribeToSyncHistory(setSyncHistory);
-    const unsubWhatsappLogs = dbService.subscribeToWhatsAppLogs(setWhatsappLogs);
+    const panchayathObj = getPanchayathByCode(activePanchayatCode);
+    const resolvedName = panchayathObj 
+      ? (i18n.language === 'ml' ? panchayathObj.nameMl : panchayathObj.name)
+      : `Grama Panchayat (${activePanchayatCode})`;
 
-    const unsubPanchayaths = dbService.subscribeToPanchayaths(async (list) => {
-      setBoundaryUnavailable(false);
+    setPanchayatName(resolvedName);
 
-      const panchayathObj = getPanchayathByCode(activePanchayatCode);
-      const activeP = list.find(p => p.id === activePanchayatCode);
-      
-      const resolvedName = panchayathObj 
-        ? (i18n.language === 'ml' ? panchayathObj.nameMl : panchayathObj.name)
-        : (activeP ? activeP.name : `Grama Panchayat (${activePanchayatCode})`);
+    const centerCoords = getPanchayathCenterCoordinates(activePanchayatCode);
+    if (mapRef.current) {
+      mapRef.current.setView(centerCoords, 13);
+    }
 
-      const centerCoords = getPanchayathCenterCoordinates(activePanchayatCode);
-      if (mapRef.current) {
-        mapRef.current.setView(centerCoords, 13);
-      }
+    setBoundaryUnavailable(false);
+    let isMounted = true;
 
-      setPanchayatName(resolvedName);
-
-      // 1. Check if custom GeoJSON is in activeP record
-      if (activeP && activeP.boundaryGeoJSON) {
-        try {
-          setBoundaryGeoJSON(JSON.parse(activeP.boundaryGeoJSON));
-          return;
-        } catch (e) {
-          console.warn('Invalid JSON in activeP.boundaryGeoJSON');
-        }
-      }
-
-      // 2. Query authentic OpenDataKerala statewide LSG boundary dataset dynamically for entered Panchayath
+    async function resolveBoundary() {
       if (panchayathObj) {
         const authenticBoundary = await getBoundaryGeoJSONForPanchayath(
           panchayathObj.name,
@@ -148,16 +130,31 @@ export const MapPage: React.FC = () => {
           panchayathObj.code,
           panchayathObj.district
         );
-        if (authenticBoundary) {
-          setBoundaryGeoJSON(authenticBoundary);
-          return;
+        if (isMounted) {
+          if (authenticBoundary) {
+            setBoundaryGeoJSON(authenticBoundary);
+          } else {
+            setBoundaryGeoJSON(null);
+            setBoundaryUnavailable(true);
+          }
         }
       }
+    }
 
-      // 3. No authentic boundary available: show honest state (NEVER invented/placeholder/fallback shapes)
-      setBoundaryGeoJSON(null);
-      setBoundaryUnavailable(true);
-    });
+    resolveBoundary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activePanchayatCode, i18n.language]);
+
+  // Subscribe to database collections
+  useEffect(() => {
+    const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
+    const unsubLicenses = dbService.subscribeToLicenses(setLicenses);
+    const unsubWards = dbService.subscribeToWards(setWards);
+    const unsubSyncHistory = dbService.subscribeToSyncHistory(setSyncHistory);
+    const unsubWhatsappLogs = dbService.subscribeToWhatsAppLogs(setWhatsappLogs);
 
     return () => {
       unsubBuildings();
@@ -165,9 +162,8 @@ export const MapPage: React.FC = () => {
       unsubWards();
       unsubSyncHistory();
       unsubWhatsappLogs();
-      unsubPanchayaths();
     };
-  }, [activePanchayatCode, i18n.language]);
+  }, [activePanchayatCode]);
 
   const location = useLocation();
 
