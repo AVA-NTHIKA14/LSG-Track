@@ -12,6 +12,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { authService } from '../services/authService';
+import { dbService } from '../services/dbService';
 import type { UserRole } from '../types';
 import { 
   KERALA_DISTRICTS, 
@@ -103,6 +104,7 @@ export const Login: React.FC = () => {
 
     setResolvedPanchayath(panchayathObj);
     localStorage.setItem('cp_active_panchayat_code', targetCode);
+    dbService.registerActivePanchayath(targetCode);
     setStep('login');
   };
 

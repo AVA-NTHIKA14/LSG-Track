@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
+import { KERALA_PANCHAYATHS } from '../data/keralaPanchayaths';
 import type { SystemSettings, SyncHistoryRecord } from '../types';
 import { 
   User, Accessibility, Database, HelpCircle, 
@@ -13,6 +14,10 @@ export const Settings: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
+
+  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || 'G110706';
+  const currentPanchayathObj = KERALA_PANCHAYATHS.find(p => p.code.toLowerCase() === activePanchayatCode.toLowerCase());
+  const panchayatName = currentPanchayathObj ? currentPanchayathObj.name : 'Grama Panchayat';
 
   // Settings State
   const [settings, setSettings] = useState<SystemSettings>({
@@ -59,7 +64,6 @@ export const Settings: React.FC = () => {
   };
 
   const lastSync = syncHistory.length > 0 ? syncHistory[0] : null;
-  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || 'G110706';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 font-sans">
@@ -101,7 +105,7 @@ export const Settings: React.FC = () => {
             </div>
             <div>
               <span className="block text-[10px] font-extrabold text-slate-400 uppercase">Panchayat Name</span>
-              <span className="text-slate-900 font-extrabold">Panangad Grama Panchayat</span>
+              <span className="text-slate-900 font-extrabold">{panchayatName}</span>
             </div>
             <div>
               <span className="block text-[10px] font-extrabold text-slate-400 uppercase">LSGD Institution Code</span>

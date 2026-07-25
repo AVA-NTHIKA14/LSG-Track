@@ -40,88 +40,70 @@ export async function loadLSGBoundaries(): Promise<LSGBoundaryDataset | null> {
   return fetchPromise;
 }
 
-export function createWardDelimitationGeoJSON(lsgFeature: any, wardCount = 15, panchayathName = '') {
+export function createWardDelimitationGeoJSON(lsgFeature: any, wardCols = 4, panchayathName = '') {
   if (!lsgFeature || !lsgFeature.geometry) return null;
 
   try {
-    let outerRing: [number, number][] = [];
+    let coords: [number, number][] = [];
     const geom = lsgFeature.geometry;
 
     if (geom.type === 'Polygon') {
-      outerRing = geom.coordinates[0];
+      coords = geom.coordinates[0];
     } else if (geom.type === 'MultiPolygon') {
-      // Pick the polygon with the most points
       let maxLen = 0;
       geom.coordinates.forEach((poly: any) => {
         if (poly[0] && poly[0].length > maxLen) {
           maxLen = poly[0].length;
-          outerRing = poly[0];
+          coords = poly[0];
         }
       });
     }
 
-    if (!outerRing || outerRing.length < 3) return null;
+    if (!coords || coords.length < 3) return null;
 
-    // Compute Centroid
-    let sumLng = 0;
-    let sumLat = 0;
-    outerRing.forEach(([lng, lat]) => {
-      sumLng += lng;
-      sumLat += lat;
-    });
-    const centerLng = sumLng / outerRing.length;
-    const centerLat = sumLat / outerRing.length;
-
-    // Calculate angle for each vertex relative to centroid
-    const pointsWithAngle = outerRing.map(([lng, lat]) => {
-      const angle = Math.atan2(lat - centerLat, lng - centerLng);
-      return { lng, lat, angle: angle < 0 ? angle + 2 * Math.PI : angle };
+    let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+    coords.forEach(([lng, lat]) => {
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
     });
 
-    // Sort by angle ascending
-    pointsWithAngle.sort((a, b) => a.angle - b.angle);
+    const wardRows = 4;
+    const stepLng = (maxLng - minLng) / wardCols;
+    const stepLat = (maxLat - minLat) / wardRows;
 
     const features = [];
-    const angleStep = (2 * Math.PI) / wardCount;
+    let wardNum = 1;
 
-    for (let i = 0; i < wardCount; i++) {
-      const startAngle = i * angleStep;
-      const endAngle = (i + 1) * angleStep;
-      const wardNum = String(i + 1);
+    for (let r = 0; r < wardRows; r++) {
+      for (let c = 0; c < wardCols; c++) {
+        const cMinLng = minLng + c * stepLng;
+        const cMaxLng = minLng + (c + 1) * stepLng;
+        const cMinLat = minLat + r * stepLat;
+        const cMaxLat = minLat + (r + 1) * stepLat;
 
-      // Find points on outer boundary falling in this angular sector
-      const sectorPoints = pointsWithAngle.filter((p) => p.angle >= startAngle && p.angle < endAngle);
-
-      // Interpolate start and end boundary perimeter points
-      const startLng = centerLng + 0.02 * Math.cos(startAngle);
-      const startLat = centerLat + 0.02 * Math.sin(startAngle);
-      const endLng = centerLng + 0.02 * Math.cos(endAngle);
-      const endLat = centerLat + 0.02 * Math.sin(endAngle);
-
-      const polyCoords: [number, number][] = [[centerLng, centerLat]];
-
-      if (sectorPoints.length > 0) {
-        sectorPoints.forEach((p) => polyCoords.push([p.lng, p.lat]));
-      } else {
-        polyCoords.push([startLng, startLat]);
-        polyCoords.push([endLng, endLat]);
+        const wStr = String(wardNum);
+        features.push({
+          type: 'Feature',
+          properties: {
+            ward_number: wStr,
+            ward_name: `Ward ${wStr} - ${panchayathName || 'Local Body'}`,
+            lsg_name: lsgFeature.properties?.name || panchayathName
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [cMinLng, cMinLat],
+              [cMaxLng, cMinLat],
+              [cMaxLng, cMaxLat],
+              [cMinLng, cMaxLat],
+              [cMinLng, cMinLat]
+            ]]
+          }
+        });
+        wardNum++;
       }
-
-      polyCoords.push([centerLng, centerLat]);
-
-      features.push({
-        type: 'Feature',
-        properties: {
-          ward_number: wardNum,
-          ward_name: `Ward ${wardNum} - ${panchayathName || 'Delimitation'}`,
-          delimitation_status: 'Official 2025 Delimitation',
-          lsg_name: lsgFeature.properties?.name || panchayathName
-        },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [polyCoords]
-        }
-      });
     }
 
     return {
@@ -129,7 +111,7 @@ export function createWardDelimitationGeoJSON(lsgFeature: any, wardCount = 15, p
       features
     };
   } catch (err) {
-    console.error('Failed to subdivide LSG boundary into ward delimitation:', err);
+    console.error('Failed to create clean grid ward delimitation:', err);
     return null;
   }
 }
@@ -155,6 +137,56 @@ export async function getBoundaryGeoJSONForPanchayath(
 
   const targetEn = normalize(panchayathNameEn);
   const targetMl = panchayathNameMl ? normalize(panchayathNameMl) : '';
+
+  let outerLSGFeature: any = null;
+  if (dataset && dataset.features) {
+    for (const feature of dataset.features) {
+      const props = feature.properties || {};
+      const propValues = [
+        props.name,
+        props['name:en'],
+        props['name:ml'],
+        props.LSGD_NAME,
+        props.LB_NAME,
+        props.LOCALBODY,
+        props.PANCHAYAT
+      ].filter(Boolean).map(v => String(v));
+
+      for (const val of propValues) {
+        const normVal = normalize(val);
+        if (normVal && (normVal === targetEn || (targetMl && normVal === targetMl))) {
+          outerLSGFeature = feature;
+          break;
+        }
+      }
+      if (outerLSGFeature) break;
+    }
+  }
+
+  // 1. Check for specific authentic local ward GeoJSON file (e.g. /data/panangad_wards.geojson)
+  const candidateWardFileNames = [
+    panchayathNameEn.toLowerCase().replace(/grama\s*panchayat/i, '').trim().replace(/\s+/g, '_') + '_wards.geojson',
+    panchayathNameEn.toLowerCase().replace(/grama\s*panchayat/i, '').trim().replace(/\s+/g, '-') + '_wards.geojson',
+    panchayathCode ? `${panchayathCode.toLowerCase()}_wards.geojson` : ''
+  ].filter(Boolean);
+
+  for (const wardFileName of candidateWardFileNames) {
+    try {
+      const res = await fetch(`/data/${wardFileName}`);
+      if (res.ok) {
+        const wardGeoJSON = await res.json();
+        if (wardGeoJSON && wardGeoJSON.features && wardGeoJSON.features.length > 0) {
+          const wardFeatures = wardGeoJSON.features;
+          return {
+            type: 'FeatureCollection',
+            features: outerLSGFeature ? [outerLSGFeature, ...wardFeatures] : wardFeatures
+          };
+        }
+      }
+    } catch (e) {
+      // Fall through
+    }
+  }
 
   if (dataset && dataset.features) {
     // 1. Exact match first on local dataset

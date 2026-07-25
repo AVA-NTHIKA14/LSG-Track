@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as XLSX from 'xlsx';
 import { dbService } from '../services/dbService';
+import { KERALA_PANCHAYATHS } from '../data/keralaPanchayaths';
 import type { BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, AuditLogRecord } from '../types';
 import { 
   Printer, FileSpreadsheet, 
@@ -23,9 +24,13 @@ export const Reports: React.FC = () => {
   const [selectedWard, setSelectedWard] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
+  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || 'G110706';
+
   // Panchayat Meta State
-  const [panchayatName, setPanchayatName] = useState('Panchayat');
-  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
+  const [panchayatName, setPanchayatName] = useState(() => {
+    const match = KERALA_PANCHAYATHS.find(p => p.code.toLowerCase() === activePanchayatCode.toLowerCase());
+    return match ? match.name : 'Grama Panchayat';
+  });
 
   useEffect(() => {
     const unsubBuildings = dbService.subscribeToBuildings(setBuildings);
@@ -37,6 +42,9 @@ export const Reports: React.FC = () => {
       const activeP = list.find(p => p.id === activePanchayatCode);
       if (activeP) {
         setPanchayatName(activeP.name);
+      } else {
+        const match = KERALA_PANCHAYATHS.find(p => p.code.toLowerCase() === activePanchayatCode.toLowerCase());
+        if (match) setPanchayatName(match.name);
       }
     });
 

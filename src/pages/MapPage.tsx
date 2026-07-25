@@ -270,11 +270,11 @@ export const MapPage: React.FC = () => {
           if (!wardNum) {
             const isSat = mapStyle === 'satellite';
             return {
-              color: isSat ? '#FACC15' : '#0F172A',
-              weight: isSat ? 4.0 : 3.5,
+              color: isSat ? '#F59E0B' : '#0284C7',
+              weight: isSat ? 5.0 : 4.5,
               opacity: showBoundaries ? 1.0 : 0.0,
-              fillColor: isSat ? '#F59E0B' : '#1E293B',
-              fillOpacity: showBoundaries ? (isSat ? 0.15 : 0.10) : 0.0
+              fillColor: isSat ? '#F59E0B' : '#0284C7',
+              fillOpacity: showBoundaries ? (isSat ? 0.18 : 0.12) : 0.0
             };
           }
 
@@ -291,11 +291,12 @@ export const MapPage: React.FC = () => {
           const isSelected = selectedWard === wardNum;
 
           return {
-            color: mapStyle === 'satellite' ? '#FACC15' : '#0F172A',
-            weight: isSelected ? 4.5 : 2.0,
-            opacity: showBoundaries ? 1.0 : 0.0,
+            color: mapStyle === 'satellite' ? '#FACC15' : '#475569',
+            weight: isSelected ? 3.5 : 1.2,
+            dashArray: isSelected ? undefined : '3, 6',
+            opacity: showBoundaries ? 0.85 : 0.0,
             fillColor: color,
-            fillOpacity: showBoundaries ? (isSelected ? 0.28 : 0.10) : 0.0
+            fillOpacity: showBoundaries ? (isSelected ? 0.25 : 0.08) : 0.0
           };
         },
         onEachFeature: (feature, layer) => {

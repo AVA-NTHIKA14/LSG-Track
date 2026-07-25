@@ -44,9 +44,15 @@ export const Renewals: React.FC = () => {
     setRenewSuccess(null);
   };
 
-  const handleSendWhatsApp = (lic: LicenseRecord, bldgName: string) => {
-    setWhatsappStatus(`WhatsApp Bot Alert sent: "Dear Proprietor, Trade License #${lic.id} for ${bldgName} is due for renewal. Please renew before ${lic.expiryDate} at Panchayat Office to avoid penalty. Pay online at: lsgtrack.kerala.gov.in/renew/${lic.id}"`);
-    dbService.addAuditLog('WHATSAPP_ALERT', `WhatsApp Bot dispatched renewal notice for License: ${lic.id} to owner.`);
+  const handleSendWhatsApp = (lic: LicenseRecord, bldgName: string, phone?: string) => {
+    const text = `Dear Proprietor, Trade License #${lic.id} for ${bldgName} is due for renewal. Please renew before ${lic.expiryDate} at Panchayat Office to avoid penalty. Pay online at: https://lsgtrack.kerala.gov.in/renew/${lic.id}`;
+    const rawPhone = (phone || '9847000000').replace(/[^0-9]/g, '');
+    const num = rawPhone.length === 10 ? `91${rawPhone}` : (rawPhone.startsWith('91') ? rawPhone : `91${rawPhone}`);
+    const waUrl = `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+    
+    window.open(waUrl, '_blank');
+    setWhatsappStatus(`WhatsApp Bot Alert dispatched to +${num}: "${text}"`);
+    dbService.addAuditLog('WHATSAPP_ALERT', `WhatsApp Bot dispatched renewal notice for License #${lic.id} (${bldgName}) to +${num}.`);
   };
 
   const handleRenew = async (licId: string) => {
@@ -181,7 +187,7 @@ export const Renewals: React.FC = () => {
                     
                     {/* WhatsApp Notification */}
                     <button
-                      onClick={() => handleSendWhatsApp(activeLic, b?.businessName || '')}
+                      onClick={() => handleSendWhatsApp(activeLic, b?.businessName || '', '9847000000')}
                       className="w-full bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-200 text-emerald-800 rounded py-2 px-3 flex items-center justify-between transition text-left font-semibold"
                     >
                       <div className="flex items-center space-x-2">

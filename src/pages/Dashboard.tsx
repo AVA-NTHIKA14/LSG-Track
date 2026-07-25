@@ -8,6 +8,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { dbService } from '../services/dbService';
 import { authService } from '../services/authService';
+import { KERALA_PANCHAYATHS } from '../data/keralaPanchayaths';
 import type { BuildingRecord, WardRecord, LicenseRecord, SyncHistoryRecord, WardReportRecord, AuditLogRecord } from '../types';
 
 export const Dashboard: React.FC = () => {
@@ -20,9 +21,13 @@ export const Dashboard: React.FC = () => {
   const [wardReports, setWardReports] = useState<WardReportRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
   
-  // Panchayat name resolution
-  const [panchayatName, setPanchayatName] = useState('Panangad Grama Panchayat');
   const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || 'G110706';
+
+  // Panchayat name resolution
+  const [panchayatName, setPanchayatName] = useState(() => {
+    const match = KERALA_PANCHAYATHS.find(p => p.code.toLowerCase() === activePanchayatCode.toLowerCase());
+    return match ? match.name : 'Grama Panchayat';
+  });
 
   const currentUser = authService.getCurrentUser();
 
@@ -45,6 +50,9 @@ export const Dashboard: React.FC = () => {
       const activeP = list.find(p => p.id === activePanchayatCode);
       if (activeP) {
         setPanchayatName(activeP.name);
+      } else {
+        const match = KERALA_PANCHAYATHS.find(p => p.code.toLowerCase() === activePanchayatCode.toLowerCase());
+        if (match) setPanchayatName(match.name);
       }
     });
 

@@ -400,7 +400,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 <select
                   value={activePanchayatCode}
                   onChange={(e) => {
-                    localStorage.setItem('cp_active_panchayat_code', e.target.value);
+                    const newCode = e.target.value;
+                    localStorage.setItem('cp_active_panchayat_code', newCode);
+                    dbService.registerActivePanchayath(newCode);
                     window.location.reload(); 
                   }}
                   className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-[10px] font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F6E4F] shadow-xs cursor-pointer"

@@ -10,6 +10,7 @@ import type {
   WardReportRecord, WardReportStatus, StaffProfile 
 } from '../types';
 import { authService } from './authService';
+import { KERALA_PANCHAYATHS } from '../data/keralaPanchayaths';
 
 // Resolve current tenant context dynamically
 export const getActivePanchayathId = (): string => {
@@ -308,11 +309,58 @@ export const dbService = {
           }
         }
 
+        const activeCode = getActivePanchayathId();
+        const activeIdx = list.findIndex(p => p.id.toLowerCase() === activeCode.toLowerCase());
+        if (activeIdx === -1) {
+          const matchedP = KERALA_PANCHAYATHS.find(kp => kp.code.toLowerCase() === activeCode.toLowerCase() || kp.name.toLowerCase().includes(activeCode.toLowerCase()));
+          if (matchedP) {
+            list.push({
+              id: matchedP.code,
+              name: matchedP.name,
+              district: matchedP.district,
+              taluk: matchedP.district,
+              status: 'active'
+            });
+            localStorage.setItem(GLOBAL_PANCHARATH_KEY, JSON.stringify(list));
+            notifySubscribers('panchayaths', list);
+          }
+        }
+
         return list;
       } catch {
         return [];
       }
     }
+  },
+
+  registerActivePanchayath(code: string): Panchayath | null {
+    localStorage.setItem('cp_active_panchayat_code', code);
+    const matchedP = KERALA_PANCHAYATHS.find(kp => kp.code.toLowerCase() === code.toLowerCase() || kp.name.toLowerCase().includes(code.toLowerCase()));
+    try {
+      const saved = localStorage.getItem(GLOBAL_PANCHARATH_KEY);
+      let list: Panchayath[] = saved ? JSON.parse(saved) : [];
+      const idx = list.findIndex(p => p.id.toLowerCase() === code.toLowerCase());
+      if (matchedP) {
+        const record: Panchayath = {
+          id: matchedP.code,
+          name: matchedP.name,
+          district: matchedP.district,
+          taluk: matchedP.district,
+          status: 'active'
+        };
+        if (idx > -1) {
+          list[idx] = { ...list[idx], name: matchedP.name, district: matchedP.district };
+        } else {
+          list.push(record);
+        }
+        localStorage.setItem(GLOBAL_PANCHARATH_KEY, JSON.stringify(list));
+        notifySubscribers('panchayaths', list);
+        return record;
+      }
+    } catch (e) {
+      console.error('Failed to register active Panchayath:', e);
+    }
+    return null;
   },
 
   async onboardPanchayath(panchayath: Panchayath, initialWards: { id: string; name: string }[]): Promise<void> {
