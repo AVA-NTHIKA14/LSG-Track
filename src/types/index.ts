@@ -1,18 +1,32 @@
 export type UserRole = 
-  | 'Administrator' 
-  | 'Secretary' 
-  | 'Ward Member' 
-  | 'Panchayat Section Clerk';
+  | 'secretary' | 'clerk' | 'ward_member' | 'admin'
+  | 'Secretary' | 'Panchayat Section Clerk' | 'Ward Member' | 'Administrator';
+
+export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface UserProfile {
-  id: string;
+  uid: string;
+  id?: string;
   name: string;
   email: string;
+  panchayatCode: string;
+  panchayathId?: string;
   role: UserRole;
-  ward?: string; // Ward assignment for Ward Members
-  permissions: string[];
-  panchayathId?: string; // Tenant identification (LSGD code or 'all' for System Admin)
-  active?: boolean; // Account status flag (defaults to true)
+  wardNumber?: number | string | null;
+  ward?: string;
+  status: UserStatus;
+  createdAt: string;
+  permissions?: string[];
+  active?: boolean;
+}
+
+export interface StaffProfile {
+  id: string;
+  name: string;
+  role: UserRole;
+  wardNumber?: string | number | null;
+  pin?: string;
+  createdAt: string;
 }
 
 export interface WardRecord {
@@ -156,6 +170,45 @@ export interface Panchayath {
   taluk?: string;
   boundaryGeoJSON?: string; // Ward boundary GeoJSON string
   status: 'active' | 'suspended' | 'pending';
+}
+
+export type LSGType = 'grama_panchayat' | 'municipality' | 'corporation';
+
+export interface TenantBranding {
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  slogan?: string;
+}
+
+export interface TenantContactInfo {
+  phone?: string;
+  email?: string;
+  officeAddress?: string;
+}
+
+export interface TenantGISConfig {
+  geoJsonUrl?: string;
+  inlineGeoJSON?: string;
+  localFallbackPath?: string;
+  boundingBox?: [number, number, number, number];
+}
+
+export interface TenantFeatureFlags {
+  enableWhatsAppAlerts?: boolean;
+  enablePublicPortal?: boolean;
+  enableKSmartSync?: boolean;
+}
+
+export interface Tenant extends Panchayath {
+  lsgType?: LSGType;
+  talukOrZone?: string;
+  branding?: TenantBranding;
+  contactInfo?: TenantContactInfo;
+  gisBoundary?: TenantGISConfig;
+  featureFlags?: TenantFeatureFlags;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SyncHistoryRecord {

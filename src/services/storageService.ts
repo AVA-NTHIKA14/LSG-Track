@@ -46,5 +46,31 @@ export const storageService = {
       storagePath,
       fileName: file.name
     };
+  },
+
+  async uploadTenantGisAsset(
+    panchayathId: string,
+    fileOrBlob: File | Blob,
+    fileName: string
+  ): Promise<{ downloadUrl: string; storagePath: string }> {
+    if (!storage) {
+      throw new Error('Storage is unavailable. Configure Firebase before uploading files.');
+    }
+
+    const cleanName = sanitizeFileName(fileName);
+    const storagePath = `panchayaths/${panchayathId}/gis/${cleanName}`;
+    const fileRef = ref(storage, storagePath);
+
+    await uploadBytes(fileRef, fileOrBlob, {
+      contentType: 'application/json',
+      customMetadata: {
+        panchayathId,
+        uploadedAt: new Date().toISOString(),
+        originalName: fileName
+      }
+    });
+
+    const downloadUrl = await getDownloadURL(fileRef);
+    return { downloadUrl, storagePath };
   }
 };
