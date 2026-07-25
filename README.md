@@ -1,85 +1,364 @@
 # LSG Track — GIS Trade License Monitoring & Decision Support Platform
-> **Kerala Local Self Governments (LSGs) Operational Intelligence System**
 
-LSG Track is a Secretary-centric, GIS-powered **Decision Support and License Compliance Monitoring System** designed for Kerala Local Self Government Institutions (Grama Panchayats).
+> **Secretary-Centric Operational Intelligence Platform for Kerala Local Self Government Institutions**
 
-> [!IMPORTANT]  
+LSG Track is a GIS-powered **Decision Support System (DSS)** designed for Kerala Local Self Government Institutions (Grama Panchayats).
+
+It visualizes trade license compliance, streamlines field verifications, monitors statutory renewals, and provides Panchayat Secretaries with spatial intelligence to improve administrative decision-making.
+
+> [!IMPORTANT]
 > **LSG Track is NOT an ERP and DOES NOT replace K-SMART.**  
-> **K-SMART** remains the single official Government ERP for license approvals, fee collection, permits, and official records. LSG Track visualizes synchronized K-SMART trade license data to empower Panchayat Secretaries with spatial intelligence, inspection prioritization, and ward-level compliance tracking.
+> K-SMART remains the official Government ERP for license approvals, fee collection, permits, and official records.  
+> LSG Track synchronizes data from K-SMART to provide spatial intelligence, inspection prioritization, and ward-level compliance tracking.
 
 ---
 
-## Architecture & Data Flow
+# Architecture
 
-```
-                K-SMART (Official ERP)
+```text
+               K-SMART (Official ERP)
        Single Source of Truth for Licenses & Permits
                          │
                          ▼
-                   [ DEO File Import ]
-        Automatic CSV/Excel Validation & Sync
+             DEO CSV / Excel Import
+       Schema Validation & Synchronization
                          │
                          ▼
-                    LSG Track
-    Decision Support + GIS Monitoring Platform
-       (Designed for Panchayat Secretary)
+         LSG Track Decision Support System
+                         │
+        ┌────────────────┼────────────────┐
+        ▼                ▼                ▼
+ Secretary Dashboard    GIS Map     Reports & Analytics
 ```
 
 ---
 
-## Stakeholder Workflows & User Roles
+# Data Flow
 
-### 1. Panchayat Secretary (Primary Stakeholder)
-The Panchayat Secretary relies on LSG Track as a 30-second operational command center to monitor compliance and make administrative decisions.
-- **30-Second Operational Dashboard**: Top priority action tasks, single-action KPI summary cards, and ward compliance ranking.
-- **Map View Workspace**: Interactive GIS map with 8 spatial layers, building profile drawers, and direct links to official K-SMART records.
-- **Field Reports Verification Workspace**: Inspects and verifies geotagged unlicensed business reports submitted by Ward Members against K-SMART data.
-- **Renewal Alerts**: Dispatches direct WhatsApp statutory renewal reminders to expired and expiring business owners.
-- **Official Reports Engine**: Compiles and exports PDF / CSV compliance reports for administrative review.
-- **Profile & Settings**: Simplified non-technical administrative preferences (Officer Profile, High Contrast Mode, Larger Text, K-SMART Sync Status, Support).
-
-### 2. Data Entry Operator (DEO / Panchayat Section Clerk)
-- **K-SMART Synchronization Terminal**: Downloads official K-SMART trade license export files (CSV/Excel), runs schema validation, detects duplicates, and executes batch synchronization.
-
-### 3. Ward Member / Field Inspector
-- **Unlicensed Establishment Field Reporting**: Geotags suspected unlicensed commercial units with GPS coordinates, building photographs, and field notes for Secretary review.
+```text
+K-SMART
+   │
+   ▼
+CSV / Excel Export
+   │
+   ▼
+Schema Validation
+   │
+   ▼
+Duplicate Detection
+   │
+   ▼
+Firebase Firestore
+   │
+   ▼
+GIS Visualization
+   │
+   ▼
+Secretary Dashboard
+   │
+   ▼
+Administrative Decision Making
+```
 
 ---
 
-## Key Features & Modules
+# User Roles
 
-- **GIS Map View**: Leaflet-powered GIS workspace with 8 spatial layers (Licensed, Expired, Expiring Soon, Unlicensed, Ward Reports, Risk Score, Ward Boundaries, Heatmaps).
-- **K-SMART Integration Pipeline**: Automatic CSV/Excel file parser, schema validator, duplicate detector, and sync audit logger.
-- **WhatsApp Renewal Reminders**: Direct statutory notice dispatch with delivery tracking (Sent, Delivered, Read, Failed).
-- **WCAG 2.1 AAA Accessibility**: Integrated High Contrast Mode (#0F172A), Larger Text Scaling (125%), ON/OFF indicators, and screen reader skip links.
-- **Audit Trail Register**: Comprehensive security log tracking officer sign-ins, data imports, verifications, and report downloads.
+## Panchayat Secretary
+
+The primary stakeholder who uses LSG Track as a decision-support platform.
+
+### Dashboard
+
+- Operational overview
+- Priority action cards
+- Ward compliance ranking
+- Revenue leakage summary
+- Pending verifications
+- Inspection statistics
+
+### GIS Workspace
+
+- Interactive GIS map
+- Building information drawer
+- Spatial filtering
+- Layer controls
+- Direct links to K-SMART records
+
+### Verification Workspace
+
+- Review field reports
+- Verify suspected unlicensed establishments
+- Approve or reject submissions
+- Compare reports with K-SMART records
+
+### Renewal Management
+
+- WhatsApp renewal reminders
+- Expiring license monitoring
+- Delivery tracking
+
+### Reports
+
+- PDF export
+- CSV export
+- Compliance reports
+- Ward reports
+
+### Settings
+
+- Officer profile
+- Accessibility preferences
+- K-SMART synchronization status
+- Support information
 
 ---
 
-## Technology Stack
+## Data Entry Operator (DEO)
+
+Responsible for importing and synchronizing official K-SMART exports.
+
+### Responsibilities
+
+- Import CSV and Excel files
+- Validate file schema
+- Detect duplicate records
+- Execute synchronization
+- Review synchronization history
+- Resolve import issues
+
+---
+
+## Ward Member / Field Inspector
+
+Responsible for reporting suspected unlicensed establishments.
+
+### Responsibilities
+
+- Submit field reports
+- Capture GPS coordinates
+- Upload building photographs
+- Add inspection notes
+- Track report status
+
+---
+
+# GIS Layers
+
+| Layer | Description |
+|--------|-------------|
+| Licensed | Active licensed establishments |
+| Expired | Expired trade licenses |
+| Expiring Soon | Licenses nearing expiry |
+| Unlicensed | Suspected unlicensed establishments |
+| Ward Reports | Field inspection submissions |
+| Risk Score | Compliance priority visualization |
+| Ward Boundaries | Panchayat administrative boundaries |
+| Heatmap | Business density visualization |
+
+---
+
+# Core Modules
+
+## Secretary Dashboard
+
+A centralized operational workspace that enables Secretaries to understand the Panchayat's compliance status at a glance.
+
+### Features
+
+- KPI summary cards
+- Compliance overview
+- Revenue leakage estimation
+- Inspection priorities
+- Recent activities
+- Ward ranking
+- Quick navigation
+
+---
+
+## GIS Map View
+
+Interactive spatial workspace powered by Leaflet and OpenStreetMap.
+
+### Features
+
+- Layer controls
+- Building profiles
+- Ward boundaries
+- Heatmaps
+- Risk visualization
+- Search and filtering
+
+---
+
+## K-SMART Synchronization
+
+Synchronize official K-SMART trade license exports.
+
+### Features
+
+- CSV import
+- Excel import
+- Schema validation
+- Duplicate detection
+- Import logs
+- Synchronization history
+
+---
+
+## Field Verification
+
+Verification workflow for Secretary review.
+
+### Features
+
+- Geotagged reports
+- Photograph verification
+- Status management
+- Approval workflow
+- Administrative remarks
+
+---
+
+## Renewal Notification System
+
+Automated statutory renewal reminders.
+
+### Features
+
+- WhatsApp reminders
+- Delivery tracking
+- Reminder history
+- Renewal status
+
+---
+
+## Reports Engine
+
+Generate official administrative reports.
+
+### Export Formats
+
+- PDF
+- CSV
+
+### Reports
+
+- Compliance Report
+- Ward Report
+- Inspection Summary
+- Renewal Status Report
+- Revenue Analysis
+
+---
+
+# Security
+
+- Firebase Authentication
+- Role-Based Access Control (RBAC)
+- Protected Routes
+- Audit Trail Logging
+- CSV Schema Validation
+- Secure Firestore Rules
+- Session Management
+
+---
+
+# Accessibility
+
+Designed following WCAG 2.1 AA/AAA accessibility principles.
+
+### Features
+
+- High Contrast Mode
+- Larger Text (125%)
+- Keyboard Navigation
+- Skip Navigation Links
+- Screen Reader Support
+- Visible Focus Indicators
+
+---
+
+# Audit Trail
+
+Every important administrative action is recorded.
+
+Tracked activities include:
+
+- User authentication
+- Data synchronization
+- Report downloads
+- Field verification
+- Profile updates
+- Administrative actions
+
+---
+
+# Data Privacy
+
+- Official trade license information originates from K-SMART exports.
+- LSG Track does not modify official government records.
+- Synchronization activities are logged for accountability.
+- Administrative actions are fully traceable through audit logs.
+
+---
+
+# Technology Stack
 
 | Component | Technology |
-| :--- | :--- |
-| **Frontend Framework** | React 18 + Vite + TypeScript |
-| **Styling** | Vanilla CSS Design Tokens + Tailwind CSS |
-| **GIS Mapping** | Leaflet + OpenStreetMap + GeoJSON |
-| **Data Engine** | Firebase Firestore (Realtime) + LocalStorage Fallback |
-| **Auth** | Firebase Authentication + Portal Role Verification |
-| **Data Parsing** | XLSX / PapaParse CSV Engine |
+|-----------|------------|
+| Frontend | React 18 + Vite + TypeScript |
+| Styling | Tailwind CSS + CSS Design Tokens |
+| GIS | Leaflet + OpenStreetMap + GeoJSON |
+| Database | Firebase Firestore |
+| Authentication | Firebase Authentication |
+| File Storage | Firebase Storage |
+| CSV Parsing | PapaParse |
+| Excel Parsing | XLSX |
 
 ---
 
-## Getting Started
+# Project Structure
 
-### 1. Clone & Install Dependencies
+```text
+src/
+├── assets/
+├── components/
+├── pages/
+├── layouts/
+├── hooks/
+├── services/
+├── firebase/
+├── auth/
+├── context/
+├── map/
+├── styles/
+├── types/
+├── utils/
+└── main.tsx
+```
+
+---
+
+# Getting Started
+
+## Clone the Repository
+
 ```bash
 git clone https://github.com/AVA-NTHIKA14/LSG-Track.git
 cd LSG-Track
+```
+
+## Install Dependencies
+
+```bash
 npm install
 ```
 
-### 2. Configure Environment (Optional Firebase)
-Create `.env` or `.env.local`:
+## Configure Environment
+
+Create a `.env.local` file:
+
 ```env
 VITE_FIREBASE_API_KEY=your_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -88,31 +367,111 @@ VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
-*(If Firebase keys are omitted, the application runs automatically in local mock mode)*.
 
-### 3. Run Development Server
+## Start Development Server
+
 ```bash
 npm run dev
 ```
-Open **`http://localhost:5173`** in your browser.
 
-### 4. Build for Production
+Open:
+
+```
+http://localhost:5173
+```
+
+## Production Build
+
 ```bash
 npm run build
 ```
 
 ---
 
-## Quick Test Accounts
+# Demo Accounts
 
-| Role | Email | Password | Primary Feature Access |
-| :--- | :--- | :--- | :--- |
-| **Panchayat Secretary** | `secretary@lsgtrack.gov.in` | *(any)* | Dashboard, Map View, Ward Reports, Renewal Alerts |
-| **Data Entry Operator (DEO)** | `clerk@lsgtrack.gov.in` | *(any)* | K-SMART CSV/Excel Synchronization Terminal |
-| **Ward Member** | `ward@lsgtrack.gov.in` | *(any)* | Field Reporting Terminal |
-| **System Administrator** | `admin@lsgtrack.gov.in` | *(any)* | System Tenant Administration |
+| Role | Email | Password |
+|------|-------|----------|
+| Panchayat Secretary | `secretary@lsgtrack.gov.in` | Any Password |
+| Data Entry Operator | `clerk@lsgtrack.gov.in` | Any Password |
+| Ward Member | `ward@lsgtrack.gov.in` | Any Password |
+| Administrator | `admin@lsgtrack.gov.in` | Any Password |
 
 ---
 
-## Governance & Maintenance
-Maintained for Local Self Government Department (LSGD), Kerala. Software version **2.0.0 (Production)**.
+# Current Limitations
+
+- K-SMART integration currently relies on CSV/Excel imports.
+- WhatsApp notifications are demonstrated using a simulated service.
+- Offline inspection capabilities are planned.
+- Native mobile application is under development.
+
+---
+
+# Roadmap
+
+## Completed
+
+- Secretary Dashboard
+- GIS Monitoring
+- K-SMART CSV Synchronization
+- Accessibility Improvements
+- Audit Trail
+- Role-Based Access Control
+
+## Planned
+
+- Direct K-SMART API Integration
+- AI-Based Inspection Prioritization
+- Mobile Field Inspection Application
+- Digital Signature Integration
+- Offline Inspection Support
+- Advanced Analytics Dashboard
+
+---
+
+# Design Principles
+
+- Secretary-first workflow
+- GIS-first navigation
+- Low cognitive load
+- Government-friendly interface
+- Accessibility by default
+- Fast operational decision-making
+
+---
+
+# Contributing
+
+Contributions are welcome.
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Commit your changes.
+4. Push your branch.
+5. Submit a Pull Request.
+
+---
+
+# License
+
+This project is licensed under the **MIT License**.
+
+---
+
+# Project Status
+
+**Version:** 2.0.0
+
+**Status:** Production Prototype
+
+LSG Track is being developed as a GIS-based Decision Support System for Kerala Local Self Government Institutions.
+
+---
+
+# Maintainers
+
+- **Avanthika K S**
+- **Sredha Manoj**
+
+> **LSG Track follows a "Decision Support, Not Data Ownership" philosophy. Official government records remain within K-SMART, while LSG Track provides spatial intelligence, compliance monitoring, inspection prioritization, and operational insights that enable Panchayat Secretaries to make informed administrative decisions.**
