@@ -3,6 +3,7 @@ import {
   collection, doc, addDoc, updateDoc, deleteDoc, 
   onSnapshot, query, orderBy, setDoc, getDoc 
 } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 import type { 
   BuildingRecord, WardRecord, LicenseRecord, SurveyRecord, 
   SystemNotification, AuditLogRecord, SystemSettings, Panchayath, SyncHistoryRecord, WhatsAppLogRecord,
@@ -16,7 +17,7 @@ export const getActivePanchayathId = (): string => {
   const saved = localStorage.getItem('cp_active_panchayat_code');
   if (saved) return saved;
   if (currentUser?.panchayatCode) return currentUser.panchayatCode;
-  return 'G070702';
+  return 'G110706';
 };
 
 // Dynamic LocalStorage Keys per tenant
@@ -42,56 +43,52 @@ const initPanchayatLocalStorage = (panchayathId: string) => {
 
   const savedWards = localStorage.getItem(keys.WARDS);
   const needsWardReset = isChakkittapara && savedWards && JSON.parse(savedWards).length !== 13;
-  const needsPanangadWardReset = isPanangad && savedWards && (JSON.parse(savedWards).length !== 20 || JSON.parse(savedWards).some((w: any) => w.totalBuildings > 0));
+  const needsPanangadWardReset = isPanangad && savedWards && JSON.parse(savedWards).length !== 20;
 
 
 
   if (!savedWards || savedWards === '[]' || needsWardReset || needsPanangadWardReset) {
     const defaultWards: WardRecord[] = isChakkittapara ? [
-      { id: "1", name: "Ward 1 - Pannikkottur", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Anjali Devi" },
-      { id: "2", name: "Ward 2 - Chembanoda", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Binu Kumar" },
-      { id: "3", name: "Ward 3 - Kurathippara", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Sajith V" },
-      { id: "4", name: "Ward 4 - Poozhithode", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "5", name: "Ward 5 - Ilamkad-Chenkottakkolli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "7", name: "Ward 7 - Muthukad", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "8", name: "Ward 8 - Plantation", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "9", name: "Ward 9 - Narinada", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "10", name: "Ward 10 - Annakuttanchal", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "11", name: "Ward 11 - Peruvannamuzhi", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "12", name: "Ward 12 - Chakkittapara", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "13", name: "Ward 13 - Kulathuvayal", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "16", name: "Ward 16 - Thazhathuvayal", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" }
+      { id: "1", name: "Ward 1 - Pannikkottur", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Anjali Devi" },
+      { id: "2", name: "Ward 2 - Chembanoda", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Binu Kumar" },
+      { id: "3", name: "Ward 3 - Kurathippara", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Sajith V" },
+      { id: "4", name: "Ward 4 - Poozhithode", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "5", name: "Ward 5 - Ilamkad-Chenkottakkolli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "7", name: "Ward 7 - Muthukad", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "8", name: "Ward 8 - Plantation", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "9", name: "Ward 9 - Narinada", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "10", name: "Ward 10 - Annakuttanchal", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "11", name: "Ward 11 - Peruvannamuzhi", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "12", name: "Ward 12 - Chakkittapara", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "13", name: "Ward 13 - Kulathuvayal", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "16", name: "Ward 16 - Thazhathuvayal", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" }
     ] : isPanangad ? [
-      { id: "1", name: "Ward 1 - Kannadipoil", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Anjali Devi" },
-      { id: "2", name: "Ward 2 - Kurumpoli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "3", name: "Ward 3 - Vayalada", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "4", name: "Ward 4 - Thalayad", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Binu Kumar" },
-      { id: "5", name: "Ward 5 - Padikkal Vayal", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "6", name: "Ward 6 - Mankayam", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "7", name: "Ward 7 - Ezhukandi", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "8", name: "Ward 8 - Palamthala", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "9", name: "Ward 9 - Poovambai", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "10", name: "Ward 10 - Rarothmukku", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "11", name: "Ward 11 - Chithiramangalam", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "12", name: "Ward 12 - Vattoli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Sajith V" },
-      { id: "13", name: "Ward 13 - Arappeedika", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "14", name: "Ward 14 - Mundakkara", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "15", name: "Ward 15 - Thiruvancheripoil", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "16", name: "Ward 16 - Karayathodi", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "17", name: "Ward 17 - Kattamvalli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "18", name: "Ward 18 - Nirmallur", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" },
-      { id: "19", name: "Ward 19 - Panangad North", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Anjali Devi" },
-      { id: "20", name: "Ward 20 - Kattode", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 100.0, assignedOfficer: "Unassigned" }
+      { id: "1", name: "Ward 1 - Kannadipoil", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Anjali Devi" },
+      { id: "2", name: "Ward 2 - Kurumpoli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "3", name: "Ward 3 - Vayalada", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "4", name: "Ward 4 - Thalayad", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Binu Kumar" },
+      { id: "5", name: "Ward 5 - Padikkal Vayal", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "6", name: "Ward 6 - Mankayam", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "7", name: "Ward 7 - Ezhukandi", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "8", name: "Ward 8 - Palamthala", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "9", name: "Ward 9 - Poovambai", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "10", name: "Ward 10 - Rarothmukku", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "11", name: "Ward 11 - Chithiramangalam", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "12", name: "Ward 12 - Vattoli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Sajith V" },
+      { id: "13", name: "Ward 13 - Arappeedika", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "14", name: "Ward 14 - Mundakkara", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "15", name: "Ward 15 - Thiruvancheripoil", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "16", name: "Ward 16 - Karayathodi", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "17", name: "Ward 17 - Kattamvalli", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "18", name: "Ward 18 - Nirmallur", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
+      { id: "19", name: "Ward 19 - Panangad North", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Anjali Devi" },
+      { id: "20", name: "Ward 20 - Kattode", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" }
     ] : [];
     localStorage.setItem(keys.WARDS, JSON.stringify(defaultWards));
   }
 
-  // Always initialize empty arrays for buildings and licenses for clean state
-  const defaultBuildings: BuildingRecord[] = [];
-  localStorage.setItem(keys.BUILDINGS, JSON.stringify(defaultBuildings));
-
-  const defaultLicenses: LicenseRecord[] = [];
-  localStorage.setItem(keys.LICENSES, JSON.stringify(defaultLicenses));
+  if (!localStorage.getItem(keys.BUILDINGS)) localStorage.setItem(keys.BUILDINGS, JSON.stringify([]));
+  if (!localStorage.getItem(keys.LICENSES)) localStorage.setItem(keys.LICENSES, JSON.stringify([]));
 
   if (!localStorage.getItem(keys.SURVEYS)) localStorage.setItem(keys.SURVEYS, JSON.stringify([]));
   if (!localStorage.getItem(keys.NOTIFICATIONS)) localStorage.setItem(keys.NOTIFICATIONS, JSON.stringify([]));
@@ -533,7 +530,7 @@ export const dbService = {
         const complianceDenominator = wardBuildings.length - govtOrNgo;
         wards[wardIndex].compliancePercentage = complianceDenominator > 0 
           ? Math.round((licensed / complianceDenominator) * 100) || 0
-          : 100;
+          : 0;
         
         localStorage.setItem(keys.WARDS, JSON.stringify(wards));
         notifySubscribers('wards', wards);
@@ -1198,7 +1195,7 @@ export const dbService = {
   },
 
   // --- K-SMART CSV/EXCEL IMPORT ENGINE ---
-  async processKSmartImport(fileContent: string, fileName: string, operatorName: string): Promise<{
+  async processKSmartImport(fileContent: string | ArrayBuffer, fileName: string, operatorName: string): Promise<{
     totalRecords: number;
     importedCount: number;
     updatedCount: number;
@@ -1208,14 +1205,58 @@ export const dbService = {
     errors: string[];
   }> {
     const activePId = getActivePanchayathId();
-    const lines = fileContent.split(/\r?\n/).filter(line => line.trim().length > 0);
 
-    if (lines.length < 2) {
+    let matrixRows: any[][] = [];
+
+    try {
+      let workbook: XLSX.WorkBook;
+      if (typeof fileContent === 'string' && !fileContent.startsWith('PK')) {
+        workbook = XLSX.read(fileContent, { type: 'string' });
+      } else {
+        workbook = XLSX.read(fileContent, { type: 'array' });
+      }
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      matrixRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+    } catch (e) {
+      if (typeof fileContent === 'string') {
+        const lines = fileContent.split(/\r?\n/).filter(l => l.trim().length > 0);
+        const delim = lines[0]?.includes(';') ? ';' : ',';
+        matrixRows = lines.map(line => line.split(delim).map(c => c.trim().replace(/^["']|["']$/g, '')));
+      }
+    }
+
+    matrixRows = matrixRows.filter(row => Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== ''));
+
+    if (matrixRows.length < 2) {
       throw new Error("Invalid file format. File must contain a header row and at least one data row.");
     }
 
-    const header = lines[0].toLowerCase();
-    const delimiter = header.includes(';') ? ';' : ',';
+    const headerRow = matrixRows[0].map(c => String(c || '').toLowerCase().trim());
+
+    let colBId = headerRow.findIndex(h => h.includes('building') || h.includes('bldg') || h === 'id');
+    let colBiz = headerRow.findIndex(h => h.includes('business') || h.includes('establishment') || h.includes('name') || h.includes('trade'));
+    let colOwner = headerRow.findIndex(h => h.includes('owner') || h.includes('proprietor') || h.includes('applicant'));
+    let colCat = headerRow.findIndex(h => h.includes('category') || h.includes('type'));
+    let colWard = headerRow.findIndex(h => h.includes('ward'));
+    let colLat = headerRow.findIndex(h => h.includes('lat'));
+    let colLng = headerRow.findIndex(h => h.includes('lng') || h.includes('long'));
+    let colLic = headerRow.findIndex(h => h.includes('license') || h.includes('lic') || h.includes('permit'));
+    let colExp = headerRow.findIndex(h => h.includes('expiry') || h.includes('expire') || h.includes('date'));
+    let colFee = headerRow.findIndex(h => h.includes('fee') || h.includes('paid') || h.includes('amount'));
+    let colStat = headerRow.findIndex(h => h.includes('status'));
+
+    if (colBId === -1) colBId = 0;
+    if (colBiz === -1) colBiz = 1;
+    if (colOwner === -1) colOwner = 2;
+    if (colCat === -1) colCat = 3;
+    if (colWard === -1) colWard = 4;
+    if (colLat === -1) colLat = 5;
+    if (colLng === -1) colLng = 6;
+    if (colLic === -1) colLic = 7;
+    if (colExp === -1) colExp = 8;
+    if (colFee === -1) colFee = 9;
+    if (colStat === -1) colStat = 10;
 
     let importedCount = 0;
     let updatedCount = 0;
@@ -1231,36 +1272,29 @@ export const dbService = {
     const licenses: LicenseRecord[] = JSON.parse(localStorage.getItem(keys.LICENSES) || '[]');
     const nowIso = new Date().toISOString().split('T')[0];
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    const dataRows = matrixRows.slice(1);
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      if (!row || row.length === 0) continue;
 
-      const cols = line.split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
+      const rawBId = String(row[colBId] || '').trim();
+      const bId = rawBId ? (rawBId.startsWith('BLDG-') ? rawBId : `BLDG-${rawBId}`) : `BLDG-IMPORT-${i + 1}`;
+      const businessName = String(row[colBiz] || '').trim() || `Commercial Unit #${i + 1}`;
+      const ownerName = String(row[colOwner] || '').trim() || 'Proprietor';
+      const category = String(row[colCat] || '').trim() || 'General Trade';
+      const rawWard = String(row[colWard] || '').trim();
+      const wardNumber = rawWard.replace(/[^0-9]/g, '') || '12';
       
-      // Expected Columns:
-      // 0: Building ID (e.g. BLDG-G110706-001)
-      // 1: Business Name
-      // 2: Proprietor / Owner Name
-      // 3: Category
-      // 4: Ward Number
-      // 5: Latitude
-      // 6: Longitude
-      // 7: License ID (Optional)
-      // 8: Expiry Date (YYYY-MM-DD)
-      // 9: Fee Paid
-      // 10: Status (licensed, unlicensed, pending, expired)
-      
-      const bId = cols[0] || `BLDG-IMPORT-${i}`;
-      const businessName = cols[1] || 'Commercial Unit';
-      const ownerName = cols[2] || 'Proprietor';
-      const category = cols[3] || 'General Trade';
-      const wardNumber = cols[4] || '1';
-      const lat = parseFloat(cols[5]) || 11.575 + (i * 0.001);
-      const lng = parseFloat(cols[6]) || 75.816 + (i * 0.001);
-      const licId = cols[7] || '';
-      const expiryDate = cols[8] || '2026-12-31';
-      const feePaid = parseFloat(cols[9]) || 1500;
-      const rawStatus = (cols[10] || 'licensed').toLowerCase();
+      const parsedLat = parseFloat(String(row[colLat]));
+      const parsedLng = parseFloat(String(row[colLng]));
+      const lat = !isNaN(parsedLat) && parsedLat > 0 ? parsedLat : (11.4420 + (i * 0.0012));
+      const lng = !isNaN(parsedLng) && parsedLng > 0 ? parsedLng : (75.8320 + (i * 0.0012));
+
+      const licId = String(row[colLic] || '').trim();
+      const rawExp = String(row[colExp] || '').trim();
+      const expiryDate = rawExp || '2026-12-31';
+      const feePaid = parseFloat(String(row[colFee])) || 1500;
+      const rawStatus = String(row[colStat] || 'licensed').toLowerCase();
 
       let status: BuildingRecord['status'] = 'licensed';
       if (rawStatus.includes('unlicensed') || rawStatus.includes('no')) {
@@ -1271,7 +1305,6 @@ export const dbService = {
         status = 'unlicensed';
         expiredCount++;
       } else {
-        // check expiry date vs today
         if (new Date(expiryDate) < new Date(nowIso)) {
           status = 'unlicensed';
           expiredCount++;
@@ -1280,7 +1313,7 @@ export const dbService = {
         }
       }
 
-      const riskScore = status === 'unlicensed' ? 'High' : (new Date(expiryDate) <= new Date(Date.now() + 7*86400000) ? 'Medium' : 'Low');
+      const riskScore = status === 'unlicensed' ? 'High' : (new Date(expiryDate) <= new Date(Date.now() + 7 * 86400000) ? 'Medium' : 'Low');
 
       const existingIndex = buildings.findIndex(b => b.id.toLowerCase() === bId.toLowerCase() || b.businessName.toLowerCase() === businessName.toLowerCase());
 
@@ -1307,17 +1340,18 @@ export const dbService = {
         importedCount++;
       }
 
-      if (licId) {
-        const licExistIdx = licenses.findIndex(l => l.id.toLowerCase() === licId.toLowerCase());
+      if (licId || status === 'licensed') {
+        const effectiveLicId = licId || `LIC-${bId}`;
+        const licExistIdx = licenses.findIndex(l => l.id.toLowerCase() === effectiveLicId.toLowerCase());
         const licObj: LicenseRecord = {
-          id: licId,
+          id: effectiveLicId,
           buildingId: bId,
           licenseType: category,
           issueDate: '2025-04-01',
           expiryDate,
           status: new Date(expiryDate) < new Date(nowIso) ? 'expired' : 'active',
           feePaid,
-          kSmartAppNo: `KSMART-APP-${i}`
+          kSmartAppNo: `KSMART-APP-${i + 1}`
         };
         if (licExistIdx >= 0) {
           licenses[licExistIdx] = licObj;
@@ -1327,17 +1361,39 @@ export const dbService = {
       }
     }
 
+    // Recalculate ward statistics for all wards
+    const wards: WardRecord[] = JSON.parse(localStorage.getItem(keys.WARDS) || '[]');
+    if (wards.length > 0) {
+      wards.forEach(w => {
+        const wardBuildings = buildings.filter(b => b.wardNumber === w.id);
+        const licensed = wardBuildings.filter(b => b.status === 'licensed').length;
+        const unlicensed = wardBuildings.filter(b => b.status === 'unlicensed').length;
+        const pending = wardBuildings.filter(b => b.status === 'pending').length;
+        const govtOrNgo = wardBuildings.filter(b => b.status === 'govt' || b.status === 'ngo').length;
+        
+        w.totalBuildings = wardBuildings.length;
+        w.licensedBuildings = licensed;
+        w.unlicensedBuildings = unlicensed;
+        w.pendingBuildings = pending;
+        
+        const compDenom = wardBuildings.length - govtOrNgo;
+        w.compliancePercentage = compDenom > 0 ? Math.round((licensed / compDenom) * 100) : 0;
+      });
+      localStorage.setItem(keys.WARDS, JSON.stringify(wards));
+    }
+
     // Save back to storage
     localStorage.setItem(keys.BUILDINGS, JSON.stringify(buildings));
     localStorage.setItem(keys.LICENSES, JSON.stringify(licenses));
     notifySubscribers('buildings', buildings);
     notifySubscribers('licenses', licenses);
+    if (wards.length > 0) notifySubscribers('wards', wards);
 
     // Save Sync Log
     const syncRecord: Omit<SyncHistoryRecord, 'id' | 'timestamp'> = {
       operatorName,
       fileName,
-      totalRecords: lines.length - 1,
+      totalRecords: dataRows.length,
       importedCount,
       updatedCount,
       expiredCount,
@@ -1349,7 +1405,7 @@ export const dbService = {
     await this.addSyncHistory(syncRecord);
 
     return {
-      totalRecords: lines.length - 1,
+      totalRecords: dataRows.length,
       importedCount,
       updatedCount,
       expiredCount,
