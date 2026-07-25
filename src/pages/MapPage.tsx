@@ -262,17 +262,18 @@ export const MapPage: React.FC = () => {
         style: (feature) => {
           const wardNum = feature?.properties?.ward_number;
           if (!wardNum) {
+            const isSat = mapStyle === 'satellite';
             return {
-              color: '#15803D',
-              weight: 3.5,
+              color: isSat ? '#FACC15' : '#0F172A',
+              weight: isSat ? 4.0 : 3.5,
               opacity: showBoundaries ? 1.0 : 0.0,
-              fillColor: '#166534',
-              fillOpacity: showBoundaries ? 0.10 : 0.0
+              fillColor: isSat ? '#F59E0B' : '#1E293B',
+              fillOpacity: showBoundaries ? (isSat ? 0.15 : 0.10) : 0.0
             };
           }
 
           const wardObj = wards.find(w => w.id === wardNum);
-          const comp = wardObj ? wardObj.compliancePercentage : 75;
+          const comp = (wardObj && wardObj.totalBuildings > 0) ? wardObj.compliancePercentage : 0;
 
           // Compliance Coloring Choropleth Spectrum
           let color = '#E11D48'; // High Contrast Red (Critical < 60%)
@@ -284,7 +285,7 @@ export const MapPage: React.FC = () => {
           const isSelected = selectedWard === wardNum;
 
           return {
-            color: '#FFFFFF',
+            color: mapStyle === 'satellite' ? '#FACC15' : '#0F172A',
             weight: isSelected ? 4.5 : 2.0,
             opacity: showBoundaries ? 1.0 : 0.0,
             fillColor: color,
@@ -335,7 +336,7 @@ export const MapPage: React.FC = () => {
     } catch (err) {
       console.error('GeoJSON rendering error:', err);
     }
-  }, [boundaryGeoJSON, showBoundaries, selectedWard, wards]);
+  }, [boundaryGeoJSON, showBoundaries, selectedWard, wards, mapStyle]);
 
   // Handle Base Map Layer Change
   useEffect(() => {
@@ -1176,7 +1177,11 @@ export const MapPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-x-3 gap-y-3 pt-1 font-semibold text-slate-700">
               <div>
                 <span className="block text-[10px] font-bold text-slate-500 uppercase">Compliance</span>
-                <span className="font-extrabold text-slate-900 text-sm">{buildings.length > 0 ? (100 * buildings.filter(b => b.status === 'licensed').length / buildings.length).toFixed(1) : 75.4}%</span>
+                <span className="font-extrabold text-slate-900 text-sm">
+                  {buildings.length > 0 
+                    ? (100 * buildings.filter(b => b.status === 'licensed').length / buildings.length).toFixed(1) 
+                    : '0.0'}%
+                </span>
               </div>
               <div>
                 <span className="block text-[10px] font-bold text-slate-500 uppercase">Enterprises</span>
