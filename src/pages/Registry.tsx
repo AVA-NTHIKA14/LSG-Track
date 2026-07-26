@@ -6,7 +6,7 @@ import { Licenses } from './Licenses';
 import { Building2, ShieldCheck } from 'lucide-react';
 
 export const Registry: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') === 'licenses' ? 'licenses' : 'establishments';
   const [activeSubTab, setActiveSubTab] = useState<'establishments' | 'licenses'>(initialTab);
@@ -24,10 +24,12 @@ export const Registry: React.FC = () => {
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
             <Building2 size={22} className="text-[#0F6E4F]" />
-            <span>{t('nav.buildings')} & {t('nav.licenses')} Registry</span>
+            <span>{i18n.language === 'ml' ? 'വ്യാപാര സ്ഥാപനങ്ങൾ & ലൈസൻസ് മാസ്റ്റർ രജിസ്റ്റർ' : `${t('nav.buildings')} & ${t('nav.licenses')} Registry`}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Consolidated commercial premises, building records, and active K-SMART trade permits directory.
+            {i18n.language === 'ml'
+              ? 'ഗ്രാമപഞ്ചായത്തിലെ എല്ലാ വ്യാപാര സ്ഥാപനങ്ങളുടെയും കെ-സ്മാർട്ട് ലൈസൻസുകളുടെയും സമ്പൂർണ്ണ രജിസ്റ്റർ.'
+              : 'Consolidated commercial premises, building records, and active K-SMART trade permits directory.'}
           </p>
         </div>
 

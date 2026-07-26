@@ -7,7 +7,7 @@ import { WardReports } from './WardReports';
 import { BarChart3, ClipboardCheck } from 'lucide-react';
 
 export const Report: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentUser = authService.getCurrentUser();
   const isWardMember = currentUser?.role === 'Ward Member' || currentUser?.role === 'ward_member';
@@ -31,7 +31,9 @@ export const Report: React.FC = () => {
             <span>{t('nav.reports')} & {t('nav.ward_reports')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Executive compliance statistics, revenue analytics, and Ward Member field report verification.
+            {i18n.language === 'ml' 
+              ? 'ലൈസൻസ് വരുമാന കണക്കുകളും വാർഡ് അംഗങ്ങളുടെ ഫീൽഡ് പരിശോധനാ റിപ്പോർട്ടുകളും.' 
+              : 'Executive compliance statistics, revenue analytics, and Ward Member field report verification.'}
           </p>
         </div>
 

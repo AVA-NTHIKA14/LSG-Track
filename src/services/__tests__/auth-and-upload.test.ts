@@ -7,7 +7,7 @@ describe('portal access controls', () => {
     expect(AUTHORIZED_PORTAL_ROLES).toEqual([
       'Administrator',
       'Secretary',
-      'Panchayat Section Clerk',
+      'Field Officer',
       'Ward Member'
     ]);
   });

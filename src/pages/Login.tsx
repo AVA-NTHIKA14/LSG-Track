@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { 
   Building2, 
-  Compass, 
-  User, 
+  Compass,
+  User as UserIcon,
   CheckCircle2, 
   ArrowRight,
   HardDrive,
   RefreshCw,
-  MapPin
+  MapPin,
+  KeyRound,
+  Mail,
+  UserPlus,
+  LogIn
 } from 'lucide-react';
 import { authService } from '../services/authService';
 import { dbService } from '../services/dbService';
@@ -32,11 +36,19 @@ export const Login: React.FC = () => {
   const [manualMode, setManualMode] = useState<boolean>(false);
   const [manualCodeInput, setManualCodeInput] = useState<string>('');
 
-  // Login Form State
-  const [role, setRole] = useState<UserRole>('Secretary');
-  const [staffName, setStaffName] = useState<string>('');
+  // Mode: 'signin' or 'signup'
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+
+  // Authentication Form State
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [fullName, setFullName] = useState<string>('');
+  const [role, setRole] = useState<UserRole>('Panchayat Section Clerk');
+  const [loginRole, setLoginRole] = useState<UserRole>('Administrator');
   const [wardNumber, setWardNumber] = useState<string>('1');
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   // Active Resolved Panchayath Meta
   const [resolvedPanchayath, setResolvedPanchayath] = useState<PanchayathOption>({
@@ -53,15 +65,18 @@ export const Login: React.FC = () => {
   useEffect(() => {
     const list = getPanchayathsByDistrict(selectedDistrict);
     setPanchayathList(list);
-    if (list.length > 0 && !list.find(p => p.code === selectedPanchayathCode)) {
-      setSelectedPanchayathCode(list[0].code);
+    if (list.length > 0) {
+      if (!list.find(p => p.code === selectedPanchayathCode)) {
+        setSelectedPanchayathCode(list[0].code);
+        setResolvedPanchayath(list[0]);
+      }
     }
   }, [selectedDistrict]);
 
-  // Check if a Panchayath is already saved in LocalStorage
+  // Check if a Panchayath is already saved in LocalStorage (BUG 3 Fix: ignore 'all' or invalid codes)
   useEffect(() => {
     const savedCode = localStorage.getItem('cp_active_panchayat_code');
-    if (savedCode) {
+    if (savedCode && savedCode !== 'all') {
       const match = getPanchayathByCode(savedCode);
       if (match) {
         setResolvedPanchayath(match);
@@ -69,21 +84,21 @@ export const Login: React.FC = () => {
         setSelectedDistrict(match.district);
         setStep('login');
       } else {
-        setResolvedPanchayath({
-          code: savedCode,
-          name: `Panchayat (${savedCode})`,
-          nameMl: `പഞ്ചായത്ത് (${savedCode})`,
-          district: 'Kerala'
-        });
-        setSelectedPanchayathCode(savedCode);
-        setStep('login');
+        // Unresolvable code: purge and force user to picker screen
+        localStorage.removeItem('cp_active_panchayat_code');
+        setStep('picker');
       }
+    } else {
+      // Missing or 'all' sentinel code: purge and force user to picker screen
+      localStorage.removeItem('cp_active_panchayat_code');
+      setStep('picker');
     }
   }, []);
 
   const handleConfirmPanchayath = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setResetMessage(null);
 
     let targetCode = selectedPanchayathCode;
     if (manualMode) {
@@ -110,43 +125,84 @@ export const Login: React.FC = () => {
 
   const handleSwitchPanchayath = () => {
     setStep('picker');
+    setError(null);
+    setResetMessage(null);
   };
 
-  const handleEntrySubmit = async (e: React.FormEvent) => {
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    const displayName = staffName.trim() || (
-      role === 'Secretary' ? (i18n.language === 'ml' ? 'പഞ്ചായത്ത് സെക്രട്ടറി' : 'Panchayat Secretary') :
-      role === 'Panchayat Section Clerk' ? (i18n.language === 'ml' ? 'സെക്ഷൻ ക്ലർക്ക്' : 'Section Clerk') :
-      role === 'Ward Member' ? (i18n.language === 'ml' ? `വാർഡ് ${wardNumber} മെമ്പർ` : `Ward ${wardNumber} Member`) : 'Grama Officer'
-    );
+    setResetMessage(null);
+    setLoading(true);
 
     try {
-      await authService.loginLocalSession({
-        panchayatCode: resolvedPanchayath.code,
-        role,
-        name: displayName,
-        wardNumber: role === 'Ward Member' || role === 'ward_member' ? wardNumber : undefined
-      });
-      navigate('/');
+      if (authMode === 'signin') {
+        const profile = await authService.loginWithCredentials(email, password, resolvedPanchayath.code);
+        if (profile && profile.role !== loginRole) {
+          await authService.logout();
+          throw new Error('The selected role does not match this account. Please select your assigned role.');
+        }
+        navigate('/');
+      } else {
+        if (!fullName.trim()) {
+          setError('Please enter your full official name.');
+          setLoading(false);
+          return;
+        }
+        await authService.signUp({
+          email,
+          password,
+          name: fullName,
+          role,
+          panchayatCode: resolvedPanchayath.code,
+          wardNumber: role === 'Ward Member' || role === 'ward_member' ? wardNumber : undefined
+        });
+        setResetMessage(`✓ Account created successfully for ${email}! Status is PENDING secretarial approval.`);
+        setAuthMode('signin');
+        setPassword('');
+      }
     } catch (err: any) {
-      setError(err?.message || 'Failed to start local session.');
+      const code = err?.code || '';
+      setError(
+        code === 'auth/invalid-credential'
+          ? 'Email or password is incorrect. Use “Forgot password? Send reset link” to set a new password, then sign in as Administrator.'
+          : err?.message || 'Operation failed. Check your details and network connectivity.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email.trim()) {
+      setError('Please enter your email address to request a password reset.');
+      return;
+    }
+
+    setError(null);
+    setResetMessage(null);
+    setLoading(true);
+
+    try {
+      await authService.sendPasswordReset(email);
+      setResetMessage(`Password reset link dispatched to ${email}. Check your inbox.`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send password reset email.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row font-sans">
       
-      {/* LEFT COLUMN - Honest Standalone Webtool Branding */}
+      {/* LEFT COLUMN — Official Branding & Privacy Guarantee */}
       <div className="w-full md:w-[42%] bg-[#0F6E4F] text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden shrink-0">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/30 via-transparent to-transparent pointer-events-none" />
 
         {/* Top Header Logo */}
         <div className="flex items-center space-x-3 z-10">
-          <svg viewBox="0 0 20 25" className="w-7 h-8 text-white fill-current" aria-hidden="true">
-            <path d="M10 12.5C10.6875 12.5 11.276 12.2552 11.7656 11.7656C12.2552 11.276 12.5 10.6875 12.5 10C12.5 9.3125 12.2552 8.72396 11.7656 8.23438C11.276 7.74479 10.6875 7.5 10 7.5C9.3125 7.5 8.72396 7.74479 8.23438 8.23438C7.74479 8.72396 7.5 9.3125 7.5 10C7.5 10.6875 7.74479 11.276 8.23438 11.7656C8.72396 12.2552 9.3125 12.5 10 12.5ZM10 25C6.64583 22.1458 4.14062 19.4948 2.48438 17.0469C0.828125 14.599 0 12.3333 0 10.25C0 7.125 1.00521 4.63542 3.01562 2.78125C5.02604 0.927083 7.35417 0 10 0C12.6458 0 14.974 0.927083 16.9844 2.78125C18.9948 4.63542 20 7.125 20 10.25C20 12.3333 19.1719 14.599 17.5156 17.0469C15.8594 19.4948 13.3542 22.1458 10 25Z" />
-          </svg>
+          <MapPin className="w-7 h-8 text-white" aria-hidden="true" />
           <div>
             <span className="font-extrabold text-xl tracking-wider block leading-tight">LSG Track</span>
             <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Local-First Webtool</span>
@@ -157,7 +213,7 @@ export const Login: React.FC = () => {
         <div className="my-auto space-y-6 z-10 py-8">
           <div className="space-y-2">
             <span className="bg-emerald-800/80 text-emerald-100 font-mono text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider inline-block">
-              Standalone Desktop & Mobile Webtool
+              Kerala Grama Panchayat Production Portal
             </span>
             <h1 className="text-3xl font-extrabold leading-tight tracking-tight">
               {i18n.language === 'ml' ? 'കേരളത്തിലെ ഗ്രാമപഞ്ചായത്തുകൾക്കായി തയാറാക്കിയത്' : 'Built for Kerala Grama Panchayat Secretaries'}
@@ -167,14 +223,13 @@ export const Login: React.FC = () => {
             </p>
           </div>
 
-          {/* Device Storage Guarantee */}
           <div className="bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-4 space-y-2.5 shadow-inner">
             <div className="flex items-center space-x-2 text-emerald-300 font-bold text-xs">
               <HardDrive size={16} />
-              <span>{i18n.language === 'ml' ? 'പ്രാദേശിക ഡാറ്റാ സുരക്ഷാ ഉറപ്പ്' : 'Device-Only Storage Guarantee'}</span>
+              <span>{i18n.language === 'ml' ? 'സെക്യൂർ ഫയർബേസ് ആധികാരികത' : 'Firebase Authenticated Access'}</span>
             </div>
             <p className="text-[11px] text-emerald-100/80 leading-relaxed">
-              {t('app.privacy_banner')}
+              Authorized local body credentials required for full data security and role-based access control.
             </p>
           </div>
 
@@ -200,7 +255,7 @@ export const Login: React.FC = () => {
         </div>
       </div>
 
-      {/* RIGHT COLUMN - ONBOARDING & LOGIN TERMINAL */}
+      {/* RIGHT COLUMN — SECURE LOGIN & REGISTRATION TERMINAL */}
       <div className="w-full md:w-[58%] bg-white p-8 md:p-12 flex flex-col justify-center">
         <div className="max-w-md w-full mx-auto space-y-6">
           
@@ -235,6 +290,7 @@ export const Login: React.FC = () => {
                       <select
                         value={selectedDistrict}
                         onChange={(e) => setSelectedDistrict(e.target.value)}
+                        aria-label="Select District"
                         className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                       >
                         {KERALA_DISTRICTS.map((d) => (
@@ -252,11 +308,12 @@ export const Login: React.FC = () => {
                       <select
                         value={selectedPanchayathCode}
                         onChange={(e) => setSelectedPanchayathCode(e.target.value)}
+                        aria-label="Select Grama Panchayat"
                         className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                       >
                         {panchayathList.map((p) => (
                           <option key={p.code} value={p.code}>
-                            {i18n.language === 'ml' ? p.nameMl : p.name} ({p.code})
+                            {i18n.language === 'ml' ? p.nameMl : p.name}
                           </option>
                         ))}
                       </select>
@@ -272,9 +329,10 @@ export const Login: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. G070702 or G110706"
+                      placeholder="e.g. Panangad Grama Panchayat"
                       value={manualCodeInput}
                       onChange={(e) => setManualCodeInput(e.target.value.toUpperCase())}
+                      aria-label="LSGD Panchayat Code"
                       className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-[#0F6E4F] uppercase"
                     />
                   </div>
@@ -288,7 +346,7 @@ export const Login: React.FC = () => {
                   >
                     {manualMode 
                       ? (i18n.language === 'ml' ? '← ജില്ല തിരിച്ചു തിരഞ്ഞെടുക്കുക' : '← Back to District Picker') 
-                      : (i18n.language === 'ml' ? 'പഞ്ചായത്ത് കോഡ് നേരിട്ട് നൽകുക' : 'Enter LSGD Code Manually')}
+                      : (i18n.language === 'ml' ? 'പഞ്ചായത്ത് പേര് നേരിട്ട് നൽകുക' : 'Enter Panchayath Name Manually')}
                   </button>
                 </div>
 
@@ -302,14 +360,14 @@ export const Login: React.FC = () => {
               </form>
             </div>
           ) : (
-            /* STEP 2: LOGIN TERMINAL (Free-text Name + Role Selector, Zero PINs) */
+            /* STEP 2: FIREBASE LOGIN / SIGN UP TERMINAL */
             <div className="space-y-5">
               
               {/* Resolved Panchayath Header Badge */}
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-mono font-bold text-[#0F6E4F] uppercase tracking-wider block">
-                    LSGD CODE: {resolvedPanchayath.code}
+                    Grama Panchayat Portal
                   </span>
                   <h3 className="text-base font-extrabold text-slate-900 mt-0.5">
                     {i18n.language === 'ml' ? resolvedPanchayath.nameMl : resolvedPanchayath.name}
@@ -325,9 +383,43 @@ export const Login: React.FC = () => {
                 </button>
               </div>
 
+              {/* Mode Toggle Switcher: Sign In vs Sign Up */}
+              <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('signin'); setError(null); setResetMessage(null); }}
+                  className={`flex-1 py-2 rounded-xl transition flex items-center justify-center space-x-1.5 ${
+                    authMode === 'signin'
+                      ? 'bg-[#0F6E4F] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <LogIn size={14} />
+                  <span>Sign In</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('signup'); setError(null); setResetMessage(null); }}
+                  className={`flex-1 py-2 rounded-xl transition flex items-center justify-center space-x-1.5 ${
+                    authMode === 'signup'
+                      ? 'bg-[#0F6E4F] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <UserPlus size={14} />
+                  <span>Sign Up (Register)</span>
+                </button>
+              </div>
+
               <div>
-                <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">{t('entry.welcome')}</h2>
-                <p className="text-xs text-slate-500 mt-1">{t('entry.sub')}</p>
+                <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                  {authMode === 'signin' ? 'Portal Sign In' : 'New Officer Registration'}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {authMode === 'signin' 
+                    ? 'Sign in with your official Grama Panchayat credentials.'
+                    : 'Register your official profile for secretarial approval.'}
+                </p>
               </div>
 
               {error && (
@@ -336,46 +428,104 @@ export const Login: React.FC = () => {
                 </div>
               )}
 
-              <form onSubmit={handleEntrySubmit} className="space-y-4 text-xs">
-                
-                {/* Role Designation Selector */}
-                <div>
-                  <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
-                    <Compass size={15} className="text-[#0F6E4F]" />
-                    <span>{t('entry.role_label')} *</span>
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as UserRole)}
-                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
-                  >
-                    <option value="Secretary">{t('roles.secretary')}</option>
-                    <option value="Panchayat Section Clerk">{t('roles.clerk')}</option>
-                    <option value="Ward Member">{t('roles.ward_member')}</option>
-                  </select>
+              {resetMessage && (
+                <div className="bg-emerald-50 border border-emerald-200 text-[#0F6E4F] rounded-xl p-3.5 text-xs font-medium">
+                  {resetMessage}
                 </div>
+              )}
 
-                {/* Free-Text Officer Name Input */}
+              <form onSubmit={handleCredentialsSubmit} className="space-y-4 text-xs">
+                
+                {/* Full Name Field (Sign Up Only) */}
+                {authMode === 'signup' && (
+                  <div>
+                    <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                      <UserIcon size={15} className="text-[#0F6E4F]" />
+                      <span>Full Official Name *</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Avanthika K S"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      aria-label="Full Official Name"
+                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                    />
+                  </div>
+                )}
+
+                {/* Email Address */}
                 <div>
                   <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
-                    <User size={15} className="text-[#0F6E4F]" />
-                    <span>{t('entry.name_label')}</span>
+                    <Mail size={15} className="text-[#0F6E4F]" />
+                    <span>Official Email / Username *</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder={i18n.language === 'ml' ? 'ഉദാഹരണത്തിന്: രമേഷ് വി (ക്ലർക്ക്)' : 'e.g. Ramesh V (Secretary / Clerk)'}
-                    value={staffName}
-                    onChange={(e) => setStaffName(e.target.value)}
+                    placeholder="e.g. avanthikaks2702@gmail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    aria-label="Official Email or Username"
                     className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {i18n.language === 'ml' ? 'പാസ്‌വേഡ് ആവശ്യമില്ല — പരിശോധനാ രേഖകൾക്കായി നിങ്ങളുടെ പേര് നൽകുക.' : 'No password or PIN needed — enter your name for action attribution.'}
-                  </p>
                 </div>
 
-                {/* Ward Number (If Ward Member) */}
-                {(role === 'Ward Member' || role === 'ward_member') && (
+                {/* Password */}
+                <div>
+                  <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                    <KeyRound size={15} className="text-[#0F6E4F]" />
+                    <span>Password *</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    aria-label="Password"
+                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                  />
+                </div>
+
+                {/* Role Designation Selector (Sign Up Only) */}
+                {authMode === 'signup' && (
+                  <div>
+                    <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                      <Compass size={15} className="text-[#0F6E4F]" />
+                      <span>Designated Official Role *</span>
+                    </label>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value as UserRole)}
+                      aria-label="Designated Official Role"
+                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                    >
+                      <option value="Field Officer">ഫീൽഡ് ഓഫീസർ</option>
+                      <option value="Ward Member">{t('roles.ward_member')}</option>
+                      <option value="Secretary">{t('roles.secretary')}</option>
+                    </select>
+                  </div>
+                )}
+
+                {authMode === 'signin' && (
+                  <div>
+                    <label className="block font-extrabold text-slate-900 mb-1.5 flex items-center space-x-1.5">
+                      <Compass size={15} className="text-[#0F6E4F]" />
+                      <span>{i18n.language === 'ml' ? 'നിങ്ങളുടെ ചുമതല തിരഞ്ഞെടുക്കുക *' : 'Select your assigned role *'}</span>
+                    </label>
+                    <select value={loginRole} onChange={(e) => setLoginRole(e.target.value as UserRole)} aria-label="Select your assigned role" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F]">
+                      <option value="Administrator">{t('roles.admin')}</option>
+                      <option value="Secretary">{t('roles.secretary')}</option>
+                      <option value="Field Officer">{i18n.language === 'ml' ? 'ഫീൽഡ് ഓഫീസർ' : 'Field Officer'}</option>
+                      <option value="Ward Member">{t('roles.ward_member')}</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Ward Number (Sign Up Only if Ward Member) */}
+                {authMode === 'signup' && (role === 'Ward Member' || role === 'ward_member') && (
                   <div>
                     <label className="block font-extrabold text-slate-900 mb-1.5">{t('entry.ward_label')}</label>
                     <input
@@ -384,16 +534,30 @@ export const Login: React.FC = () => {
                       max={50}
                       value={wardNumber}
                       onChange={(e) => setWardNumber(e.target.value)}
+                      aria-label="Ward Number"
                       className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#0F6E4F]"
                     />
                   </div>
                 )}
 
+                {authMode === 'signin' && (
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={handlePasswordReset}
+                      className="text-[11px] text-[#0F6E4F] hover:underline font-semibold"
+                    >
+                      Forgot password? Send reset link
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white font-extrabold py-3 px-4 rounded-xl transition text-xs flex items-center justify-center space-x-2 shadow-sm"
+                  disabled={loading}
+                  className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] disabled:opacity-50 text-white font-extrabold py-3 px-4 rounded-xl transition text-xs flex items-center justify-center space-x-2 shadow-sm"
                 >
-                  <span>{t('entry.launch_btn')}</span>
+                  <span>{loading ? 'Processing...' : (authMode === 'signin' ? 'Sign In' : 'Register Account')}</span>
                   <ArrowRight size={16} />
                 </button>
               </form>

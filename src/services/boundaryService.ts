@@ -40,82 +40,6 @@ export async function loadLSGBoundaries(): Promise<LSGBoundaryDataset | null> {
   return fetchPromise;
 }
 
-export function createWardDelimitationGeoJSON(lsgFeature: any, wardCols = 4, panchayathName = '') {
-  if (!lsgFeature || !lsgFeature.geometry) return null;
-
-  try {
-    let coords: [number, number][] = [];
-    const geom = lsgFeature.geometry;
-
-    if (geom.type === 'Polygon') {
-      coords = geom.coordinates[0];
-    } else if (geom.type === 'MultiPolygon') {
-      let maxLen = 0;
-      geom.coordinates.forEach((poly: any) => {
-        if (poly[0] && poly[0].length > maxLen) {
-          maxLen = poly[0].length;
-          coords = poly[0];
-        }
-      });
-    }
-
-    if (!coords || coords.length < 3) return null;
-
-    let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
-    coords.forEach(([lng, lat]) => {
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-    });
-
-    const wardRows = 4;
-    const stepLng = (maxLng - minLng) / wardCols;
-    const stepLat = (maxLat - minLat) / wardRows;
-
-    const features = [];
-    let wardNum = 1;
-
-    for (let r = 0; r < wardRows; r++) {
-      for (let c = 0; c < wardCols; c++) {
-        const cMinLng = minLng + c * stepLng;
-        const cMaxLng = minLng + (c + 1) * stepLng;
-        const cMinLat = minLat + r * stepLat;
-        const cMaxLat = minLat + (r + 1) * stepLat;
-
-        const wStr = String(wardNum);
-        features.push({
-          type: 'Feature',
-          properties: {
-            ward_number: wStr,
-            ward_name: `Ward ${wStr} - ${panchayathName || 'Local Body'}`,
-            lsg_name: lsgFeature.properties?.name || panchayathName
-          },
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[
-              [cMinLng, cMinLat],
-              [cMaxLng, cMinLat],
-              [cMaxLng, cMaxLat],
-              [cMinLng, cMaxLat],
-              [cMinLng, cMinLat]
-            ]]
-          }
-        });
-        wardNum++;
-      }
-    }
-
-    return {
-      type: 'FeatureCollection',
-      features
-    };
-  } catch (err) {
-    console.error('Failed to create clean grid ward delimitation:', err);
-    return null;
-  }
-}
-
 export async function getBoundaryGeoJSONForPanchayath(
   panchayathNameEn: string,
   panchayathNameMl?: string,
@@ -291,4 +215,34 @@ export async function getBoundaryGeoJSONForPanchayath(
   }
 
   return null;
+}
+
+export function isPointInPolygonCoords(point: [number, number], vs: [number, number][]): boolean {
+  const x = point[0], y = point[1];
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i][0], yi = vs[i][1];
+    const xj = vs[j][0], yj = vs[j][1];
+
+    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+export function isPointInsideGeoJSON(lat: number, lng: number, geojson: any): boolean {
+  if (!geojson || !geojson.features || geojson.features.length === 0) return true;
+  const point: [number, number] = [lng, lat];
+  for (const feature of geojson.features) {
+    const geom = feature?.geometry;
+    if (!geom) continue;
+    if (geom.type === 'Polygon') {
+      if (isPointInPolygonCoords(point, geom.coordinates[0])) return true;
+    } else if (geom.type === 'MultiPolygon') {
+      for (const poly of geom.coordinates) {
+        if (isPointInPolygonCoords(point, poly[0])) return true;
+      }
+    }
+  }
+  return false;
 }

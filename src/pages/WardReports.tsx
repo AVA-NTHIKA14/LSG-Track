@@ -10,7 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 export const WardReports: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [reports, setReports] = useState<WardReportRecord[]>([]);
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
@@ -62,23 +62,34 @@ export const WardReports: React.FC = () => {
   };
 
   const getStatusBadge = (st: WardReportRecord['status']) => {
+    const isMl = i18n.language === 'ml';
     switch (st) {
       case 'pending_verification':
-        return <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">Pending Verification</span>;
+        return <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">{isMl ? 'പരിശോധനയിൽ' : 'Pending Verification'}</span>;
       case 'verified_licensed':
-        return <span className="bg-emerald-100 text-[#0F6E4F] text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">Verified Licensed</span>;
+        return <span className="bg-emerald-100 text-[#0F6E4F] text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">{isMl ? 'ലൈസൻസ് ഉണ്ട് (സ്ഥിരീകരിച്ചു)' : 'Verified Licensed'}</span>;
       case 'confirmed_unlicensed':
-        return <span className="bg-red-100 text-red-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">Confirmed Unlicensed</span>;
+        return <span className="bg-red-100 text-red-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">{isMl ? 'ലൈസൻസ് ഇല്ല (സ്ഥിരീകരിച്ചു)' : 'Confirmed Unlicensed'}</span>;
       case 'inspection_required':
-        return <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">Inspection Due</span>;
+        return <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">{isMl ? 'പരിശോധന ആവശ്യമാണ്' : 'Inspection Due'}</span>;
       default:
-        return <span className="bg-slate-100 text-slate-600 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">Closed</span>;
+        return <span className="bg-slate-100 text-slate-600 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">{isMl ? 'പൂർത്തിയായി' : 'Closed'}</span>;
     }
   };
 
   // Find potential match in synchronized database
+  // 1-Directional Sanity Check: Does Ward Member field report match an existing K-SMART application in Ward X?
   const potentialMatch = selectedReport 
-    ? buildings.find(b => b.wardNumber === selectedReport.wardNumber && b.businessName.toLowerCase().includes(selectedReport.businessName.toLowerCase().substring(0, 4)))
+    ? buildings.find(b => {
+        if (b.wardNumber !== selectedReport.wardNumber) return false;
+        if (selectedReport.landmark && b.structureNumber && selectedReport.landmark.toLowerCase().includes(b.structureNumber.toLowerCase())) return true;
+        const rName = selectedReport.businessName.toLowerCase().trim();
+        const bName = b.businessName.toLowerCase().trim();
+        if (bName === rName || (rName.length > 3 && (bName.includes(rName) || rName.includes(bName)))) return true;
+        const latDiff = Math.abs(b.coordinates.lat - selectedReport.coordinates.lat);
+        const lngDiff = Math.abs(b.coordinates.lng - selectedReport.coordinates.lng);
+        return latDiff < 0.0015 && lngDiff < 0.0015;
+      })
     : null;
 
   return (
@@ -92,7 +103,7 @@ export const WardReports: React.FC = () => {
             <span>{t('nav.ward_reports')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {t('dashboard.subheading', { code: localStorage.getItem('cp_active_panchayat_code') || 'G070702' })}
+            {t('dashboard.subheading')}
           </p>
         </div>
 
@@ -102,7 +113,7 @@ export const WardReports: React.FC = () => {
             className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-sm flex items-center space-x-1.5"
           >
             <MapPin size={14} />
-            <span>View Reports on GIS Map</span>
+            <span>{i18n.language === 'ml' ? 'മാപ്പിൽ റിപ്പോർട്ടുകൾ കാണുക' : 'View Reports on GIS Map'}</span>
           </button>
         </div>
       </div>
@@ -125,7 +136,7 @@ export const WardReports: React.FC = () => {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Filter by business, reporter, or ward..."
+                placeholder={i18n.language === 'ml' ? 'സ്ഥാപനം, വ്യക്തി അല്ലെങ്കിൽ വാർഡ് തിരയുക...' : 'Filter by business, reporter, or ward...'}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
@@ -135,10 +146,10 @@ export const WardReports: React.FC = () => {
 
             <div className="flex gap-1.5 overflow-x-auto pb-1 text-[11px] font-bold">
               {[
-                { label: 'Pending', value: 'pending_verification' },
-                { label: 'Unlicensed', value: 'confirmed_unlicensed' },
-                { label: 'Licensed', value: 'verified_licensed' },
-                { label: 'All', value: 'all' }
+                { label: i18n.language === 'ml' ? 'പരിശോധനയിൽ' : 'Pending', value: 'pending_verification' },
+                { label: i18n.language === 'ml' ? 'ലൈസൻസ് ഇല്ലാത്തവ' : 'Unlicensed', value: 'confirmed_unlicensed' },
+                { label: i18n.language === 'ml' ? 'ലൈസൻസ് ഉള്ളവ' : 'Licensed', value: 'verified_licensed' },
+                { label: i18n.language === 'ml' ? 'എല്ലാം' : 'All', value: 'all' }
               ].map(f => (
                 <button
                   key={f.value}
@@ -160,7 +171,7 @@ export const WardReports: React.FC = () => {
             {filteredReports.length === 0 ? (
               <div className="text-center py-16 text-slate-400 text-xs">
                 <FileText size={32} className="mx-auto mb-2 text-slate-300" />
-                <p>No Ward Member field reports match the selected filters.</p>
+                <p>{i18n.language === 'ml' ? 'തിരഞ്ഞെടുത്ത വിവരങ്ങൾക്ക് അനുയോജ്യമായ വാർഡ് റിപ്പോർട്ടുകൾ ലഭ്യമല്ല.' : 'No Ward Member field reports match the selected filters.'}</p>
               </div>
             ) : (
               filteredReports.map(report => {
@@ -224,14 +235,14 @@ export const WardReports: React.FC = () => {
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
                   <h5 className="font-extrabold text-slate-900 text-xs border-b pb-1.5 flex items-center space-x-1.5">
                     <MapPin size={13} className="text-[#0F6E4F]" />
-                    <span>Field Inspection Entry</span>
+                    <span>{i18n.language === 'ml' ? 'ഫീൽഡ് പരിശോധനാ വിവരങ്ങൾ' : 'Field Inspection Entry'}</span>
                   </h5>
-                  <div><strong className="text-slate-700">Category:</strong> {selectedReport.category}</div>
-                  <div><strong className="text-slate-700">Proprietor:</strong> {selectedReport.ownerName || 'Not specified'}</div>
-                  <div><strong className="text-slate-700">Landmark:</strong> {selectedReport.landmark || 'N/A'}</div>
-                  <div><strong className="text-slate-700">GPS:</strong> {selectedReport.coordinates.lat.toFixed(5)}, {selectedReport.coordinates.lng.toFixed(5)}</div>
-                  <div><strong className="text-slate-700">Reported Date:</strong> {new Date(selectedReport.createdAt).toLocaleDateString()}</div>
-                  <div><strong className="text-slate-700">Ward Member:</strong> {selectedReport.reporterName}</div>
+                  <div><strong className="text-slate-700">{i18n.language === 'ml' ? 'വിഭാഗം:' : 'Category:'}</strong> {selectedReport.category}</div>
+                  <div><strong className="text-slate-700">{i18n.language === 'ml' ? 'ഉടമ:' : 'Proprietor:'}</strong> {selectedReport.ownerName || (i18n.language === 'ml' ? 'വ്യക്തമാക്കിയിട്ടില്ല' : 'Not specified')}</div>
+                  <div><strong className="text-slate-700">{i18n.language === 'ml' ? 'ലാൻഡ്മാർക്ക്:' : 'Landmark:'}</strong> {selectedReport.landmark || 'N/A'}</div>
+                  <div><strong className="text-slate-700">{i18n.language === 'ml' ? 'ജി.പി.എസ്:' : 'GPS:'}</strong> {selectedReport.coordinates.lat.toFixed(5)}, {selectedReport.coordinates.lng.toFixed(5)}</div>
+                  <div><strong className="text-slate-700">{i18n.language === 'ml' ? 'സമർപ്പിച്ച തീയതി:' : 'Reported Date:'}</strong> {new Date(selectedReport.createdAt).toLocaleDateString()}</div>
+                  <div><strong className="text-slate-700">{i18n.language === 'ml' ? 'വാർഡ് മെമ്പർ:' : 'Ward Member:'}</strong> {selectedReport.reporterName}</div>
                 </div>
 
                 {/* Geotagged Photo Preview */}
@@ -239,13 +250,13 @@ export const WardReports: React.FC = () => {
                   <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
                     <div className="text-[11px] font-extrabold text-slate-800 flex items-center space-x-1.5">
                       <Camera size={13} className="text-[#0F6E4F]" />
-                      <span>Onsite Geotagged Photograph</span>
+                      <span>{i18n.language === 'ml' ? 'ജി.പി.എസ് ചിത്രം' : 'Onsite Geotagged Photograph'}</span>
                     </div>
                     <div className="relative rounded-xl overflow-hidden border border-slate-300">
                       <img src={selectedReport.photoUrl} alt="Geotagged Establishment" className="w-full h-48 object-cover" />
                       <div className="absolute bottom-0 inset-x-0 bg-slate-950/80 text-white px-3 py-1 text-[10px] font-mono flex justify-between">
                         <span>📍 Lat: {selectedReport.coordinates.lat.toFixed(5)}, Lng: {selectedReport.coordinates.lng.toFixed(5)}</span>
-                        <span className="text-emerald-400 font-bold">GPS Stamped</span>
+                        <span className="text-emerald-400 font-bold">{i18n.language === 'ml' ? 'ജി.പി.എസ് മുദ്രണം' : 'GPS Stamped'}</span>
                       </div>
                     </div>
                   </div>
@@ -255,19 +266,19 @@ export const WardReports: React.FC = () => {
                 <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 space-y-2">
                   <h5 className="font-extrabold text-[#0F6E4F] text-xs border-b border-emerald-200/60 pb-1.5 flex items-center space-x-1.5">
                     <ExternalLink size={13} />
-                    <span>K-SMART ERP Comparison</span>
+                    <span>{i18n.language === 'ml' ? 'കെ-സ്മാർട്ട് താരതമ്യം' : 'K-SMART ERP Comparison'}</span>
                   </h5>
 
                   {potentialMatch ? (
                     <div className="space-y-1 text-slate-700">
-                      <div className="text-emerald-900 font-bold">✓ Potential Match Found</div>
-                      <div><strong>Est. Name:</strong> {potentialMatch.businessName}</div>
-                      <div><strong>Building ID:</strong> {potentialMatch.id}</div>
-                      <div><strong>ERP Status:</strong> <span className="uppercase font-bold">{potentialMatch.status}</span></div>
+                      <div className="text-emerald-900 font-bold">{i18n.language === 'ml' ? '✓ സ്ഥാപനം കണ്ടെത്തി' : '✓ Potential Match Found'}</div>
+                      <div><strong>{i18n.language === 'ml' ? 'സ്ഥാപനം:' : 'Est. Name:'}</strong> {potentialMatch.businessName}</div>
+                      <div><strong>{i18n.language === 'ml' ? 'ബിൽഡിംഗ് ഐ.ഡി:' : 'Building ID:'}</strong> {potentialMatch.id}</div>
+                      <div><strong>{i18n.language === 'ml' ? 'ലൈസൻസ് സ്റ്റാറ്റസ്:' : 'ERP Status:'}</strong> <span className="uppercase font-bold">{potentialMatch.status}</span></div>
                     </div>
                   ) : (
                     <div className="text-slate-500 italic py-2">
-                      No matching registered business found in synchronized K-SMART database for Ward {selectedReport.wardNumber}.
+                      {i18n.language === 'ml' ? `വാർഡ് ${selectedReport.wardNumber} ൽ അനുയോജ്യമായ സ്ഥാപനം കണ്ടെത്തിയില്ല.` : `No matching registered business found in synchronized K-SMART database for Ward ${selectedReport.wardNumber}.`}
                     </div>
                   )}
                 </div>
@@ -275,14 +286,14 @@ export const WardReports: React.FC = () => {
 
               {/* Field Remarks */}
               <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-medium space-y-1">
-                <span className="font-bold text-slate-700 block">Ward Member Field Remarks:</span>
-                <p className="text-slate-600 italic">"{selectedReport.remarks || 'No specific remarks entered.'}"</p>
+                <span className="font-bold text-slate-700 block">{i18n.language === 'ml' ? 'വാർഡ് മെമ്പറുടെ കുറിപ്പുകൾ:' : 'Ward Member Field Remarks:'}</span>
+                <p className="text-slate-600 italic">"{selectedReport.remarks || (i18n.language === 'ml' ? 'പ്രത്യേക കുറിപ്പുകൾ ഇല്ല' : 'No specific remarks entered.')}"</p>
               </div>
               
               {/* Secretary Verification Controls (or Status Badge for Ward Members) */}
               {isSecretaryOrAdmin ? (
                 <div className="border-t pt-4 space-y-3">
-                  <span className="block font-bold text-slate-900 text-xs">Panchayat Secretary Verification Action:</span>
+                  <span className="block font-bold text-slate-900 text-xs">{i18n.language === 'ml' ? 'സെക്രട്ടറിയുടെ സ്വീകാര്യതാ പ്രവർത്തനം:' : 'Panchayat Secretary Verification Action:'}</span>
                   
                   <textarea
                     rows={2}
@@ -297,34 +308,34 @@ export const WardReports: React.FC = () => {
                       onClick={() => handleAction('confirmed_unlicensed')}
                       className="bg-red-700 hover:bg-red-800 text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
                     >
-                      Confirm Unlicensed
+                      {i18n.language === 'ml' ? 'ലൈസൻസ് ഇല്ലാത്തതായി സ്ഥിരീകരിക്കുക' : 'Confirm Unlicensed'}
                     </button>
 
                     <button
                       onClick={() => handleAction('verified_licensed')}
                       className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
                     >
-                      Mark Verified Licensed
+                      {i18n.language === 'ml' ? 'ലൈസൻസ് ഉള്ളതായി അംഗീകരിക്കുക' : 'Mark Verified Licensed'}
                     </button>
 
                     <button
                       onClick={() => handleAction('inspection_required')}
                       className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-2.5 px-3 transition shadow-sm text-center"
                     >
-                      Require Inspection
+                      {i18n.language === 'ml' ? 'പരിശോധനയ്ക്ക് അയക്കുക' : 'Require Inspection'}
                     </button>
 
                     <button
                       onClick={() => handleAction('closed')}
                       className="bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl py-2.5 px-3 transition shadow-sm text-center"
                     >
-                      Close / Duplicate
+                      {i18n.language === 'ml' ? 'ക്ലോസ് ചെയ്യുക' : 'Close / Duplicate'}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="border-t pt-4 bg-emerald-50/60 border-emerald-100 rounded-2xl p-4 flex items-center justify-between text-xs font-bold">
-                  <span className="text-slate-700">Verification Status:</span>
+                  <span className="text-slate-700">{i18n.language === 'ml' ? 'പരിശോധനാ സ്റ്റാറ്റസ്:' : 'Verification Status:'}</span>
                   <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-emerald-100 text-[#0F6E4F] border border-emerald-300">
                     {selectedReport.status.replace('_', ' ')}
                   </span>
@@ -335,7 +346,7 @@ export const WardReports: React.FC = () => {
           ) : (
             <div className="my-auto text-center py-20 text-slate-400 text-xs">
               <ClipboardCheck size={40} className="mx-auto mb-2 text-slate-300" />
-              <p>Select a field report from the left pane to begin verification against K-SMART database.</p>
+              <p>{i18n.language === 'ml' ? 'കെ-സ്മാർട്ട് ഡാറ്റാബേസുമായി പരിശോധിക്കാൻ ഇടതുവശത്ത് നിന്ന് ഒരു ഫീൽഡ് റിപ്പോർട്ട് തിരഞ്ഞെടുക്കുക.' : 'Select a field report from the left pane to begin verification against K-SMART database.'}</p>
             </div>
           )}
 

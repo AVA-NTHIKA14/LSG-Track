@@ -7,13 +7,19 @@ import { KERALA_PANCHAYATHS } from '../data/keralaPanchayaths';
 import type { SystemSettings, SyncHistoryRecord } from '../types';
 import { 
   User, Accessibility, Database, HelpCircle, 
-  CheckCircle2, ArrowRight, FileText, Phone, Mail
+  CheckCircle2, ArrowRight, FileText, Mail
 } from 'lucide-react';
 
+import { UserGuideModal } from '../components/UserGuideModal';
+import { OnboardingTour } from '../components/OnboardingTour';
+
 export const Settings: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const currentUser = authService.getCurrentUser();
+
+  const [showGuides, setShowGuides] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || 'G110706';
   const currentPanchayathObj = KERALA_PANCHAYATHS.find(p => p.code.toLowerCase() === activePanchayatCode.toLowerCase());
@@ -87,35 +93,35 @@ export const Settings: React.FC = () => {
           <div className="flex justify-between items-center border-b pb-3">
             <h3 className="font-extrabold text-slate-900 text-sm flex items-center space-x-2">
               <User size={18} className="text-[#0F6E4F]" />
-              <span>Officer Profile</span>
+              <span>{i18n.language === 'ml' ? 'ഉദ്യോഗസ്ഥ പ്രൊഫൈൽ' : 'Officer Profile'}</span>
             </h3>
             <span className="bg-emerald-50 text-[#0F6E4F] border border-emerald-100 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">
-              Authenticated Session
+              {i18n.language === 'ml' ? 'സജീവം' : 'Authenticated Session'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
             <div>
-              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">Officer Name</span>
-              <span className="text-slate-900 text-sm font-extrabold">{currentUser?.name || 'Panchayat Secretary'}</span>
+              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">{i18n.language === 'ml' ? 'ഉദ്യോഗസ്ഥന്റെ പേര്' : 'Officer Name'}</span>
+              <span className="text-slate-900 text-sm font-extrabold">{currentUser?.name || (i18n.language === 'ml' ? 'പഞ്ചായത്ത് സെക്രട്ടറി' : 'Panchayat Secretary')}</span>
             </div>
             <div>
-              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">Designation</span>
-              <span className="text-slate-900">{currentUser?.role || 'Panchayat Secretary'}</span>
+              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">{i18n.language === 'ml' ? 'ഔദ്യോഗിക ചുമതല' : 'Designation'}</span>
+              <span className="text-slate-900">{currentUser?.role || (i18n.language === 'ml' ? 'പഞ്ചായത്ത് സെക്രട്ടറി' : 'Panchayat Secretary')}</span>
             </div>
             <div>
-              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">Panchayat Name</span>
+              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">{i18n.language === 'ml' ? 'പഞ്ചായത്ത് പേര്' : 'Panchayat Name'}</span>
               <span className="text-slate-900 font-extrabold">{panchayatName}</span>
             </div>
             <div>
-              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">LSGD Institution Code</span>
+              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">{i18n.language === 'ml' ? 'സ്ഥാപന കോഡ്' : 'LSGD Institution Code'}</span>
               <span className="text-slate-900 font-mono font-bold">{currentUser?.panchayathId || activePanchayatCode}</span>
             </div>
           </div>
 
           <div className="border-t pt-3 flex items-center justify-between text-xs">
             <div>
-              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">Official Contact Number</span>
+              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">{i18n.language === 'ml' ? 'ഔദ്യോഗിക ഫോൺ നമ്പർ' : 'Official Contact Number'}</span>
               {isEditingContact ? (
                 <input
                   type="text"
@@ -133,14 +139,14 @@ export const Settings: React.FC = () => {
                 onClick={handleSaveContact}
                 className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white px-3 py-1.5 rounded-xl font-extrabold text-xs transition"
               >
-                Save Contact
+                {i18n.language === 'ml' ? 'സേവ് ചെയ്യുക' : 'Save Contact'}
               </button>
             ) : (
               <button
                 onClick={() => setIsEditingContact(true)}
                 className="text-[#0F6E4F] hover:underline font-extrabold text-xs"
               >
-                Edit Contact
+                {i18n.language === 'ml' ? 'ഫോൺ നമ്പർ തിരുത്തുക' : 'Edit Contact'}
               </button>
             )}
           </div>
@@ -148,7 +154,7 @@ export const Settings: React.FC = () => {
           {contactSavedMsg && (
             <div className="bg-emerald-50 text-[#0F6E4F] text-xs font-extrabold p-2 rounded-xl border border-emerald-100 flex items-center space-x-1.5">
               <CheckCircle2 size={14} />
-              <span>Contact number updated.</span>
+              <span>{i18n.language === 'ml' ? 'ഫോൺ നമ്പർ പുതുക്കി.' : 'Contact number updated.'}</span>
             </div>
           )}
         </div>
@@ -158,7 +164,7 @@ export const Settings: React.FC = () => {
           <div className="border-b pb-3">
             <h3 className="font-extrabold text-slate-900 text-sm flex items-center space-x-2">
               <Accessibility size={18} className="text-[#0F6E4F]" />
-              <span>Accessibility Options</span>
+              <span>{i18n.language === 'ml' ? 'ആക്സസിബിലിറ്റി ക്രമീകരണങ്ങൾ' : 'Accessibility Options'}</span>
             </h3>
           </div>
 
@@ -166,8 +172,8 @@ export const Settings: React.FC = () => {
             {/* High Contrast */}
             <div className="flex justify-between items-center">
               <div>
-                <span className="font-extrabold text-slate-900 block">High Contrast Mode</span>
-                <span className="text-slate-500 text-[11px] font-normal">Enable high-contrast colors for enhanced outdoor daylight readability.</span>
+                <span className="font-extrabold text-slate-900 block">{i18n.language === 'ml' ? 'ഹൈ കോൺട്രാസ്റ്റ് മോഡ്' : 'High Contrast Mode'}</span>
+                <span className="text-slate-500 text-[11px] font-normal">{i18n.language === 'ml' ? 'സൂര്യപ്രകാശത്തിലും വായനാസൗകര്യത്തിനായി നിറങ്ങൾ വ്യക്തമാക്കുക.' : 'Enable high-contrast colors for enhanced outdoor daylight readability.'}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <button
@@ -193,8 +199,8 @@ export const Settings: React.FC = () => {
             {/* Larger Text */}
             <div className="flex justify-between items-center border-t pt-3">
               <div>
-                <span className="font-extrabold text-slate-900 block">Larger Text</span>
-                <span className="text-slate-500 text-[11px] font-normal font-sans">Increase font size across monitoring tables and cards.</span>
+                <span className="font-extrabold text-slate-900 block">{i18n.language === 'ml' ? 'വലിയ അക്ഷരങ്ങൾ' : 'Larger Text'}</span>
+                <span className="text-slate-500 text-[11px] font-normal font-sans">{i18n.language === 'ml' ? 'അക്ഷരങ്ങളുടെ വലിപ്പം വർദ്ധിപ്പിക്കുക.' : 'Increase font size across monitoring tables and cards.'}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <button
@@ -224,34 +230,34 @@ export const Settings: React.FC = () => {
           <div className="flex justify-between items-center border-b pb-3">
             <h3 className="font-extrabold text-slate-900 text-sm flex items-center space-x-2">
               <Database size={18} className="text-[#0F6E4F]" />
-              <span>K-SMART Synchronization Status</span>
+              <span>{i18n.language === 'ml' ? 'കെ-സ്മാർട്ട് ഡാറ്റാ സിങ്ക് വിവരങ്ങൾ' : 'K-SMART Synchronization Status'}</span>
             </h3>
             <button
               onClick={() => navigate('/sync')}
               className="text-[#0F6E4F] hover:text-[#0B5A3E] font-extrabold text-xs flex items-center space-x-1"
             >
-              <span>View Import History</span>
+              <span>{i18n.language === 'ml' ? 'ചരിത്രം കാണുക' : 'View Import History'}</span>
               <ArrowRight size={14} />
             </button>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-center">
             <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 col-span-2 sm:col-span-1 text-left">
-              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">Last Synchronization</span>
+              <span className="block text-[10px] font-extrabold text-slate-400 uppercase">{i18n.language === 'ml' ? 'അവസാന ഡാറ്റാ സിങ്ക്' : 'Last Synchronization'}</span>
               <span className="font-bold text-slate-900 text-xs block mt-0.5">
-                {lastSync ? new Date(lastSync.timestamp).toLocaleDateString() : 'No Sync Recorded'}
+                {lastSync ? new Date(lastSync.timestamp).toLocaleDateString() : (i18n.language === 'ml' ? 'രേഖപ്പെടുത്തിയിട്ടില്ല' : 'No Sync Recorded')}
               </span>
             </div>
             <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-100 text-[#0F6E4F] font-bold">
-              <span className="block text-[10px] uppercase font-extrabold">Imported Records</span>
+              <span className="block text-[10px] uppercase font-extrabold">{i18n.language === 'ml' ? 'ചേർത്തവ' : 'Imported Records'}</span>
               <span className="text-lg font-extrabold">{lastSync ? lastSync.importedCount : 0}</span>
             </div>
             <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100 text-blue-800 font-bold">
-              <span className="block text-[10px] uppercase font-extrabold">Updated Records</span>
+              <span className="block text-[10px] uppercase font-extrabold">{i18n.language === 'ml' ? 'പുതുക്കിയവ' : 'Updated Records'}</span>
               <span className="text-lg font-extrabold">{lastSync ? lastSync.updatedCount : 0}</span>
             </div>
             <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-slate-700 font-bold">
-              <span className="block text-[10px] uppercase font-extrabold">Failed Records</span>
+              <span className="block text-[10px] uppercase font-extrabold">{i18n.language === 'ml' ? 'വിഫലമായവ' : 'Failed Records'}</span>
               <span className="text-lg font-extrabold">{lastSync ? lastSync.errorCount : 0}</span>
             </div>
           </div>
@@ -268,23 +274,23 @@ export const Settings: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-bold">
             <button
-              onClick={() => alert("Opening Panchayat Secretary User Guide PDF...")}
-              className="bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 p-3 rounded-2xl flex items-center justify-between transition"
+              onClick={() => setShowGuides(true)}
+              className="bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 p-3.5 rounded-2xl flex items-center justify-between transition"
             >
               <div className="flex items-center space-x-2">
                 <FileText size={16} className="text-[#0F6E4F]" />
-                <span>User Guide</span>
+                <span>{i18n.language === 'ml' ? 'പി.ഡി.എഫ് ഉപയോക്തൃ ഗൈഡ്' : 'Stakeholder User Guides (PDF)'}</span>
               </div>
               <ArrowRight size={14} className="text-slate-400" />
             </button>
 
             <button
-              onClick={() => alert("Contact student developers: support@lsgtrack.local")}
-              className="bg-emerald-50 hover:bg-emerald-100 text-[#0F6E4F] border border-emerald-200 p-3 rounded-2xl flex items-center justify-between transition"
+              onClick={() => setShowTour(true)}
+              className="bg-emerald-50 hover:bg-emerald-100 text-[#0F6E4F] border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between transition"
             >
               <div className="flex items-center space-x-2">
-                <Phone size={16} />
-                <span>Contact Project Support</span>
+                <HelpCircle size={16} />
+                <span>{i18n.language === 'ml' ? 'ടൂർ വീണ്ടും ആരംഭിക്കുക' : 'Start Interactive Tour'}</span>
               </div>
               <ArrowRight size={14} className="text-[#0F6E4F]" />
             </button>
@@ -304,6 +310,9 @@ export const Settings: React.FC = () => {
         </div>
 
       </div>
+
+      <UserGuideModal isOpen={showGuides} onClose={() => setShowGuides(false)} />
+      <OnboardingTour isOpen={showTour} onClose={() => setShowTour(false)} userRole={currentUser?.role || 'Panchayat Secretary'} panchayatName={panchayatName} />
 
     </div>
   );

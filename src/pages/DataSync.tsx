@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 export const DataSync: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { profile } = useAuth();
   const [syncHistory, setSyncHistory] = useState<SyncHistoryRecord[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -32,9 +32,11 @@ export const DataSync: React.FC = () => {
     return (
       <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center max-w-md mx-auto my-12 shadow-sm">
         <ShieldAlert size={40} className="mx-auto text-red-600 mb-3" />
-        <h3 className="font-extrabold text-slate-900 text-base">Access Restricted</h3>
+        <h3 className="font-extrabold text-slate-900 text-base">{i18n.language === 'ml' ? 'ആക്സസ് നിയന്ത്രിച്ചിരിക്കുന്നു' : 'Access Restricted'}</h3>
         <p className="text-xs text-slate-500 mt-2">
-          The K-SMART Data Synchronization Terminal is reserved exclusively for Data Entry Operators (DEO) and System Administrators.
+          {i18n.language === 'ml' 
+            ? 'കെ-സ്മാർട്ട് ഡാറ്റാ അപ്‌ലോഡ് സെക്ഷൻ ക്ലർക്ക് / ഡി.ഇ.ഒ ഓഫീസർമാർക്കും അഡ്മിനിസ്ട്രേറ്റർമാർക്കും മാത്രമുള്ളതാണ്.' 
+            : 'The K-SMART Data Synchronization Terminal is reserved exclusively for Data Entry Operators (DEO) and System Administrators.'}
         </p>
       </div>
     );

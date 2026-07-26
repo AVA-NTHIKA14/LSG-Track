@@ -24,7 +24,7 @@ interface LocalReportDraft {
 }
 
 export const Survey: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const currentUser = authService.getCurrentUser();
   const assignedWard = currentUser?.ward || '1';
@@ -313,7 +313,7 @@ export const Survey: React.FC = () => {
     }, 1200);
   };
 
-  const isAuthorized = role === 'Panchayat Section Clerk' || role === 'Ward Member' || role === 'Administrator';
+  const isAuthorized = role === 'Panchayat Section Clerk' || role === 'clerk' || role === 'Ward Member' || role === 'ward_member' || role === 'Administrator' || role === 'admin' || role === 'Secretary' || role === 'secretary';
   if (!isAuthorized) {
     return (
       <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center max-w-md mx-auto my-12 shadow-sm">
@@ -450,54 +450,54 @@ export const Survey: React.FC = () => {
           <form onSubmit={handleMemberSubmit} className="space-y-4 text-xs font-medium">
             
             <div>
-              <label className="block text-slate-900 font-extrabold mb-1">Business / Establishment Name *</label>
+              <label className="block text-slate-900 font-extrabold mb-1">{i18n.language === 'ml' ? 'സ്ഥാപനത്തിന്റെ പേര് *' : 'Business / Establishment Name *'}</label>
               <input
                 type="text"
                 required
                 value={businessName}
                 onChange={e => setBusinessName(e.target.value)}
-                placeholder="e.g. Royal General Store"
+                placeholder={i18n.language === 'ml' ? 'ഉദാ: റോയൽ ജനറൽ സ്റ്റോർ' : 'e.g. Royal General Store'}
                 className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-slate-900 font-extrabold mb-1">Proprietor / Owner Name</label>
+                <label className="block text-slate-900 font-extrabold mb-1">{i18n.language === 'ml' ? 'ഉടമയുടെ പേര്' : 'Proprietor / Owner Name'}</label>
                 <input
                   type="text"
                   value={ownerName}
                   onChange={e => setOwnerName(e.target.value)}
-                  placeholder="e.g. Suresh Kumar"
+                  placeholder={i18n.language === 'ml' ? 'ഉദാ: സുരേഷ് കുമാർ' : 'e.g. Suresh Kumar'}
                   className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-900 font-extrabold mb-1">Business Category *</label>
+                <label className="block text-slate-900 font-extrabold mb-1">{i18n.language === 'ml' ? 'വ്യാപാര വിഭാഗം *' : 'Business Category *'}</label>
                 <select
                   value={category}
                   onChange={e => setCategory(e.target.value)}
                   className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                 >
-                  <option value="Retail">Retail Store / Supermarket</option>
-                  <option value="Hotel/Restaurant">Hotel / Restaurant / Eatery</option>
-                  <option value="Textiles">Textiles & Garments</option>
-                  <option value="Workshop">Automobile Workshop</option>
-                  <option value="Bakery">Bakery / Confectionery</option>
-                  <option value="General Trade">General Trade</option>
-                  <option value="Others">Others (Specify category below)</option>
+                  <option value="Retail">{i18n.language === 'ml' ? 'റീട്ടെയിൽ സ്റ്റോർ / സൂപ്പർമാർക്കറ്റ്' : 'Retail Store / Supermarket'}</option>
+                  <option value="Hotel/Restaurant">{i18n.language === 'ml' ? 'ഹോട്ടൽ / റെസ്റ്റോറന്റ്' : 'Hotel / Restaurant / Eatery'}</option>
+                  <option value="Textiles">{i18n.language === 'ml' ? 'ടെക്സ്റ്റൈൽസ് & വസ്ത്രങ്ങൾ' : 'Textiles & Garments'}</option>
+                  <option value="Workshop">{i18n.language === 'ml' ? 'ഓട്ടോ മൊബൈൽ വർക്ക്ഷോപ്പ്' : 'Automobile Workshop'}</option>
+                  <option value="Bakery">{i18n.language === 'ml' ? 'ബേക്കറി / പലഹാരക്കട' : 'Bakery / Confectionery'}</option>
+                  <option value="General Trade">{i18n.language === 'ml' ? 'സാധാരണ വ്യാപാരം' : 'General Trade'}</option>
+                  <option value="Others">{i18n.language === 'ml' ? 'മറ്റുള്ളവ (താഴെ രേഖപ്പെടുത്തുക)' : 'Others (Specify category below)'}</option>
                 </select>
 
                 {category === 'Others' && (
                   <div className="mt-2.5">
-                    <label className="block text-slate-900 font-extrabold mb-1">Specify Custom Business Category *</label>
+                    <label className="block text-slate-900 font-extrabold mb-1">{i18n.language === 'ml' ? 'പ്രത്യേക വിഭാഗം രേഖപ്പെടുത്തുക *' : 'Specify Custom Business Category *'}</label>
                     <input
                       type="text"
                       required
                       value={customCategory}
                       onChange={e => setCustomCategory(e.target.value)}
-                      placeholder="e.g. Chemical Processing / Storage Unit"
+                      placeholder={i18n.language === 'ml' ? 'ഉദാ: കെമിക്കൽ പ്രോസസ്സിംഗ് യൂണിറ്റ്' : 'e.g. Chemical Processing / Storage Unit'}
                       className="w-full border border-[#0F6E4F] bg-emerald-50/40 rounded-xl p-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#0F6E4F]"
                     />
                   </div>
@@ -510,14 +510,14 @@ export const Survey: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="font-extrabold text-slate-900 flex items-center space-x-1.5">
                   <MapPin size={14} className="text-[#0F6E4F]" />
-                  <span>Onsite GPS Location Coordinates</span>
+                  <span>{i18n.language === 'ml' ? 'തത്സമയ ജി.പി.എസ് സ്ഥാനരേഖ' : 'Onsite GPS Location Coordinates'}</span>
                 </span>
                 <button
                   type="button"
                   onClick={handleGetGPS}
                   className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 px-3 py-1 rounded-xl text-[11px] font-bold transition shadow-sm"
                 >
-                  Capture Live GPS
+                  {i18n.language === 'ml' ? 'ജി.പി.എസ് രേഖപ്പെടുത്തുക' : 'Capture Live GPS'}
                 </button>
               </div>
               <div className="font-mono text-slate-700 text-xs bg-white p-2 rounded-xl border border-slate-200 flex justify-between">
@@ -531,7 +531,7 @@ export const Survey: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="font-extrabold text-slate-900 flex items-center space-x-1.5">
                   <Camera size={15} className="text-[#0F6E4F]" />
-                  <span>Geotagged Establishment Photograph</span>
+                  <span>{i18n.language === 'ml' ? 'ജി.പി.എസ് അധിഷ്ഠിത ചിത്രം' : 'Geotagged Establishment Photograph'}</span>
                 </span>
 
                 <input
@@ -549,7 +549,7 @@ export const Survey: React.FC = () => {
                   className="bg-white hover:bg-slate-100 text-[#0F6E4F] border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center space-x-1.5 shadow-sm"
                 >
                   <Camera size={14} />
-                  <span>{photoUrl ? 'Retake Photo' : 'Capture / Upload Photo'}</span>
+                  <span>{photoUrl ? (i18n.language === 'ml' ? 'വീണ്ടും എടുക്കുക' : 'Retake Photo') : (i18n.language === 'ml' ? 'ചിത്രം അപ്‌ലോഡ് ചെയ്യുക' : 'Capture / Upload Photo')}</span>
                 </button>
               </div>
 
@@ -566,7 +566,7 @@ export const Survey: React.FC = () => {
                   </button>
                   <div className="absolute bottom-0 inset-x-0 bg-slate-950/80 text-white px-3 py-1.5 text-[11px] font-mono flex justify-between items-center">
                     <span>📍 Geotagged: Lat {lat.toFixed(5)}, Lng {lng.toFixed(5)}</span>
-                    <span className="text-emerald-400 font-bold">GPS Stamped</span>
+                    <span className="text-emerald-400 font-bold">{i18n.language === 'ml' ? 'ജി.പി.എസ് മുദ്രണം' : 'GPS Stamped'}</span>
                   </div>
                 </div>
               ) : (
@@ -575,7 +575,7 @@ export const Survey: React.FC = () => {
                   className="border-2 border-dashed border-slate-300 hover:border-[#0F6E4F] bg-white rounded-2xl p-5 text-center cursor-pointer transition space-y-1"
                 >
                   <Camera size={22} className="mx-auto text-slate-400" />
-                  <p className="text-xs font-bold text-slate-700">Click to capture building photo with camera</p>
+                  <p className="text-xs font-bold text-slate-700">{i18n.language === 'ml' ? 'കെട്ടിട ചിത്രം എടുക്കാൻ ഇവിടെ ക്ലിക്ക് ചെയ്യുക' : 'Click to capture building photo with camera'}</p>
                   <p className="text-[10px] text-slate-400">Onsite GPS coordinates (Lat: {lat.toFixed(5)}, Lng: {lng.toFixed(5)}) will be stamped on photo</p>
                 </div>
               )}
@@ -598,7 +598,7 @@ export const Survey: React.FC = () => {
                 onClick={handleSaveMemberDraft}
                 className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-4 py-2 rounded-xl font-extrabold text-xs transition"
               >
-                Save Offline Draft
+                {i18n.language === 'ml' ? 'ഡ്രാഫ്റ്റ് ആക്കി സൂക്ഷിക്കുക' : 'Save Offline Draft'}
               </button>
 
               <button
@@ -606,7 +606,7 @@ export const Survey: React.FC = () => {
                 className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white px-6 py-2.5 rounded-xl font-extrabold text-xs transition shadow-sm flex items-center space-x-1.5"
               >
                 <Send size={14} />
-                <span>Submit Field Report</span>
+                <span>{i18n.language === 'ml' ? 'ഫീൽഡ് റിപ്പോർട്ട് സമർപ്പിക്കുക' : 'Submit Field Report'}</span>
               </button>
             </div>
 
@@ -617,8 +617,8 @@ export const Survey: React.FC = () => {
         <div className="lg:col-span-5 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="border-b pb-3 flex justify-between items-center">
             <div>
-              <h3 className="font-extrabold text-slate-900 text-sm">Offline Draft Cache ({localDrafts.length})</h3>
-              <p className="text-xs text-slate-500">Local reports awaiting internet sync.</p>
+              <h3 className="font-extrabold text-slate-900 text-sm">{i18n.language === 'ml' ? `ഓഫ്‌ലൈൻ ഡ്രൈവ് (${localDrafts.length})` : `Offline Draft Cache (${localDrafts.length})`}</h3>
+              <p className="text-xs text-slate-500">{i18n.language === 'ml' ? 'സിങ്ക് ചെയ്യാനുള്ള റിപ്പോർട്ടുകൾ.' : 'Local reports awaiting internet sync.'}</p>
             </div>
 
             {localDrafts.length > 0 && (
@@ -628,7 +628,7 @@ export const Survey: React.FC = () => {
                 className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1"
               >
                 <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
-                <span>Sync Now</span>
+                <span>{i18n.language === 'ml' ? 'സിങ്ക് ചെയ്യുക' : 'Sync Now'}</span>
               </button>
             )}
           </div>
@@ -637,7 +637,7 @@ export const Survey: React.FC = () => {
             {localDrafts.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
                 <CheckCircle size={32} className="mx-auto text-emerald-500 mb-1" />
-                <p>All field reports synchronized to server.</p>
+                <p>{i18n.language === 'ml' ? 'എല്ലാ റിപ്പോർട്ടുകളും സെർവറുമായി സിങ്ക് ചെയ്തു.' : 'All field reports synchronized to server.'}</p>
               </div>
             ) : (
               localDrafts.map(d => (

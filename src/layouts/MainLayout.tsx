@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { 
   LayoutDashboard, 
   Map, 
+  MapPin,
   BarChart3, 
   Settings, 
   HelpCircle, 
@@ -18,12 +19,14 @@ import {
   Menu,
   X,
   Database,
-  ClipboardCheck
+  FileText
 } from 'lucide-react';
 import { authService } from '../services/authService';
-import { dbService } from '../services/dbService';
-import { KERALA_PANCHAYATHS, KERALA_DISTRICTS } from '../data/keralaPanchayaths';
+import { dbService, getActivePanchayathId } from '../services/dbService';
 import type { UserProfile, SystemNotification } from '../types';
+import { OnboardingTour } from '../components/OnboardingTour';
+import { UserGuideModal } from '../components/UserGuideModal';
+import { normalizeRole } from '../services/roleAccess';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -41,10 +44,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [showTour, setShowTour] = useState(false);
+  const [showUserGuides, setShowUserGuides] = useState(false);
   
   // Multi-tenancy states
-  const [, setActivePanchayatName] = useState('Loading Panchayat...');
-  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || '204902';
+  const [activePanchayatName, setActivePanchayatName] = useState('Loading Panchayat...');
+  const activePanchayatCode = getActivePanchayathId();
+
+  useEffect(() => {
+    const tourSeen = localStorage.getItem('cp_tour_seen');
+    if (!tourSeen) {
+      setShowTour(true);
+      localStorage.setItem('cp_tour_seen', 'true');
+    }
+  }, []);
 
   useEffect(() => {
     // Listen for auth changes
@@ -112,9 +125,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Consolidated Navigation Items (6 core items) per wireframe decisions
   const getNavItems = () => {
-    const role = currentUser?.role;
+    const role = normalizeRole(currentUser?.role);
 
-    if (role === 'Panchayat Section Clerk' || role === 'clerk') {
+    if (role === 'field_officer') {
       return [
         { name: t('nav.dashboard'), path: '/', icon: LayoutDashboard },
         { name: `${t('nav.buildings')} / Registry`, path: '/registry', icon: Building2 },
@@ -123,21 +136,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       ];
     }
 
-    if (role === 'Ward Member' || role === 'ward_member') {
+    if (role === 'ward_member') {
       return [
+        { name: t('nav.dashboard'), path: '/', icon: LayoutDashboard },
         { name: t('nav.survey'), path: '/survey', icon: Smartphone },
-        { name: `${t('nav.ward_reports')}`, path: '/report?tab=ward', icon: ClipboardCheck },
         { name: t('nav.settings'), path: '/settings', icon: Settings },
       ];
     }
 
-    // Consolidated 6 Items for Secretary & Administrators
+    // Full Workflows Access for Administrator & Secretary
     return [
       { name: t('nav.dashboard'), path: '/', icon: LayoutDashboard },
       { name: t('nav.map'), path: '/map', icon: Map },
-      { name: t('nav.communication'), path: '/communication', icon: MessageSquare },
       { name: 'Registry', path: '/registry', icon: Building2 },
-      { name: 'Report', path: '/report', icon: BarChart3 },
+      { name: 'Reports', path: '/report', icon: BarChart3 },
+      { name: t('nav.survey'), path: '/survey', icon: Smartphone },
+      { name: t('nav.sync'), path: '/sync', icon: Database },
+      { name: t('nav.communication'), path: '/communication', icon: MessageSquare },
+      { name: 'Administration', path: '/administration', icon: Compass },
       { name: t('nav.settings'), path: '/settings', icon: Settings },
     ];
   };
@@ -182,9 +198,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
           {/* Brand Mark Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <svg viewBox="0 0 20 25" className="w-5 h-6 text-[#0F6E4F]" fill="currentColor" aria-hidden="true">
-              <path d="M10 12.5C10.6875 12.5 11.276 12.2552 11.7656 11.7656C12.2552 11.276 12.5 10.6875 12.5 10C12.5 9.3125 12.2552 8.72396 11.7656 8.23438C11.276 7.74479 10.6875 7.5 10 7.5C9.3125 7.5 8.72396 7.74479 8.23438 8.23438C7.74479 8.72396 7.5 9.3125 7.5 10C7.5 10.6875 7.74479 11.276 8.23438 11.7656C8.72396 12.2552 9.3125 12.5 10 12.5ZM10 25C6.64583 22.1458 4.14062 19.4948 2.48438 17.0469C0.828125 14.599 0 12.3333 0 10.25C0 7.125 1.00521 4.63542 3.01562 2.78125C5.02604 0.927083 7.35417 0 10 0C12.6458 0 14.974 0.927083 16.9844 2.78125C18.9948 4.63542 20 7.125 20 10.25C20 12.3333 19.1719 14.599 17.5156 17.0469C15.8594 19.4948 13.3542 22.1458 10 25Z" />
-            </svg>
+            <MapPin className="w-5 h-6 text-[#0F6E4F]" aria-hidden="true" />
             <span className="font-extrabold text-lg text-[#0F6E4F] tracking-wide">LSG Track</span>
           </Link>
 
@@ -262,8 +276,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <button 
             type="button" 
             aria-label="Help and Support guidelines"
-            onClick={() => navigate('/settings')}
+            onClick={() => setShowUserGuides(true)}
             className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 transition"
+            title="User Guides & SOP Manuals"
           >
             <HelpCircle size={18} />
           </button>
@@ -289,17 +304,31 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             </button>
 
             {showRoleMenu && (
-              <div className="absolute right-0 mt-2 w-52 bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-100 z-50 py-1.5 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-56 bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-100 z-50 py-1.5 overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100 text-xs">
                   <div className="font-bold text-slate-900">{currentUser?.name || 'Administrator'}</div>
                   <div className="text-slate-400 text-[10px] truncate">{currentUser?.email}</div>
                   <div className="text-slate-400 text-[9px] mt-1 font-bold">
                     Role: {currentUser?.role} {currentUser?.ward ? `(Ward ${currentUser.ward})` : ''}
                   </div>
-                  <div className="text-slate-400 text-[9px] mt-0.5 font-bold">
-                    LSGD: {currentUser?.panchayathId || activePanchayatCode}
-                  </div>
                 </div>
+
+                <button 
+                  onClick={() => { setShowRoleMenu(false); setShowTour(true); }}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium transition"
+                >
+                  <Compass size={14} className="text-[#0F6E4F]" />
+                  <span>{i18n.language === 'ml' ? 'ടൂർ ആരംഭിക്കുക' : 'Take Guided Tour'}</span>
+                </button>
+
+                <button 
+                  onClick={() => { setShowRoleMenu(false); setShowUserGuides(true); }}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium transition border-b border-slate-100"
+                >
+                  <FileText size={14} className="text-[#0F6E4F]" />
+                  <span>{i18n.language === 'ml' ? 'പി.ഡി.എഫ് ഗൈഡുകൾ' : 'Stakeholder User Guides (PDF)'}</span>
+                </button>
+
                 <button 
                   onClick={handleLogout}
                   className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2 font-semibold transition"
@@ -392,33 +421,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 </div>
               </div>
 
-              {/* Statewide LSG Tenant Context Switcher */}
+              {/* Panchayat Jurisdiction Badge */}
               <div className="pt-2">
-                <label className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">
-                  {i18n.language === 'ml' ? 'പ്രവർത്തന സജ്ജമായ പഞ്ചായത്ത്' : 'Active LSG Tenant'}
-                </label>
-                <select
-                  value={activePanchayatCode}
-                  onChange={(e) => {
-                    const newCode = e.target.value;
-                    localStorage.setItem('cp_active_panchayat_code', newCode);
-                    dbService.registerActivePanchayath(newCode);
-                    window.location.reload(); 
-                  }}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-[10px] font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F6E4F] shadow-xs cursor-pointer"
-                >
-                  {KERALA_DISTRICTS.map(district => {
-                    const districtPanchayaths = KERALA_PANCHAYATHS.filter(p => p.district === district);
-                    if (districtPanchayaths.length === 0) return null;
-                    return (
-                      <optgroup key={district} label={`📍 ${district} District`}>
-                        {districtPanchayaths.map(p => (
-                          <option key={p.code} value={p.code}>{p.name}</option>
-                        ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
+                <div className="bg-white border border-slate-200/80 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest pl-0.5">
+                    {i18n.language === 'ml' ? 'ഗ്രാമപഞ്ചായത്ത്' : 'Grama Panchayat'}
+                  </span>
+                  <span className="block text-[11px] font-extrabold text-[#0F6E4F] truncate">
+                    {activePanchayatName}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -485,10 +497,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             LSG-Track — Independent Local-First Licensing Platform for Grama Panchayaths
           </div>
           <div className="text-[10px] text-emerald-200/50">
-            Built by students for Panchayat Secretaries & Ward Members. Unofficial tool with zero government affiliation. Developed and piloted with Panangad Grama Panchayat. For support: support@lsgtrack.local
+            Built for Panchayat Secretaries, Section Clerks & Ward Members across Kerala Grama Panchayaths.
           </div>
         </div>
       </footer>
+
+      {/* Interactive Tour & PDF User Guides Modals */}
+      <OnboardingTour
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+        userRole={currentUser?.role || 'Panchayat Secretary'}
+        panchayatName={activePanchayatName}
+      />
+
+      <UserGuideModal
+        isOpen={showUserGuides}
+        onClose={() => setShowUserGuides(false)}
+      />
 
     </div>
   );

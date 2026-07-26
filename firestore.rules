@@ -6,92 +6,57 @@ service cloud.firestore {
       return request.auth != null; 
     }
     
+    function hasUserDoc() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function getUserData() { 
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; 
     }
     
     function isApproved() {
-      return signedIn() && getUserData().status == 'APPROVED';
+      return hasUserDoc() && getUserData().status == 'APPROVED';
     }
     
-    function isSecretary() { 
-      return isApproved() && getUserData().role == 'secretary'; 
+    function isSecretaryOrAdmin() { 
+      return isApproved() && (
+        getUserData().role == 'Secretary' || 
+        getUserData().role == 'secretary' || 
+        getUserData().role == 'Administrator' || 
+        getUserData().role == 'admin'
+      ); 
     }
     
-    function belongsToPanchayat(panchayatCode) {
-      return isApproved() && (getUserData().panchayatCode == panchayatCode || getUserData().role == 'admin');
+    function belongsToPanchayat(panchayathId) {
+      return isApproved() && (
+        getUserData().role == 'Administrator' || 
+        getUserData().role == 'admin' || 
+        getUserData().panchayathId == 'all' || 
+        getUserData().panchayatCode == 'all' || 
+        getUserData().panchayathId == panchayathId || 
+        getUserData().panchayatCode == panchayathId
+      );
     }
 
-    // User profile documents for onboarding and secretarial approval
+    // User profile documents — allow any signed-in user to read user profiles without circular rule evaluation
     match /users/{userId} {
-      allow read: if signedIn() && (
-        request.auth.uid == userId || 
-        (isSecretary() && getUserData().panchayatCode == resource.data.panchayatCode)
-      );
+      allow read: if signedIn();
       allow create: if signedIn() && request.auth.uid == userId;
-      allow update: if signedIn() && (
-        (isSecretary() && getUserData().panchayatCode == resource.data.panchayatCode) ||
-        request.auth.uid == userId
-      );
-      allow delete: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn() && (request.auth.uid == userId || isSecretaryOrAdmin());
+      allow delete: if signedIn() && (request.auth.uid == userId || isSecretaryOrAdmin());
     }
 
     match /config/{configId} {
       allow read: if signedIn();
-      allow write: if isSecretary();
+      allow write: if isSecretaryOrAdmin();
     }
 
-    // Multi-tenant Panchayat document collections
-    match /panchayats/{panchayatCode} {
-      allow read: if belongsToPanchayat(panchayatCode);
-      allow write: if isSecretary() && getUserData().panchayatCode == panchayatCode;
-
-      match /buildings/{buildingId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /licenses/{licenseId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /wards/{wardId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /surveys/{surveyId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /wardReports/{reportId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /notifications/{notificationId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /settings/{settingId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /syncHistory/{syncId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /whatsappLogs/{logId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-
-      match /auditLogs/{logId} {
-        allow read, write: if belongsToPanchayat(panchayatCode);
-      }
-    }
-
-    // Fallback for legacy collections during migration
+    // Multi-tenant Panchayat document collections & subcollections
     match /panchayaths/{panchayathId} {
-      allow read, write: if signedIn();
+      allow read, write: if belongsToPanchayat(panchayathId);
+
       match /{document=**} {
-        allow read, write: if signedIn();
+        allow read, write: if belongsToPanchayat(panchayathId);
       }
     }
   }

@@ -12,7 +12,7 @@ import {
 type ReportType = 'compliance' | 'licenses' | 'revenue' | 'surveys' | 'audit';
 
 export const Reports: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [buildings, setBuildings] = useState<BuildingRecord[]>([]);
   const [wards, setWards] = useState<WardRecord[]>([]);
   const [licenses, setLicenses] = useState<LicenseRecord[]>([]);
@@ -173,14 +173,14 @@ export const Reports: React.FC = () => {
             className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1.5 transition"
           >
             <FileSpreadsheet size={13} className="text-emerald-700" />
-            <span>Export CSV</span>
+            <span>{i18n.language === 'ml' ? 'സി.എസ്.വി എക്സ്പോർട്ട്' : 'Export CSV'}</span>
           </button>
           <button
             onClick={handlePrint}
             className="bg-gov-navy hover:bg-gov-navy-light text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1.5 transition shadow-sm"
           >
             <Printer size={13} />
-            <span>Print Report</span>
+            <span>{i18n.language === 'ml' ? 'റിപ്പോർട്ട് പ്രിന്റ് ചെയ്യുക' : 'Print Report'}</span>
           </button>
         </div>
       </div>
@@ -189,47 +189,53 @@ export const Reports: React.FC = () => {
       <div className="bg-white border border-gov-border rounded p-4 shadow-sm flex flex-wrap gap-4 items-end no-print text-xs text-slate-700">
         
         <div>
-          <label className="block font-bold text-slate-500 uppercase mb-1">Select Report Template</label>
+          <label className="block font-bold text-slate-500 uppercase mb-1">
+            {i18n.language === 'ml' ? 'റിപ്പോർട്ട് മാതൃക' : 'Select Report Template'}
+          </label>
           <select
             value={reportType}
             onChange={(e) => setReportType(e.target.value as ReportType)}
             className="border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-gov-green w-48"
           >
-            <option value="compliance">Ward-wise Compliance Audit</option>
-            <option value="licenses">License Status Register</option>
-            <option value="revenue">Treasury Revenue Collection</option>
-            <option value="surveys">Field Inspector Progress</option>
-            <option value="audit">Administrative Audit Register</option>
+            <option value="compliance">{i18n.language === 'ml' ? 'വാർഡ് തിരിച്ചു ലൈസൻസ് വിവരങ്ങൾ' : 'Ward-wise Compliance Audit'}</option>
+            <option value="licenses">{i18n.language === 'ml' ? 'വ്യാപാര ലൈസൻസ് രജിസ്റ്റർ' : 'License Status Register'}</option>
+            <option value="revenue">{i18n.language === 'ml' ? 'ലൈസൻസ് ഫീസ് വരുമാനം' : 'Treasury Revenue Collection'}</option>
+            <option value="surveys">{i18n.language === 'ml' ? 'ഫീൽഡ് പരിശോധനാ പുരോഗതി' : 'Field Inspector Progress'}</option>
+            <option value="audit">{i18n.language === 'ml' ? 'ഭരണപരമായ ആഡിറ്റ് രജിസ്റ്റർ' : 'Administrative Audit Register'}</option>
           </select>
         </div>
 
         <div>
-          <label className="block font-bold text-slate-500 uppercase mb-1">Scope Ward Boundary</label>
+          <label className="block font-bold text-slate-500 uppercase mb-1">
+            {i18n.language === 'ml' ? 'വാർഡ് പരിധി' : 'Scope Ward Boundary'}
+          </label>
           <select
             value={selectedWard}
             onChange={(e) => setSelectedWard(e.target.value)}
             className="border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-gov-green w-40"
           >
-            <option value="all">All Wards (Panchayat)</option>
+            <option value="all">{i18n.language === 'ml' ? 'എല്ലാ വാർഡുകളും' : 'All Wards (Panchayat)'}</option>
             {wards.map(w => (
-              <option key={w.id} value={w.id}>Ward {w.id} - {w.name}</option>
+              <option key={w.id} value={w.id}>{i18n.language === 'ml' ? `വാർഡ് ${w.id} - ${w.name}` : `Ward ${w.id} - ${w.name}`}</option>
             ))}
           </select>
         </div>
 
         {reportType === 'compliance' && (
           <div>
-            <label className="block font-bold text-slate-500 uppercase mb-1">Filter Building Status</label>
+            <label className="block font-bold text-slate-500 uppercase mb-1">
+              {i18n.language === 'ml' ? 'ലൈസൻസ് സ്റ്റാറ്റസ്' : 'Filter Building Status'}
+            </label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-gov-green w-40"
             >
-              <option value="all">All Status</option>
-              <option value="licensed">Licensed Only</option>
-              <option value="unlicensed">Unlicensed Only</option>
-              <option value="pending">Pending Verification</option>
-              <option value="govt">Government Buildings</option>
+              <option value="all">{i18n.language === 'ml' ? 'എല്ലാ സ്റ്റാറ്റസും' : 'All Status'}</option>
+              <option value="licensed">{i18n.language === 'ml' ? 'ലൈസൻസ് ഉള്ളവ മാത്രം' : 'Licensed Only'}</option>
+              <option value="unlicensed">{i18n.language === 'ml' ? 'ലൈസൻസ് ഇല്ലാത്തവ മാത്രം' : 'Unlicensed Only'}</option>
+              <option value="pending">{i18n.language === 'ml' ? 'പരിശോധനയിലുള്ളവ' : 'Pending Verification'}</option>
+              <option value="govt">{i18n.language === 'ml' ? 'സർക്കാർ സ്ഥാപനങ്ങൾ' : 'Government Buildings'}</option>
             </select>
           </div>
         )}
@@ -241,30 +247,29 @@ export const Reports: React.FC = () => {
         
         {/* Printable Official Header */}
         <div className="text-center border-b-2 border-slate-800 pb-5">
-          <div className="text-xs uppercase tracking-widest font-bold text-slate-600">Local Licensing Management Platform</div>
-          <h2 className="text-lg font-extrabold uppercase text-gov-navy mt-1">{panchayatName} Office</h2>
-          <p className="text-[10px] text-slate-500">Local-First Licensing Platform | Independent System</p>
-          <div className="mt-4 px-3 py-1 bg-slate-50 rounded border inline-block text-[10px] font-mono text-slate-700">
-            REF NO: LSGD/CP/LIC/2026/RP-{reportType.toUpperCase()} | DATE OF COMPILE: 2026-06-28
+          <div className="text-xs uppercase tracking-widest font-bold text-slate-600">
+            {i18n.language === 'ml' ? '?????? ??????? ?????? ???????? ???????' : 'Local Trade License Monitoring Portal'}
           </div>
+          <h2 className="mt-1 text-lg font-extrabold text-slate-900">{panchayatName}</h2>
+          <p className="mt-1 text-xs text-slate-500">{i18n.language === 'ml' ? '???????? ???????????' : 'Official report'}</p>
         </div>
 
         {/* Report Overview summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
           <div className="bg-slate-50 border rounded p-3 text-center">
-            <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">Panchayat Extent</span>
+            <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">{i18n.language === 'ml' ? 'പഞ്ചായത്ത്' : 'Panchayat Extent'}</span>
             <span className="block font-bold text-slate-800">{panchayatName}</span>
           </div>
           <div className="bg-slate-50 border rounded p-3 text-center">
-            <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">Total Assets Listed</span>
+            <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">{i18n.language === 'ml' ? 'ആകെ കെട്ടിടങ്ങൾ' : 'Total Assets Listed'}</span>
             <span className="block font-bold text-slate-800">{totalBldgs} commercial units</span>
           </div>
           <div className="bg-slate-50 border rounded p-3 text-center">
-            <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">Treasury Revenue</span>
+            <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">{i18n.language === 'ml' ? 'ആകെ വരുമാനം' : 'Treasury Revenue'}</span>
             <span className="block font-bold text-emerald-800 font-mono">₹{totalRevenue.toLocaleString()}</span>
           </div>
           <div className="bg-slate-50 border rounded p-3 text-center">
-            <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">Portal Status</span>
+            <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-1">{i18n.language === 'ml' ? 'പോർട്ടൽ സ്റ്റാറ്റസ്' : 'Portal Status'}</span>
             <span className="block font-bold text-status-licensed">ACTIVE / AUDITED</span>
           </div>
         </div>
@@ -274,20 +279,20 @@ export const Reports: React.FC = () => {
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-gov-navy uppercase tracking-wider border-b pb-1.5 flex items-center space-x-1.5">
               <Layers size={14} />
-              <span>Ward-wise Compliance Audit</span>
+              <span>{i18n.language === 'ml' ? 'വാർഡ് തിരിച്ചു അനുമതിപ്പട്ടിക' : 'Ward-wise Compliance Audit'}</span>
             </h3>
             
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase">
                   <tr>
-                    <th className="px-3 py-2">Ward Number</th>
-                    <th className="px-3 py-2">Ward Name</th>
-                    <th className="px-3 py-2 text-center">Registered</th>
-                    <th className="px-3 py-2 text-center">Licensed</th>
-                    <th className="px-3 py-2 text-center">Unlicensed</th>
-                    <th className="px-3 py-2 text-center">Pending</th>
-                    <th className="px-3 py-2 text-right">Compliance</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'വാർഡ് നമ്പർ' : 'Ward Number'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'വാർഡിന്റെ പേര്' : 'Ward Name'}</th>
+                    <th className="px-3 py-2 text-center">{i18n.language === 'ml' ? 'രജിസ്റ്റർ ചെയ്തവ' : 'Registered'}</th>
+                    <th className="px-3 py-2 text-center">{i18n.language === 'ml' ? 'ലൈസൻസ് ഉള്ളവ' : 'Licensed'}</th>
+                    <th className="px-3 py-2 text-center">{i18n.language === 'ml' ? 'ഇല്ലാത്തവ' : 'Unlicensed'}</th>
+                    <th className="px-3 py-2 text-center">{i18n.language === 'ml' ? 'പരിശോധനയിൽ' : 'Pending'}</th>
+                    <th className="px-3 py-2 text-right">{i18n.language === 'ml' ? 'ശതമാനം' : 'Compliance'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-slate-700">
@@ -314,21 +319,21 @@ export const Reports: React.FC = () => {
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-gov-navy uppercase tracking-wider border-b pb-1.5 flex items-center space-x-1.5">
               <Clock size={14} />
-              <span>License Expiry and Status log</span>
+              <span>{i18n.language === 'ml' ? 'ലൈസൻസ് കാലാവധി രജിസ്റ്റർ' : 'License Expiry and Status log'}</span>
             </h3>
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase">
                   <tr>
-                    <th className="px-3 py-2">License ID</th>
-                    <th className="px-3 py-2">Building ID</th>
-                    <th className="px-3 py-2">Establishment Title</th>
-                    <th className="px-3 py-2">Classification</th>
-                    <th className="px-3 py-2">Date Issued</th>
-                    <th className="px-3 py-2">Expiry Date</th>
-                    <th className="px-3 py-2 text-right">License Status</th>
-                    <th className="px-3 py-2 text-right">SMS Reminders</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'ലൈസൻസ് നമ്പർ' : 'License ID'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'കെട്ടിട നമ്പർ' : 'Building ID'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'സ്ഥാപനം' : 'Establishment Title'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'വിഭാഗം' : 'Classification'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'നൽകിയ തീയതി' : 'Date Issued'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'കാലാവധി' : 'Expiry Date'}</th>
+                    <th className="px-3 py-2 text-right">{i18n.language === 'ml' ? 'സ്റ്റാറ്റസ്' : 'License Status'}</th>
+                    <th className="px-3 py-2 text-right">{i18n.language === 'ml' ? 'ഓർമ്മപ്പെടുത്തൽ' : 'SMS Reminders'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-slate-700">
@@ -364,7 +369,7 @@ export const Reports: React.FC = () => {
                               className="bg-gov-navy hover:bg-gov-navy-light text-white text-[9px] font-bold uppercase px-2 py-0.75 rounded flex items-center space-x-1 ml-auto transition shadow-sm"
                             >
                               <Clock size={10} />
-                              <span>Send Alert</span>
+                              <span>{i18n.language === 'ml' ? 'അറിയിപ്പ് അയക്കുക' : 'Send Alert'}</span>
                             </button>
                           </td>
                         </tr>
@@ -380,19 +385,19 @@ export const Reports: React.FC = () => {
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-gov-navy uppercase tracking-wider border-b pb-1.5 flex items-center space-x-1.5">
               <CircleDollarSign size={14} />
-              <span>Treasury Revenue Collection register</span>
+              <span>{i18n.language === 'ml' ? 'പഞ്ചായത്ത് റവന്യൂ വരുമാന രജിസ്റ്റർ' : 'Treasury Revenue Collection register'}</span>
             </h3>
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase">
                   <tr>
-                    <th className="px-3 py-2">Treasury Receipt</th>
-                    <th className="px-3 py-2">License ID</th>
-                    <th className="px-3 py-2">Establishment Reference</th>
-                    <th className="px-3 py-2">Account Head</th>
-                    <th className="px-3 py-2">Receipt Date</th>
-                    <th className="px-3 py-2 text-right">Amount Paid</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'റസീപ്റ്റ് നമ്പർ' : 'Treasury Receipt'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'ലൈസൻസ് നമ്പർ' : 'License ID'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'സ്ഥാപനം' : 'Establishment Reference'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'ഇനം' : 'Account Head'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'തീയതി' : 'Receipt Date'}</th>
+                    <th className="px-3 py-2 text-right">{i18n.language === 'ml' ? 'അടച്ച തുക' : 'Amount Paid'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-slate-700 font-mono">
@@ -415,7 +420,7 @@ export const Reports: React.FC = () => {
                       );
                     })}
                   <tr className="bg-slate-100 font-sans border-t-2 border-slate-700 font-bold">
-                    <td colSpan={5} className="px-3 py-3 text-right uppercase">CUMULATIVE TREASURY COLLECTION:</td>
+                    <td colSpan={5} className="px-3 py-3 text-right uppercase">{i18n.language === 'ml' ? 'ആകെ പിരിച്ചെടുത്ത വരുമാനം:' : 'CUMULATIVE TREASURY COLLECTION:'}</td>
                     <td className="px-3 py-3 text-right font-mono text-emerald-950 text-sm">
                       ₹{licenses
                         .filter(l => {
@@ -443,13 +448,13 @@ export const Reports: React.FC = () => {
               <table className="min-w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase">
                   <tr>
-                    <th className="px-3 py-2">Survey ID</th>
-                    <th className="px-3 py-2">Officer Name</th>
-                    <th className="px-3 py-2">Building reference</th>
-                    <th className="px-3 py-2 font-mono">GPS Coordinates</th>
-                    <th className="px-3 py-2">Inspection Date</th>
-                    <th className="px-3 py-2">Review Status</th>
-                    <th className="px-3 py-2 text-right">Remarks Summary</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'സർവേ ഐ.ഡി' : 'Survey ID'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'ഉദ്യോഗസ്ഥൻ' : 'Officer Name'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'സ്ഥാപനം' : 'Building reference'}</th>
+                    <th className="px-3 py-2 font-mono">{i18n.language === 'ml' ? 'ജി.പി.എസ് സ്ഥാനരേഖ' : 'GPS Coordinates'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'പരിശോധനാ തീയതി' : 'Inspection Date'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'സ്റ്റാറ്റസ്' : 'Review Status'}</th>
+                    <th className="px-3 py-2 text-right">{i18n.language === 'ml' ? 'കുറിപ്പുകൾ' : 'Remarks Summary'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-slate-700">
@@ -495,18 +500,18 @@ export const Reports: React.FC = () => {
         {reportType === 'audit' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center border-b pb-2">
-              <h3 className="font-bold text-gov-navy text-sm uppercase">Official Operations Audit Register</h3>
-              <span className="text-[10px] text-slate-500 font-bold">Total Audit Entries: {auditLogs.length}</span>
+              <h3 className="font-bold text-gov-navy text-sm uppercase">{i18n.language === 'ml' ? 'ഭരണപരമായ ആഡിറ്റ് രജിസ്റ്റർ' : 'Official Operations Audit Register'}</h3>
+              <span className="text-[10px] text-slate-500 font-bold">{i18n.language === 'ml' ? 'ആകെ ആഡിറ്റുകൾ:' : 'Total Audit Entries:'} {auditLogs.length}</span>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead className="bg-slate-50 border-b uppercase font-bold text-slate-500">
                   <tr>
-                    <th className="px-3 py-2">User / Officer</th>
-                    <th className="px-3 py-2">Action Performed</th>
-                    <th className="px-3 py-2">Timestamp</th>
-                    <th className="px-3 py-2">Details / Result</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'ഉദ്യോഗസ്ഥൻ' : 'User / Officer'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'പ്രവർത്തനം' : 'Action Performed'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'സമയരേഖ' : 'Timestamp'}</th>
+                    <th className="px-3 py-2">{i18n.language === 'ml' ? 'വിശദാംശങ്ങൾ' : 'Details / Result'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -528,13 +533,19 @@ export const Reports: React.FC = () => {
         <div className="pt-16 grid grid-cols-2 text-center text-xs border-t border-dashed mt-12 text-slate-700">
           <div>
             <div className="h-12"></div>
-            <div className="border-t border-slate-400 w-48 mx-auto mt-2 pt-1 font-bold">Field Survey Officer</div>
+            <div className="border-t border-slate-400 w-48 mx-auto mt-2 pt-1 font-bold">
+              {i18n.language === 'ml' ? 'ഫീൽഡ് സർവേ ഉദ്യോഗസ്ഥൻ' : 'Field Survey Officer'}
+            </div>
             <div className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">{panchayatName}</div>
           </div>
           <div>
             <div className="h-12"></div>
-            <div className="border-t border-slate-400 w-48 mx-auto mt-2 pt-1 font-bold">Secretary Approval</div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">LSGD Kerala Authority</div>
+            <div className="border-t border-slate-400 w-48 mx-auto mt-2 pt-1 font-bold">
+              {i18n.language === 'ml' ? 'പഞ്ചായത്ത് സെക്രട്ടറി സാക്ഷ്യപ്പെടുത്തൽ' : 'Secretary Approval'}
+            </div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">
+              {i18n.language === 'ml' ? 'തദ്ദേശ സ്വയംഭരണ വകുപ്പ്, കേരളം' : 'LSGD Kerala Authority'}
+            </div>
           </div>
         </div>
 

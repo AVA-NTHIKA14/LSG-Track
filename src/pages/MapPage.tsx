@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
-import { dbService } from '../services/dbService';
+import { dbService, getActivePanchayathId } from '../services/dbService';
 import { authService } from '../services/authService';
 import { getPanchayathByCode, getPanchayathCenterCoordinates } from '../data/keralaPanchayaths';
-import { getBoundaryGeoJSONForPanchayath } from '../services/boundaryService';
+import { getBoundaryGeoJSONForPanchayath, isPointInsideGeoJSON } from '../services/boundaryService';
 import type { BuildingRecord, WardRecord, LicenseRecord, SyncHistoryRecord, WhatsAppLogRecord } from '../types';
 import { 
   Search, 
@@ -19,6 +19,7 @@ import {
   Check, 
   RefreshCw, 
   AlertTriangle,
+  MapPin,
   Maximize2,
   Bell,
   BookOpen,
@@ -96,7 +97,34 @@ export const MapPage: React.FC = () => {
   // K-SMART Ward Delimitation Modal State
   const [showKsmartModal, setShowKsmartModal] = useState(false);
 
-  const activePanchayatCode = localStorage.getItem('cp_active_panchayat_code') || 'G110706';
+  // Manual Pin Placement State (Bug 2 Fix)
+  const [placingBuildingId, setPlacingBuildingId] = useState<string | null>(null);
+
+  const activePanchayatCode = getActivePanchayathId();
+
+  // Compute unplaced or out-of-boundary buildings
+  const unplacedBuildings = buildings.filter(b => {
+    if (b.needsManualPlacement) return true;
+    if (boundaryGeoJSON && b.coordinates?.lat && b.coordinates?.lng) {
+      return !isPointInsideGeoJSON(b.coordinates.lat, b.coordinates.lng, boundaryGeoJSON);
+    }
+    return false;
+  });
+
+  // Handle map click during manual pin placement mode
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !placingBuildingId) return;
+    const handleMapClick = async (e: L.LeafletMouseEvent) => {
+      const { lat, lng } = e.latlng;
+      await dbService.updateBuildingLocation(placingBuildingId, lat, lng);
+      setPlacingBuildingId(null);
+    };
+    map.on('click', handleMapClick);
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [placingBuildingId]);
 
   const getKsmartWardMapUrl = () => {
     const panchayathObj = getPanchayathByCode(activePanchayatCode);
@@ -380,6 +408,17 @@ export const MapPage: React.FC = () => {
 
     geoJsonLayer.setStyle((feature) => {
       const wardNum = feature?.properties?.ward_number;
+      if (!wardNum) {
+        // Authentic Outer Panchayath Boundary Polygon (Bold Amber/Orange)
+        return {
+          color: '#F59E0B',
+          weight: 4.5,
+          opacity: showBoundaries ? 1.0 : 0.0,
+          fillColor: '#F59E0B',
+          fillOpacity: showBoundaries ? 0.08 : 0.0
+        };
+      }
+
       const wardObj = wards.find((w: WardRecord) => w.id === wardNum);
       const comp = wardObj ? wardObj.compliancePercentage : 75;
 
@@ -392,9 +431,10 @@ export const MapPage: React.FC = () => {
       const isSelected = selectedWard === wardNum;
 
       return {
-        color: '#FFFFFF',
+        color: isSelected ? '#3B82F6' : (mapStyle === 'satellite' ? '#FACC15' : '#D97706'),
         weight: isSelected ? 4.5 : 2.0,
-        opacity: showBoundaries ? 1.0 : 0.0,
+        dashArray: isSelected ? undefined : '4, 6',
+        opacity: showBoundaries ? 0.95 : 0.0,
         fillColor: color,
         fillOpacity: showBoundaries ? (isSelected ? 0.28 : 0.10) : 0.0
       };
@@ -498,7 +538,11 @@ export const MapPage: React.FC = () => {
       if (finalStatus === 'pending' && !showPendingMarkers) return false;
 
       const matchStatus = selectedStatus === 'all' || finalStatus === selectedStatus;
-      const matchWard = isWardMember ? b.wardNumber === assignedWard : (selectedWard === 'all' || b.wardNumber === selectedWard);
+      const bWardNum = b.wardNumber.replace(/[^0-9]/g, '');
+      const sWardNum = selectedWard.replace(/[^0-9]/g, '');
+      const matchWard = isWardMember 
+        ? bWardNum === assignedWard 
+        : (selectedWard === 'all' || bWardNum === sWardNum || b.wardNumber === selectedWard);
       const matchCategory = selectedCategory === 'all' || b.category.toLowerCase().includes(selectedCategory.toLowerCase());
       const matchInspection = selectedInspectionStatus === 'all' || 
         (selectedInspectionStatus === 'pending' && b.status === 'pending') || 
@@ -508,8 +552,29 @@ export const MapPage: React.FC = () => {
     });
 
     // Plot Business Markers
-    filteredBuildings.forEach(building => {
-      const { lat, lng } = building.coordinates;
+    filteredBuildings.forEach((building, i) => {
+      let lat = building.coordinates?.lat;
+      let lng = building.coordinates?.lng;
+
+      if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+        const baseCenter = getPanchayathCenterCoordinates(activePanchayatCode);
+        const centerLat = Array.isArray(baseCenter) ? baseCenter[0] : 11.4420;
+        const centerLng = Array.isArray(baseCenter) ? baseCenter[1] : 75.8320;
+        const wardNum = parseInt(building.wardNumber.replace(/[^0-9]/g, '') || '12', 10);
+        lat = centerLat + ((wardNum % 10) * 0.0015) + (i * 0.0003);
+        lng = centerLng + ((wardNum % 10) * 0.0015) + (i * 0.0003);
+      }
+
+      // BUG 2 FIX — Boundary Sanity Check:
+      // If boundaryGeoJSON is loaded and point falls outside the real Panchayat boundary polygon,
+      // DO NOT plot it as a map pin outside the boundary line.
+      if (boundaryGeoJSON && boundaryGeoJSON.features && boundaryGeoJSON.features.length > 0) {
+        const isInside = isPointInsideGeoJSON(lat, lng, boundaryGeoJSON);
+        if (!isInside) {
+          return;
+        }
+      }
+
       const bldgLic = licenses.find(l => l.buildingId === building.id);
       
       let finalStatus: string = building.status;
@@ -569,19 +634,46 @@ export const MapPage: React.FC = () => {
       else if (finalStatus === 'ngo') statusBadge = '<span style="background:#F3E8FF;color:#8B5CF6;padding:2px 5px;border-radius:4px;font-weight:bold;font-size:9px;">NGO EXEMPT</span>';
       else if (finalStatus === 'govt') statusBadge = '<span style="background:#DBEAFE;color:#2563EB;padding:2px 5px;border-radius:4px;font-weight:bold;font-size:9px;">GOVT EXEMPT</span>';
 
+      const geocodeBadge = building.isGeocodedApproximate 
+        ? `<div style="margin-top:4px;background:#FEF2F2;color:#991B1B;border:1px solid #FCA5A5;padding:2px 5px;border-radius:4px;font-size:8px;font-weight:bold;">📍 Approximate location — unverified</div>`
+        : `<div style="margin-top:4px;background:#F0FDF4;color:#166534;border:1px solid #86EFAC;padding:2px 5px;border-radius:4px;font-size:8px;font-weight:bold;">✓ Verified Onsite GPS</div>`;
+
       marker.bindTooltip(`
-        <div style="font-family:sans-serif;padding:6px;width:180px;white-space:normal;line-height:1.4;">
+        <div style="font-family:sans-serif;padding:6px;width:190px;white-space:normal;line-height:1.4;">
           <strong style="color:#0f172a;font-size:12px;display:block;margin-bottom:3px;">${building.businessName}</strong>
-          <span style="font-size:10px;color:#475569;display:block;margin-bottom:5px;">Owner: ${building.ownerName}</span>
-          <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e2e8f0;padding-top:4px;margin-top:4px;">
+          <span style="font-size:10px;color:#475569;display:block;margin-bottom:3px;">Owner: ${building.ownerName}</span>
+          ${building.structureNumber ? `<span style="font-size:9px;color:#64748b;display:block;margin-bottom:3px;">Door: ${building.structureNumber}</span>` : ''}
+          <div style="display:flex;justify-space-between;align-items:center;border-top:1px solid #e2e8f0;padding-top:4px;margin-top:4px;">
             ${statusBadge}
             <span style="font-family:monospace;font-size:9px;color:#94a3b8;">${building.id}</span>
           </div>
+          ${geocodeBadge}
         </div>
       `, { direction: 'top', offset: [0, -8] });
 
       markersGroupRef.current?.addLayer(marker);
     });
+
+    // Auto-fit map camera bounds to display imported building pins
+    if (filteredBuildings.length > 0) {
+      const validCoords = filteredBuildings
+        .map(b => {
+          let l1 = b.coordinates?.lat;
+          let l2 = b.coordinates?.lng;
+          if (typeof l1 === 'number' && typeof l2 === 'number' && !isNaN(l1) && !isNaN(l2)) {
+            return [l1, l2] as [number, number];
+          }
+          return null;
+        })
+        .filter(Boolean) as [number, number][];
+
+      if (validCoords.length > 0) {
+        const bounds = L.latLngBounds(validCoords);
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+        }
+      }
+    }
   }, [
     buildings, 
     licenses, 
@@ -1147,6 +1239,52 @@ export const MapPage: React.FC = () => {
           </div>
         )}
 
+        {/* Pin placement active mode banner */}
+        {placingBuildingId && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-emerald-950 text-white px-5 py-3 rounded-2xl shadow-xl border border-emerald-500/50 flex items-center space-x-3 text-xs font-bold animate-bounce">
+            <MapPin className="text-emerald-400 animate-pulse" size={18} />
+            <span>Click anywhere inside Ward 12 on the map to set exact doorstep location</span>
+            <button 
+              onClick={() => setPlacingBuildingId(null)}
+              className="bg-white/20 hover:bg-white/30 text-white text-[10px] px-2.5 py-1 rounded-md transition"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Unplaced buildings / out-of-boundary notification panel */}
+        {unplacedBuildings.length > 0 && !isAnyDrawerOpen && (
+          <div className="absolute bottom-4 right-4 z-20 bg-amber-50 border border-amber-300 shadow-xl rounded-2xl p-3.5 w-80 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 font-extrabold text-amber-900 text-xs">
+                <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                <span>Location Pinning Required ({unplacedBuildings.length})</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-amber-800 leading-snug">
+              Geocoded location fell outside Panchayat boundary polygon. Manual placement required before pin is displayed on map.
+            </p>
+            <div className="space-y-1.5 pt-1 max-h-36 overflow-y-auto">
+              {unplacedBuildings.map(b => (
+                <div key={b.id} className="bg-white border border-amber-200 rounded-xl p-2 flex items-center justify-between text-xs shadow-sm">
+                  <div>
+                    <span className="font-bold text-slate-800 block truncate w-36">{b.businessName}</span>
+                    <span className="text-[10px] text-slate-500">Ward {b.wardNumber} • {b.id}</span>
+                  </div>
+                  <button
+                    onClick={() => setPlacingBuildingId(b.id)}
+                    className="bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white text-[10px] font-bold px-2.5 py-1 rounded-lg transition shadow-sm shrink-0 flex items-center space-x-1"
+                  >
+                    <MapPin size={12} />
+                    <span>Pin Location</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* -------------------- FLOATING BOTTOM INFORMATION CARD (Display only when nothing is selected) -------------------- */}
         {!isAnyDrawerOpen && (
           <div className="absolute bottom-4 left-4 z-20 bg-white border border-slate-250 shadow-md rounded-2xl p-4 w-80 text-sm text-slate-800">
@@ -1154,11 +1292,7 @@ export const MapPage: React.FC = () => {
               <div>
                 <span className="text-[10px] font-bold text-[#15803D] uppercase tracking-wider block">Grama Panchayat Boundary</span>
                 <strong className="text-slate-900 text-base block font-bold mt-0.5">{panchayatName}</strong>
-
               </div>
-              <span className="bg-[#15803D] text-white px-2 py-0.5 rounded font-mono font-bold text-xs shrink-0">
-                Code: {activePanchayatCode}
-              </span>
             </div>
 
             {boundaryUnavailable && (

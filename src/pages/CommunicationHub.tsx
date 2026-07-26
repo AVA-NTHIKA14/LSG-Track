@@ -171,6 +171,7 @@ export const CommunicationHub: React.FC = () => {
                   placeholder="Filter targets..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label="Filter targets by ID or business title"
                   className="border border-slate-200 rounded-xl pl-8 pr-3 py-1 text-xs focus:outline-none focus:border-[#0F6E4F] w-48"
                 />
                 <Search size={13} className="absolute left-2.5 top-2 text-slate-400" />
@@ -197,6 +198,7 @@ export const CommunicationHub: React.FC = () => {
                           type="checkbox"
                           checked={selectedIds.length === campaignTargets.length && campaignTargets.length > 0}
                           onChange={handleSelectAll}
+                          aria-label="Select all targets"
                           className="rounded text-[#0F6E4F] focus:ring-[#0F6E4F]"
                         />
                       </th>
@@ -228,6 +230,7 @@ export const CommunicationHub: React.FC = () => {
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => handleToggleSelect(b.id)}
+                              aria-label={`Select target ${b.businessName}`}
                               className="rounded text-[#0F6E4F] focus:ring-[#0F6E4F]"
                             />
                           </td>

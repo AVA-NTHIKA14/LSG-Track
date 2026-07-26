@@ -17,16 +17,17 @@ import { CommunicationHub } from './pages/CommunicationHub';
 import { DataSync } from './pages/DataSync';
 import { Registry } from './pages/Registry';
 import { Report } from './pages/Report';
+import { canAccessPath, roleHome } from './services/roleAccess';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+const RoleRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const currentUser = authService.getCurrentUser();
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!currentUser) return <Navigate to="/login" replace />;
+  const path = window.location.pathname;
+  if (!canAccessPath(currentUser.role, path)) return <Navigate to={roleHome(currentUser.role)} replace />;
   return <MainLayout>{children}</MainLayout>;
 };
 
@@ -40,10 +41,10 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* Protected Dashboard & e-Governance workflows */}
-        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} />
-        <Route path="/registry" element={<ProtectedRoute><Registry /></ProtectedRoute>} />
-        <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
+        <Route path="/" element={<RoleRoute><Dashboard /></RoleRoute>} />
+        <Route path="/map" element={<RoleRoute><MapPage /></RoleRoute>} />
+        <Route path="/registry" element={<RoleRoute><Registry /></RoleRoute>} />
+        <Route path="/report" element={<RoleRoute><Report /></RoleRoute>} />
         
         {/* Transparent Redirects for Merged Routes */}
         <Route path="/buildings" element={<Navigate to="/registry?tab=establishments" replace />} />
@@ -51,15 +52,15 @@ function App() {
         <Route path="/reports" element={<Navigate to="/report?tab=executive" replace />} />
         <Route path="/ward-reports" element={<Navigate to="/report?tab=ward" replace />} />
 
-        <Route path="/wards" element={<ProtectedRoute><Wards /></ProtectedRoute>} />
-        <Route path="/survey" element={<ProtectedRoute><Survey /></ProtectedRoute>} />
-        <Route path="/renewals" element={<ProtectedRoute><Renewals /></ProtectedRoute>} />
-        <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/administration" element={<ProtectedRoute><Administration /></ProtectedRoute>} />
-        <Route path="/communication" element={<ProtectedRoute><CommunicationHub /></ProtectedRoute>} />
-        <Route path="/sync" element={<ProtectedRoute><DataSync /></ProtectedRoute>} />
+        <Route path="/wards" element={<RoleRoute><Wards /></RoleRoute>} />
+        <Route path="/survey" element={<RoleRoute><Survey /></RoleRoute>} />
+        <Route path="/renewals" element={<RoleRoute><Renewals /></RoleRoute>} />
+        <Route path="/notifications" element={<RoleRoute><Notifications /></RoleRoute>} />
+        <Route path="/settings" element={<RoleRoute><Settings /></RoleRoute>} />
+        <Route path="/profile" element={<RoleRoute><Profile /></RoleRoute>} />
+        <Route path="/administration" element={<RoleRoute><Administration /></RoleRoute>} />
+        <Route path="/communication" element={<RoleRoute><CommunicationHub /></RoleRoute>} />
+        <Route path="/sync" element={<RoleRoute><DataSync /></RoleRoute>} />
 
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />

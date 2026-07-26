@@ -10,7 +10,7 @@ import type {
   WardReportRecord, WardReportStatus, StaffProfile 
 } from '../types';
 import { authService } from './authService';
-import { KERALA_PANCHAYATHS } from '../data/keralaPanchayaths';
+import { KERALA_PANCHAYATHS, getPanchayathCenterCoordinates } from '../data/keralaPanchayaths';
 
 // Resolve current tenant context dynamically
 export const getActivePanchayathId = (): string => {
@@ -84,7 +84,16 @@ const initPanchayatLocalStorage = (panchayathId: string) => {
       { id: "18", name: "Ward 18 - Nirmallur", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" },
       { id: "19", name: "Ward 19 - Panangad North", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Anjali Devi" },
       { id: "20", name: "Ward 20 - Kattode", totalBuildings: 0, licensedBuildings: 0, pendingBuildings: 0, unlicensedBuildings: 0, compliancePercentage: 0.0, assignedOfficer: "Unassigned" }
-    ] : [];
+    ] : Array.from({ length: 20 }, (_, i) => ({
+      id: String(i + 1),
+      name: `Ward ${i + 1}`,
+      totalBuildings: 0,
+      licensedBuildings: 0,
+      pendingBuildings: 0,
+      unlicensedBuildings: 0,
+      compliancePercentage: 0.0,
+      assignedOfficer: "Unassigned"
+    }));
     localStorage.setItem(keys.WARDS, JSON.stringify(defaultWards));
   }
 
@@ -513,7 +522,14 @@ export const dbService = {
         (snapshot) => {
           const wards: WardRecord[] = [];
           snapshot.forEach((doc) => wards.push(doc.data() as WardRecord));
-          callback(wards);
+          if (wards.length === 0) {
+            initPanchayatLocalStorage(activePId);
+            const keys = getKeys(activePId);
+            const localW = JSON.parse(localStorage.getItem(keys.WARDS) || '[]');
+            callback(localW);
+          } else {
+            callback(wards);
+          }
         },
         (_err) => {
           initPanchayatLocalStorage(activePId);
@@ -595,7 +611,14 @@ export const dbService = {
         (snapshot) => {
           const buildings: BuildingRecord[] = [];
           snapshot.forEach((doc) => buildings.push(doc.data() as BuildingRecord));
-          callback(buildings);
+          if (buildings.length === 0) {
+            initPanchayatLocalStorage(activePId);
+            const keys = getKeys(activePId);
+            const localB = JSON.parse(localStorage.getItem(keys.BUILDINGS) || '[]');
+            callback(localB);
+          } else {
+            callback(buildings);
+          }
         },
         (_err) => {
           initPanchayatLocalStorage(activePId);
@@ -738,6 +761,31 @@ export const dbService = {
     }
   },
 
+  async updateBuildingLocation(buildingId: string, lat: number, lng: number): Promise<void> {
+    const activePId = getActivePanchayathId();
+    if (isFirebaseEnabled && db) {
+      const ref = doc(db, 'panchayaths', activePId, 'establishments', buildingId);
+      await updateDoc(ref, {
+        coordinates: { lat, lng },
+        isGeocodedApproximate: false,
+        needsManualPlacement: false
+      });
+    } else {
+      initPanchayatLocalStorage(activePId);
+      const keys = getKeys(activePId);
+      const buildings: BuildingRecord[] = JSON.parse(localStorage.getItem(keys.BUILDINGS) || '[]');
+      const index = buildings.findIndex(b => b.id === buildingId);
+      if (index > -1) {
+        buildings[index].coordinates = { lat, lng };
+        buildings[index].isGeocodedApproximate = false;
+        buildings[index].needsManualPlacement = false;
+        localStorage.setItem(keys.BUILDINGS, JSON.stringify(buildings));
+        notifySubscribers('buildings', buildings);
+      }
+    }
+    await this.addAuditLog('UPDATE_LOCATION', `Updated doorstep map pin for building ${buildingId} at (${lat.toFixed(5)}, ${lng.toFixed(5)}).`);
+  },
+
   async deleteBuilding(id: string): Promise<void> {
     const activePId = getActivePanchayathId();
     let bldgName = id;
@@ -777,7 +825,14 @@ export const dbService = {
       return onSnapshot(collection(db, 'panchayaths', activePId, 'licenses'), (snapshot) => {
         const licenses: LicenseRecord[] = [];
         snapshot.forEach((doc) => licenses.push(doc.data() as LicenseRecord));
-        callback(licenses);
+        if (licenses.length === 0) {
+          initPanchayatLocalStorage(activePId);
+          const keys = getKeys(activePId);
+          const localL = JSON.parse(localStorage.getItem(keys.LICENSES) || '[]');
+          callback(localL);
+        } else {
+          callback(licenses);
+        }
       });
     } else {
       initPanchayatLocalStorage(activePId);
@@ -1282,29 +1337,27 @@ export const dbService = {
 
     const headerRow = matrixRows[0].map(c => String(c || '').toLowerCase().trim());
 
-    let colBId = headerRow.findIndex(h => h.includes('building') || h.includes('bldg') || h === 'id');
-    let colBiz = headerRow.findIndex(h => h.includes('business') || h.includes('establishment') || h.includes('name') || h.includes('trade'));
-    let colOwner = headerRow.findIndex(h => h.includes('owner') || h.includes('proprietor') || h.includes('applicant'));
-    let colCat = headerRow.findIndex(h => h.includes('category') || h.includes('type'));
+    let colBId = headerRow.findIndex(h => h.includes('application') || h.includes('building') || h.includes('bldg') || h === 'id');
+    let colBiz = headerRow.findIndex(h => h.includes('establishment') || h.includes('business') || h.includes('name') || h.includes('trade'));
+    let colOwner = headerRow.findIndex(h => h.includes('applicant') || h.includes('owner') || h.includes('proprietor'));
+    let colCat = headerRow.findIndex(h => h.includes('business category') || h.includes('category') || h.includes('type'));
     let colWard = headerRow.findIndex(h => h.includes('ward'));
     let colLat = headerRow.findIndex(h => h.includes('lat'));
     let colLng = headerRow.findIndex(h => h.includes('lng') || h.includes('long'));
-    let colLic = headerRow.findIndex(h => h.includes('license') || h.includes('lic') || h.includes('permit'));
-    let colExp = headerRow.findIndex(h => h.includes('expiry') || h.includes('expire') || h.includes('date'));
-    let colFee = headerRow.findIndex(h => h.includes('fee') || h.includes('paid') || h.includes('amount'));
+    let colLic = headerRow.findIndex(h => h.includes('application') || h.includes('license') || h.includes('lic') || h.includes('permit'));
+    let colExp = headerRow.findIndex(h => h.includes('validity to') || h.includes('expiry') || h.includes('expire') || h.includes('date'));
+    let colFee = headerRow.findIndex(h => h.includes('license f') || h.includes('fee') || h.includes('paid') || h.includes('amount'));
     let colStat = headerRow.findIndex(h => h.includes('status'));
 
-    if (colBId === -1) colBId = 0;
-    if (colBiz === -1) colBiz = 1;
-    if (colOwner === -1) colOwner = 2;
-    if (colCat === -1) colCat = 3;
-    if (colWard === -1) colWard = 4;
-    if (colLat === -1) colLat = 5;
-    if (colLng === -1) colLng = 6;
-    if (colLic === -1) colLic = 7;
-    if (colExp === -1) colExp = 8;
-    if (colFee === -1) colFee = 9;
-    if (colStat === -1) colStat = 10;
+    if (colBId === -1) colBId = 1; // Default to Application No column
+    if (colBiz === -1) colBiz = 6; // Default to Establishment column
+    if (colOwner === -1) colOwner = 5; // Default to Applicant column
+    if (colCat === -1) colCat = 7; // Default to Category column
+    if (colWard === -1) colWard = 3; // Default to Ward No column
+    if (colLic === -1) colLic = 1;
+    if (colExp === -1) colExp = 11; // Default to Validity To column
+    if (colFee === -1) colFee = 12; // Default to License Fee column
+    if (colStat === -1) colStat = 17; // Default to Status column
 
     let importedCount = 0;
     let updatedCount = 0;
@@ -1325,45 +1378,74 @@ export const dbService = {
       const row = dataRows[i];
       if (!row || row.length === 0) continue;
 
-      const rawBId = String(row[colBId] || '').trim();
-      const bId = rawBId ? (rawBId.startsWith('BLDG-') ? rawBId : `BLDG-${rawBId}`) : `BLDG-IMPORT-${i + 1}`;
-      const businessName = String(row[colBiz] || '').trim() || `Commercial Unit #${i + 1}`;
-      const ownerName = String(row[colOwner] || '').trim() || 'Proprietor';
+      // 1. Application No & Reference (e.g. BFIF-09941885-2026)
+      const rawAppNo = String(row[colBId] || '').trim();
+      const appNo = rawAppNo || `KSMART-${Date.now()}-${i + 1}`;
+      const bId = appNo.startsWith('BLDG-') ? appNo : `BLDG-${appNo}`;
+
+      // 2. Structure Number (e.g. Building 219/A)
+      const colStruct = headerRow.findIndex(h => h.includes('structure') || h.includes('door') || h.includes('building'));
+      const structureNumber = colStruct !== -1 ? String(row[colStruct] || '').trim() : '';
+
+      // 3. Name & Address Applicant
+      const rawOwnerBlob = String(row[colOwner] || '').trim();
+      const ownerParts = rawOwnerBlob.split(',').map(s => s.trim()).filter(Boolean);
+      const ownerName = ownerParts[0] || 'Applicant';
+
+      // 4. Name & Address Establishment
+      const rawBizBlob = String(row[colBiz] || '').trim();
+      const bizParts = rawBizBlob.split(',').map(s => s.trim()).filter(Boolean);
+      const businessName = bizParts[0] || `Commercial Premises #${i + 1}`;
+      const fullAddress = bizParts.slice(1).join(', ') || rawBizBlob || 'Panchayat Area';
+
+      // 5. Category & Ward Number
       const category = String(row[colCat] || '').trim() || 'General Trade';
       const rawWard = String(row[colWard] || '').trim();
       const wardNumber = rawWard.replace(/[^0-9]/g, '') || '12';
-      
-      const parsedLat = parseFloat(String(row[colLat]));
-      const parsedLng = parseFloat(String(row[colLng]));
-      const lat = !isNaN(parsedLat) && parsedLat > 0 ? parsedLat : (11.4420 + (i * 0.0012));
-      const lng = !isNaN(parsedLng) && parsedLng > 0 ? parsedLng : (75.8320 + (i * 0.0012));
 
-      const licId = String(row[colLic] || '').trim();
+      // 6. Real K-SMART Status (APPROVED / PENDING / REJECTED)
+      const rawKsmartStatus = String(row[colStat] || '').trim().toUpperCase();
+      let kSmartStatus: 'APPROVED' | 'PENDING' | 'REJECTED' = 'APPROVED';
+      if (rawKsmartStatus.includes('REJECT')) {
+        kSmartStatus = 'REJECTED';
+      } else if (rawKsmartStatus.includes('PENDING')) {
+        kSmartStatus = 'PENDING';
+      }
+
+      // 7. Validity To / Expiry Date
       const rawExp = String(row[colExp] || '').trim();
       const expiryDate = rawExp || '2026-12-31';
-      const feePaid = parseFloat(String(row[colFee])) || 1500;
-      const rawStatus = String(row[colStat] || 'licensed').toLowerCase();
+      const feePaid = parseFloat(String(row[colFee])) || 1000;
 
       let status: BuildingRecord['status'] = 'licensed';
-      if (rawStatus.includes('unlicensed') || rawStatus.includes('no')) {
+      if (kSmartStatus === 'REJECTED') {
         status = 'unlicensed';
-      } else if (rawStatus.includes('pending')) {
+      } else if (kSmartStatus === 'PENDING') {
         status = 'pending';
-      } else if (rawStatus.includes('expired')) {
+      } else if (new Date(expiryDate) < new Date(nowIso)) {
         status = 'unlicensed';
         expiredCount++;
       } else {
-        if (new Date(expiryDate) < new Date(nowIso)) {
-          status = 'unlicensed';
-          expiredCount++;
-        } else {
-          status = 'licensed';
-        }
+        status = 'licensed';
       }
 
       const riskScore = status === 'unlicensed' ? 'High' : (new Date(expiryDate) <= new Date(Date.now() + 7 * 86400000) ? 'Medium' : 'Low');
 
-      const existingIndex = buildings.findIndex(b => b.id.toLowerCase() === bId.toLowerCase() || b.businessName.toLowerCase() === businessName.toLowerCase());
+      // 8. Coordinate Resolution (No Lat/Lng columns in real K-SMART data)
+      // Generates ward locality spatial offsets and marks isGeocodedApproximate = true
+      const parsedLat = parseFloat(String(row[colLat]));
+      const parsedLng = parseFloat(String(row[colLng]));
+      const hasRealGps = !isNaN(parsedLat) && parsedLat > 0 && !isNaN(parsedLng) && parsedLng > 0;
+
+      const baseCenter = getPanchayathCenterCoordinates(activePId);
+      const centerLat = Array.isArray(baseCenter) ? baseCenter[0] : (baseCenter as any).lat || 11.4420;
+      const centerLng = Array.isArray(baseCenter) ? baseCenter[1] : (baseCenter as any).lng || 75.8320;
+      const wardOffset = (parseInt(wardNumber, 10) % 10) * 0.0015;
+      const lat = hasRealGps ? parsedLat : (centerLat + wardOffset + (i * 0.0003));
+      const lng = hasRealGps ? parsedLng : (centerLng + wardOffset + (i * 0.0003));
+      const isGeocodedApproximate = !hasRealGps;
+
+      const existingIndex = buildings.findIndex(b => b.id.toLowerCase() === bId.toLowerCase() || b.kSmartRefId === appNo);
 
       const buildingObj: BuildingRecord = {
         id: bId,
@@ -1373,10 +1455,14 @@ export const dbService = {
         wardNumber,
         coordinates: { lat, lng },
         status,
-        licenseId: licId || undefined,
+        licenseId: appNo,
         riskScore,
         lastSyncDate: nowIso,
-        kSmartRefId: `KSMART-${bId}`
+        kSmartRefId: appNo,
+        address: fullAddress,
+        structureNumber,
+        isGeocodedApproximate,
+        kSmartStatus
       };
 
       if (existingIndex >= 0) {
@@ -1388,18 +1474,17 @@ export const dbService = {
         importedCount++;
       }
 
-      if (licId || status === 'licensed') {
-        const effectiveLicId = licId || `LIC-${bId}`;
-        const licExistIdx = licenses.findIndex(l => l.id.toLowerCase() === effectiveLicId.toLowerCase());
+      if (appNo || status === 'licensed') {
+        const licExistIdx = licenses.findIndex(l => l.id.toLowerCase() === appNo.toLowerCase() || l.kSmartAppNo === appNo);
         const licObj: LicenseRecord = {
-          id: effectiveLicId,
+          id: appNo,
           buildingId: bId,
           licenseType: category,
-          issueDate: '2025-04-01',
+          issueDate: String(row[10] || '2025-04-01').trim(),
           expiryDate,
-          status: new Date(expiryDate) < new Date(nowIso) ? 'expired' : 'active',
+          status: kSmartStatus === 'REJECTED' ? 'cancelled' : new Date(expiryDate) < new Date(nowIso) ? 'expired' : 'active',
           feePaid,
-          kSmartAppNo: `KSMART-APP-${i + 1}`
+          kSmartAppNo: appNo
         };
         if (licExistIdx >= 0) {
           licenses[licExistIdx] = licObj;
@@ -1433,6 +1518,24 @@ export const dbService = {
     // Save back to storage
     localStorage.setItem(keys.BUILDINGS, JSON.stringify(buildings));
     localStorage.setItem(keys.LICENSES, JSON.stringify(licenses));
+
+    // Upload imported establishments, licenses, and wards to Firestore if Firebase is active
+    if (isFirebaseEnabled && db) {
+      try {
+        for (const b of buildings) {
+          await setDoc(doc(db, 'panchayaths', activePId, 'establishments', b.id), b, { merge: true });
+        }
+        for (const l of licenses) {
+          await setDoc(doc(db, 'panchayaths', activePId, 'licenses', l.id), l, { merge: true });
+        }
+        for (const w of wards) {
+          await setDoc(doc(db, 'panchayaths', activePId, 'wards', w.id), w, { merge: true });
+        }
+      } catch (err) {
+        console.warn('Firestore import sync warning:', err);
+      }
+    }
+
     notifySubscribers('buildings', buildings);
     notifySubscribers('licenses', licenses);
     if (wards.length > 0) notifySubscribers('wards', wards);

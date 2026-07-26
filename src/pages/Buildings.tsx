@@ -381,7 +381,7 @@ export const Buildings: React.FC = () => {
                 <Building2 size={22} className="text-[#0F6E4F]" />
                 <span>{t('buildings.heading')}</span>
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">{t('buildings.subheading', { code: localStorage.getItem('cp_active_panchayat_code') || 'G070702' })}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{t('buildings.subheading')}</p>
             </>
           )}
         </div>
@@ -444,6 +444,7 @@ export const Buildings: React.FC = () => {
                     placeholder="Search by ID, business name, or proprietor..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search by ID, business name, or proprietor"
                     className="w-full border border-slate-300 rounded pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-gov-green"
                   />
                   <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
@@ -454,6 +455,7 @@ export const Buildings: React.FC = () => {
                       onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
                       className="px-2.5 py-1.5 border border-slate-300 rounded hover:bg-slate-50 text-slate-600"
                       title="Toggle View Mode"
+                      aria-label="Toggle View Mode"
                     >
                       {viewMode === 'table' ? <Grid size={14} /> : <Table2 size={14} />}
                     </button>
@@ -461,6 +463,7 @@ export const Buildings: React.FC = () => {
                       onClick={window.print}
                       className="px-2.5 py-1.5 border border-slate-300 rounded hover:bg-slate-50 text-slate-600"
                       title="Print Registry"
+                      aria-label="Print Registry"
                     >
                       <Printer size={14} />
                     </button>
@@ -476,6 +479,7 @@ export const Buildings: React.FC = () => {
                     <select
                       value={filterWard}
                       onChange={(e) => setFilterWard(e.target.value)}
+                      aria-label="Filter by Ward"
                       className="w-full border border-slate-300 rounded px-2 py-1 text-xs text-slate-700"
                     >
                       <option value="all">All Wards</option>
@@ -487,6 +491,7 @@ export const Buildings: React.FC = () => {
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
+                      aria-label="Filter by Status"
                       className="w-full border border-slate-300 rounded px-2 py-1 text-xs text-slate-700"
                     >
                       <option value="all">All Statuses</option>
@@ -503,6 +508,7 @@ export const Buildings: React.FC = () => {
                       placeholder="e.g. Retail"
                       value={filterCategory}
                       onChange={(e) => setFilterCategory(e.target.value)}
+                      aria-label="Filter by Classification Category"
                       className="w-full border border-slate-300 rounded px-2 py-1 text-xs text-slate-700"
                     />
                   </div>
@@ -522,6 +528,7 @@ export const Buildings: React.FC = () => {
                     <button
                       onClick={() => triggerExport('CSV')}
                       className="px-2 py-1 border rounded text-[10px] uppercase font-bold hover:bg-slate-100 flex items-center space-x-1"
+                      aria-label="Export CSV"
                     >
                       <Download size={10} />
                       <span>Export CSV</span>

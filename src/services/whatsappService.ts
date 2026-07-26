@@ -12,10 +12,7 @@ export interface MessagePayload {
 }
 
 export const whatsappService = {
-  /**
-   * Generates a wa.me deep link and opens WhatsApp with a pre-filled message.
-   * Completely zero-cost with zero server or credential dependencies.
-   */
+  
   async sendMessage(payload: MessagePayload): Promise<{ success: boolean; message: string }> {
     const { recipientName, businessName, contactNumber, licenseId, expiryDate, templateLanguage, customText } = payload;
     

@@ -166,10 +166,12 @@ export const Administration: React.FC = () => {
             accept=".json"
             onChange={handleRestoreBackup}
             className="hidden"
+            aria-label="Upload Panchayath Backup JSON File"
           />
           <button
             onClick={() => fileInputRef.current?.click()}
             className="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center space-x-1.5 shadow-xs"
+            aria-label="Restore Backup JSON file"
           >
             <Upload size={14} />
             <span>Restore Backup</span>
@@ -206,22 +208,26 @@ export const Administration: React.FC = () => {
 
           <form onSubmit={handleAddStaff} className="space-y-4 text-xs font-medium">
             <div>
-              <label className="block text-slate-900 font-extrabold mb-1">Staff Member Name *</label>
+              <label htmlFor="staff-name-input" className="block text-slate-900 font-extrabold mb-1">Staff Member Name *</label>
               <input
+                id="staff-name-input"
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Ramesh V"
+                aria-label="Staff Member Full Name"
                 className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
               />
             </div>
 
             <div>
-              <label className="block text-slate-900 font-extrabold mb-1">Official Role *</label>
+              <label htmlFor="staff-role-select" className="block text-slate-900 font-extrabold mb-1">Official Role *</label>
               <select
+                id="staff-role-select"
                 value={role}
                 onChange={(e) => setRole(e.target.value as UserRole)}
+                aria-label="Official Staff Role"
                 className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
               >
                 <option value="clerk">Panchayat Section Clerk / DEO</option>
@@ -231,8 +237,9 @@ export const Administration: React.FC = () => {
 
             {(role === 'ward_member' || role === 'Ward Member') && (
               <div>
-                <label className="block text-slate-900 font-extrabold mb-1">Assigned Ward Number *</label>
+                <label htmlFor="staff-ward-input" className="block text-slate-900 font-extrabold mb-1">Assigned Ward Number *</label>
                 <input
+                  id="staff-ward-input"
                   type="number"
                   min={1}
                   max={50}
@@ -240,22 +247,25 @@ export const Administration: React.FC = () => {
                   value={wardNumber}
                   onChange={(e) => setWardNumber(e.target.value === '' ? '' : Number(e.target.value))}
                   placeholder="e.g. 1"
+                  aria-label="Assigned Ward Number"
                   className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-slate-900 font-extrabold mb-1 flex items-center space-x-1">
+              <label htmlFor="staff-pin-input" className="block text-slate-900 font-extrabold mb-1 flex items-center space-x-1">
                 <KeyRound size={13} className="text-[#0F6E4F]" />
                 <span>Optional 4-Digit Action PIN</span>
               </label>
               <input
+                id="staff-pin-input"
                 type="password"
                 maxLength={4}
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="•••• (Optional)"
+                aria-label="Optional 4-digit security PIN"
                 className="w-full border border-slate-200 rounded-xl p-2.5 font-mono tracking-widest text-xs focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
               />
               <p className="text-[10px] text-slate-400 mt-1">
@@ -267,6 +277,7 @@ export const Administration: React.FC = () => {
               type="submit"
               disabled={loading}
               className="w-full bg-[#0F6E4F] hover:bg-[#0B5A3E] text-white font-extrabold py-2.5 rounded-xl text-xs transition flex items-center justify-center space-x-2 shadow-xs"
+              aria-label="Save Staff Profile"
             >
               <UserPlus size={16} />
               <span>{loading ? 'Creating Profile...' : 'Save Staff Profile'}</span>
@@ -310,6 +321,7 @@ export const Administration: React.FC = () => {
                       onClick={() => handleDeleteStaff(s.id, s.name)}
                       className="text-slate-400 hover:text-red-600 p-2 rounded-xl hover:bg-red-50 transition"
                       title="Remove Staff Profile"
+                      aria-label={`Remove staff profile for ${s.name}`}
                     >
                       <Trash2 size={16} />
                     </button>

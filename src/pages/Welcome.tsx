@@ -17,32 +17,21 @@ import {
   Map,
   Building2,
   Bell,
-  MessageSquare
+  MessageSquare,
+  BarChart3
 } from 'lucide-react';
 
-// Custom SVG Icons matching the design screenshot
+// Standard Lucide React icons matching LSGD standards
 const KSmartIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" className="w-8 h-8 text-[#0F6E4F]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l.73-.73" />
-    <path d="M12 8a3 3 0 1 0 3 3" />
-  </svg>
+  <RefreshCw className="w-8 h-8 text-[#0F6E4F]" />
 );
 
 const LsgTrackIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" className="w-8 h-8 text-[#0F6E4F]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-    <line x1="9" y1="17" x2="9" y2="10" />
-    <line x1="12" y1="17" x2="12" y2="7" />
-    <line x1="15" y1="17" x2="15" y2="13" />
-  </svg>
+  <BarChart3 className="w-8 h-8 text-[#0F6E4F]" />
 );
 
 const GisMapIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" className="w-8 h-8 text-[#0F6E4F]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-    <line x1="9" y1="3" x2="9" y2="18" />
-    <line x1="15" y1="6" x2="15" y2="21" />
-  </svg>
+  <Map className="w-8 h-8 text-[#0F6E4F]" />
 );
 
 interface Feature {
@@ -324,9 +313,7 @@ export const Welcome: React.FC = () => {
                 
                 {/* Brand Logo */}
                 <div className="flex items-center space-x-2.5 z-10">
-                  <svg viewBox="0 0 20 25" className="w-5 h-6 text-white" fill="currentColor">
-                    <path d="M10 12.5C10.6875 12.5 11.276 12.2552 11.7656 11.7656C12.2552 11.276 12.5 10.6875 12.5 10C12.5 9.3125 12.2552 8.72396 11.7656 8.23438C11.276 7.74479 10.6875 7.5 10 7.5C9.3125 7.5 8.72396 7.74479 8.23438 8.23438C7.74479 8.72396 7.5 9.3125 7.5 10C7.5 10.6875 7.74479 11.276 8.23438 11.7656C8.72396 12.2552 9.3125 12.5 10 12.5ZM10 25C6.64583 22.1458 4.14062 19.4948 2.48438 17.0469C0.828125 14.599 0 12.3333 0 10.25C0 7.125 1.00521 4.63542 3.01562 2.78125C5.02604 0.927083 7.35417 0 10 0C12.6458 0 14.974 0.927083 16.9844 2.78125C18.9948 4.63542 20 7.125 20 10.25C20 12.3333 19.1719 14.599 17.5156 17.0469C15.8594 19.4948 13.3542 22.1458 10 25Z" />
-                  </svg>
+                  <MapPin className="w-5 h-6 text-white" aria-hidden="true" />
                   <span className="font-bold text-lg text-white tracking-wide">LSG Track</span>
                 </div>
 
@@ -480,7 +467,7 @@ export const Welcome: React.FC = () => {
         <div className="flex space-x-4">
           <a href="#" className="hover:underline hover:text-[#0F6E4F] transition">Privacy Policy</a>
           <a href="#" className="hover:underline hover:text-[#0F6E4F] transition">Terms of Service</a>
-          <a href="#" className="hover:underline hover:text-[#0F6E4F] transition">Department of Local Self Government</a>
+          <a href="#" className="hover:underline hover:text-[#0F6E4F] transition">LSG Track GIS Portal</a>
         </div>
       </div>
 

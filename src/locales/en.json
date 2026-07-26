@@ -44,7 +44,7 @@
   },
   "dashboard": {
     "heading": "Operational Dashboard",
-    "subheading": "Real-time trade license compliance & GIS monitoring for Panchayath {{code}}.",
+    "subheading": "Real-time trade license compliance & GIS monitoring.",
     "compliance_rate": "Compliance Rate",
     "total_buildings": "Total Establishments",
     "licensed": "Licensed",

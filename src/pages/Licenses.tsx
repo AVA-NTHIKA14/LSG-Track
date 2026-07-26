@@ -579,7 +579,7 @@ export const Licenses: React.FC = () => {
             <span>{t('licenses.heading')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {t('licenses.subheading', { code: localStorage.getItem('cp_active_panchayat_code') || 'G070702' })}
+            {t('licenses.subheading')}
           </p>
         </div>
       </div>
@@ -784,7 +784,7 @@ export const Licenses: React.FC = () => {
                 </div>
               ) : (
                 <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 leading-normal font-semibold">
-                  ⚠️ View-only profile: You do not possess approval credentials.
+                  View only — you don't have approval permissions for this.
                 </div>
               )}
 

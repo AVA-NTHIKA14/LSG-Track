@@ -1,70 +1,12 @@
 import { auth, db, firebaseInitializationError, isFirebaseEnabled } from './firebaseConfig';
-import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { UserProfile, UserRole } from '../types';
 import { isAuthorizedPortalRole } from './portalRoles';
 
 const AUTH_KEY = 'cp_license_active_user';
 const ACTIVE_PANCHAYAT_KEY = 'cp_active_panchayat_code';
 let currentProfile: UserProfile | null = null;
-
-// Mock local accounts for local simulation mode
-const LOCAL_MOCK_USERS: UserProfile[] = [
-  {
-    uid: 'usr-admin',
-    id: 'usr-admin',
-    name: 'System Administrator',
-    email: 'admin@lsgtrack.gov.in',
-    role: 'Administrator',
-    permissions: ['all'],
-    panchayatCode: 'G070702',
-    panchayathId: 'G070702',
-    status: 'APPROVED',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    active: true
-  },
-  {
-    uid: 'usr-secretary',
-    id: 'usr-secretary',
-    name: 'Panchayat Secretary',
-    email: 'secretary@lsgtrack.gov.in',
-    role: 'Secretary',
-    permissions: ['approve_license', 'verify_survey', 'view_reports'],
-    panchayatCode: 'G070702',
-    panchayathId: 'G070702',
-    status: 'APPROVED',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    active: true
-  },
-  {
-    uid: 'usr-clerk',
-    id: 'usr-clerk',
-    name: 'Panchayat Section Clerk',
-    email: 'clerk@lsgtrack.gov.in',
-    role: 'Panchayat Section Clerk',
-    permissions: ['register_building', 'view_only'],
-    panchayatCode: 'G070702',
-    panchayathId: 'G070702',
-    status: 'APPROVED',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    active: true
-  },
-  {
-    uid: 'usr-ward',
-    id: 'usr-ward',
-    name: 'Ward Member / Field Inspector',
-    email: 'ward@lsgtrack.gov.in',
-    role: 'Ward Member',
-    wardNumber: 1,
-    ward: '1',
-    permissions: ['submit_survey', 'view_only'],
-    panchayatCode: 'G070702',
-    panchayathId: 'G070702',
-    status: 'APPROVED',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    active: true
-  }
-];
 
 const clearSession = () => {
   currentProfile = null;
@@ -100,7 +42,6 @@ export const authService = {
   },
 
   subscribeToAuthChanges(callback: (user: UserProfile | null) => void): () => void {
-    // Local-first session listener — immune to environment variable state
     const user = this.getCurrentUser();
     callback(user);
     const interval = setInterval(() => {
@@ -110,110 +51,116 @@ export const authService = {
     return () => clearInterval(interval);
   },
 
-  async loginLocalSession(params: {
-    panchayatCode: string;
-    role: UserRole;
+  async signUp(params: {
+    email: string;
+    password: string;
     name: string;
+    role: UserRole;
+    panchayatCode: string;
     wardNumber?: string | number | null;
   }): Promise<UserProfile> {
-    const formattedCode = params.panchayatCode.trim().toUpperCase();
-    const profile: UserProfile = {
-      uid: 'local-' + Date.now(),
-      id: 'local-' + Date.now(),
-      name: params.name || 'Grama Officer',
-      email: `${params.name.toLowerCase().replace(/\s+/g, '.')}@${formattedCode.toLowerCase()}.local`,
+    if (!isFirebaseEnabled || !auth || !db) {
+      throw new Error(firebaseInitializationError || 'Firebase Authentication is not configured in .env.');
+    }
+
+    const fullEmail = params.email.includes('@') ? params.email.trim() : `${params.email.trim().toLowerCase()}@lsgtrack.gov.in`;
+
+    const credential = await createUserWithEmailAndPassword(auth, fullEmail, params.password);
+    const uid = credential.user.uid;
+
+    const userProfile: UserProfile = {
+      uid,
+      id: uid,
+      name: params.name.trim() || 'Grama Officer',
+      email: fullEmail,
       role: params.role,
-      panchayatCode: formattedCode,
-      panchayathId: formattedCode,
+      panchayatCode: params.panchayatCode,
+      panchayathId: params.panchayatCode,
       wardNumber: params.wardNumber || null,
-      ward: params.wardNumber ? String(params.wardNumber) : undefined,
-      status: 'APPROVED',
+      status: 'PENDING',
+      active: true,
       createdAt: new Date().toISOString(),
-      permissions: ['all'],
-      active: true
+      permissions: params.role === 'Secretary' || params.role === 'Administrator' 
+        ? ['approve_license', 'verify_survey', 'view_reports']
+        : params.role === 'Field Officer' || params.role === 'Panchayat Section Clerk'
+          ? ['register_building', 'view_only']
+          : ['submit_survey', 'view_only']
     };
 
-    setCurrentProfile(profile);
-    localStorage.setItem(ACTIVE_PANCHAYAT_KEY, formattedCode);
-    return profile;
+    if (params.wardNumber) {
+      userProfile.ward = String(params.wardNumber);
+    }
+
+    await setDoc(doc(db, 'users', uid), userProfile);
+    await firebaseSignOut(auth);
+    clearSession();
+    return userProfile;
   },
 
   async loginWithCredentials(email: string, password: string, panchayathId: string): Promise<UserProfile | null> {
     if (!email || !password.trim()) return null;
 
+    if (!isFirebaseEnabled || !auth || !db) {
+      throw new Error(firebaseInitializationError || 'Firebase Authentication is not configured in .env.');
+    }
+
     const fullEmail = email.includes('@') ? email.trim() : `${email.trim().toLowerCase()}@lsgtrack.gov.in`;
 
-    // 1. Firebase Authentication mode
-    if (isFirebaseEnabled && auth && db) {
-      try {
-        const credential = await signInWithEmailAndPassword(auth, fullEmail, password);
-        const profile = await getProfile(credential.user.uid);
+    const credential = await signInWithEmailAndPassword(auth, fullEmail, password);
+    const profile = await getProfile(credential.user.uid);
 
-        if (
-          !profile ||
-          profile.active === false ||
-          !isAuthorizedPortalRole(profile.role) ||
-          (profile.role !== 'Administrator' && profile.panchayathId !== panchayathId)
-        ) {
-          await firebaseSignOut(auth);
-          clearSession();
-          return null;
-        }
-
-        setCurrentProfile(profile);
-        if (profile.role === 'Administrator') localStorage.setItem(ACTIVE_PANCHAYAT_KEY, panchayathId);
-        return profile;
-      } catch (firebaseErr: any) {
-        // Fallback for local demo account testing when accounts are not yet provisioned in Firebase console
-        const usernamePrefix = fullEmail.split('@')[0].toLowerCase();
-        const matched = LOCAL_MOCK_USERS.find(u => 
-          u.email.toLowerCase() === fullEmail.toLowerCase() ||
-          u.email.split('@')[0].toLowerCase() === usernamePrefix
-        );
-        if (matched) {
-          const userWithTenant: UserProfile = {
-            ...matched,
-            panchayathId: matched.role === 'Administrator' ? 'all' : panchayathId
-          };
-          setCurrentProfile(userWithTenant);
-          localStorage.setItem(ACTIVE_PANCHAYAT_KEY, panchayathId);
-          return userWithTenant;
-        }
-        throw firebaseErr;
-      }
+    if (!profile) {
+      await firebaseSignOut(auth);
+      clearSession();
+      throw new Error(`Profile document for ${fullEmail} not found in Firestore /users collection.`);
     }
 
-    // 2. Local Simulation Fallback mode (when Firebase credentials are not in .env)
-    const usernamePrefix = fullEmail.split('@')[0].toLowerCase();
-    const matched = LOCAL_MOCK_USERS.find(u => 
-      u.email.toLowerCase() === fullEmail.toLowerCase() ||
-      u.email.split('@')[0].toLowerCase() === usernamePrefix
-    );
-
-    if (!matched) {
-      throw new Error(`Account '${email}' not found. Valid demo accounts: secretary, clerk, ward, admin.`);
+    if (profile.status === 'PENDING') {
+      await firebaseSignOut(auth);
+      clearSession();
+      throw new Error(`Account PENDING approval: ${fullEmail} registration is awaiting Panchayat Secretary approval.`);
     }
 
-    if (matched.active === false) {
-      throw new Error(`Account '${email}' has been deactivated.`);
+    if (profile.status === 'REJECTED') {
+      await firebaseSignOut(auth);
+      clearSession();
+      throw new Error(`Access denied: Registration for ${fullEmail} was rejected by Secretary.`);
     }
 
-    const userWithTenant: UserProfile = {
-      ...matched,
-      panchayathId: matched.role === 'Administrator' ? 'all' : panchayathId
-    };
+    if (profile.active === false) {
+      await firebaseSignOut(auth);
+      clearSession();
+      throw new Error(`Access denied: Account ${fullEmail} has been deactivated.`);
+    }
 
-    setCurrentProfile(userWithTenant);
-    localStorage.setItem(ACTIVE_PANCHAYAT_KEY, panchayathId);
-    return userWithTenant;
+    if (!isAuthorizedPortalRole(profile.role)) {
+      await firebaseSignOut(auth);
+      clearSession();
+      throw new Error(`Access denied: Unauthorized role (${profile.role}).`);
+    }
+
+    const userTenantCode = profile.panchayathId || profile.panchayatCode;
+    if (profile.role !== 'Administrator' && profile.role !== 'admin' && userTenantCode !== panchayathId) {
+      await firebaseSignOut(auth);
+      clearSession();
+      throw new Error(`Jurisdiction Mismatch: Account belongs to Panchayat ${userTenantCode}, not selected ${panchayathId}.`);
+    }
+
+    const targetCode = (userTenantCode && userTenantCode !== 'all')
+      ? userTenantCode
+      : (panchayathId && panchayathId !== 'all' ? panchayathId : 'G110706');
+
+    setCurrentProfile(profile);
+    localStorage.setItem(ACTIVE_PANCHAYAT_KEY, targetCode);
+    return profile;
   },
 
   async logout(): Promise<void> {
     if (auth) {
       try {
         await firebaseSignOut(auth);
-      } catch {
-        // ignore signout error in mock mode
+      } catch (err) {
+        console.warn('Signout error:', err);
       }
     }
     clearSession();
@@ -221,7 +168,7 @@ export const authService = {
 
   async sendPasswordReset(email: string): Promise<void> {
     if (!isFirebaseEnabled || !auth) {
-      throw new Error(firebaseInitializationError || 'Firebase Authentication is not enabled. Fill your .env credentials to enable password resets.');
+      throw new Error(firebaseInitializationError || 'Firebase Authentication is not configured in .env.');
     }
 
     const normalizedEmail = email.includes('@') ? email.trim() : `${email.trim().toLowerCase()}@lsgtrack.gov.in`;

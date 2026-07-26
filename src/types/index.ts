@@ -1,6 +1,6 @@
 export type UserRole = 
-  | 'secretary' | 'clerk' | 'ward_member' | 'admin'
-  | 'Secretary' | 'Panchayat Section Clerk' | 'Ward Member' | 'Administrator';
+  | 'secretary' | 'field_officer' | 'clerk' | 'ward_member' | 'admin'
+  | 'Secretary' | 'Field Officer' | 'Panchayat Section Clerk' | 'Ward Member' | 'Administrator';
 
 export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -60,6 +60,11 @@ export interface BuildingRecord {
   riskScore?: RiskLevel;
   lastSyncDate?: string;
   kSmartRefId?: string;
+  address?: string;
+  structureNumber?: string;
+  isGeocodedApproximate?: boolean;
+  needsManualPlacement?: boolean;
+  kSmartStatus?: 'APPROVED' | 'PENDING' | 'REJECTED';
   lastInspectionDate?: string;
   history?: {
     date: string;
