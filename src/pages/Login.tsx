@@ -13,15 +13,14 @@ import {
   KeyRound,
   Mail,
   UserPlus,
-  LogIn
+  LogIn,
+  Eye,
+  EyeOff,
+  Globe
 } from 'lucide-react';
-
-
-
-
 import { authService } from '../services/authService';
 import { dbService } from '../services/dbService';
-
+import { isFirebaseEnabled } from '../services/firebaseConfig';
 import type { UserRole } from '../types';
 import { 
   KERALA_DISTRICTS, 
@@ -54,6 +53,7 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   // Active Resolved Panchayath Meta
   const [resolvedPanchayath, setResolvedPanchayath] = useState<PanchayathOption>({
@@ -145,13 +145,9 @@ export const Login: React.FC = () => {
         const profile = await authService.loginWithCredentials(email, password, resolvedPanchayath.code);
         if (profile && profile.role !== loginRole) {
           await authService.logout();
-          throw new Error('The selected role does not match this account. Please select your assigned role.');
+          throw new Error(`This account is registered as ${profile.role}. Please select that role and try again.`);
         }
         navigate('/');
-
-
-
-
       } else {
         if (!fullName.trim()) {
           setError('Please enter your full official name.');
@@ -166,7 +162,7 @@ export const Login: React.FC = () => {
           panchayatCode: resolvedPanchayath.code,
           wardNumber: role === 'Ward Member' || role === 'ward_member' ? wardNumber : undefined
         });
-        setResetMessage(`✓ Account created successfully for ${email}! Status is PENDING secretarial approval.`);
+        setResetMessage(`✓ Account created for ${email}. Your Panchayat Secretary or Administrator must approve it before you can sign in — this may take 1–2 business days. Contact your Panchayat office if it's urgent.`);
         setAuthMode('signin');
         setPassword('');
       }
@@ -174,7 +170,7 @@ export const Login: React.FC = () => {
       const code = err?.code || '';
       setError(
         code === 'auth/invalid-credential'
-          ? 'Email or password is incorrect. Use “Forgot password? Send reset link” to set a new password, then sign in as Administrator.'
+          ? 'Email or password is incorrect. Use “Forgot password? Send reset link” to set a new password.'
           : err?.message || 'Operation failed. Check your details and network connectivity.'
       );
     } finally {
@@ -204,7 +200,7 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row font-sans">
-
+      
       {/* LEFT COLUMN — Official Branding & Privacy Guarantee */}
       <div className="w-full md:w-[42%] bg-[#0F6E4F] text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden shrink-0">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/30 via-transparent to-transparent pointer-events-none" />
@@ -216,9 +212,7 @@ export const Login: React.FC = () => {
             <span className="font-extrabold text-xl tracking-wider block leading-tight">LSG Track</span>
             <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Local-First Webtool</span>
           </div>
-
         </div>
-
 
         {/* Center Copy Banner */}
         <div className="my-auto space-y-6 z-10 py-8">
@@ -269,7 +263,7 @@ export const Login: React.FC = () => {
       {/* RIGHT COLUMN — SECURE LOGIN & REGISTRATION TERMINAL */}
       <div className="w-full md:w-[58%] bg-white p-8 md:p-12 flex flex-col justify-center">
         <div className="max-w-md w-full mx-auto space-y-6">
-
+          
           {/* STEP 1: ONBOARDING PANCHAYATH PICKER */}
           {step === 'picker' ? (
             <div className="space-y-5">
@@ -289,7 +283,7 @@ export const Login: React.FC = () => {
               )}
 
               <form onSubmit={handleConfirmPanchayath} className="space-y-4 text-xs">
-
+                
                 {!manualMode ? (
                   <>
                     {/* District Dropdown */}
@@ -373,7 +367,7 @@ export const Login: React.FC = () => {
           ) : (
             /* STEP 2: FIREBASE LOGIN / SIGN UP TERMINAL */
             <div className="space-y-5">
-
+              
               {/* Resolved Panchayath Header Badge */}
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
                 <div>
@@ -446,7 +440,7 @@ export const Login: React.FC = () => {
               )}
 
               <form onSubmit={handleCredentialsSubmit} className="space-y-4 text-xs">
-
+                
                 {/* Full Name Field (Sign Up Only) */}
                 {authMode === 'signup' && (
                   <div>
