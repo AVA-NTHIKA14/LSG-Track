@@ -13,10 +13,15 @@ import {
   KeyRound,
   Mail,
   UserPlus,
-  LogIn
-} from 'lucide-react';
+  LogIn,
+  Eye,
+  EyeOff,
+  Globe
+} 
+  from 'lucide-react';
 import { authService } from '../services/authService';
 import { dbService } from '../services/dbService';
+import { isFirebaseEnabled } from '../services/firebaseConfig';
 import type { UserRole } from '../types';
 import { 
   KERALA_DISTRICTS, 
@@ -136,13 +141,17 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      if (authMode === 'signin') {
-        const profile = await authService.loginWithCredentials(email, password, resolvedPanchayath.code);
-        if (profile && profile.role !== loginRole) {
-          await authService.logout();
-          throw new Error('The selected role does not match this account. Please select your assigned role.');
-        }
-        navigate('/');
+     if (authMode === 'signin') {
+      if (!isFirebaseEnabled) {
+        throw new Error('Firebase Auth is not configured. Running in offline mode.');
+      }
+      const profile = await authService.loginWithCredentials(email, password, resolvedPanchayath.code);
+      if (profile && profile.role !== loginRole) {
+        await authService.logout();
+        throw new Error(`This account is registered as ${profile.role}. Please select that role and try again.`);
+      }
+      navigate('/');
+    }
       } else {
         if (!fullName.trim()) {
           setError('Please enter your full official name.');
@@ -200,14 +209,16 @@ export const Login: React.FC = () => {
       <div className="w-full md:w-[42%] bg-[#0F6E4F] text-white p-8 md:p-12 flex flex-col justify-between relative overflow-hidden shrink-0">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/30 via-transparent to-transparent pointer-events-none" />
 
-        {/* Top Header Logo */}
-        <div className="flex items-center space-x-3 z-10">
-          <MapPin className="w-7 h-8 text-white" aria-hidden="true" />
-          <div>
-            <span className="font-extrabold text-xl tracking-wider block leading-tight">LSG Track</span>
-            <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Local-First Webtool</span>
-          </div>
+      {/* Top Header Logo */}
+      <div className="flex items-center space-x-3 z-10">
+         <MapPin className="w-7 h-8 text-white" aria-hidden="true" />
+         <div>
+           <span className="font-extrabold text-xl tracking-wider block leading-tight flex items-center gap-1.5">
+             LSG Track <Globe size={14} className="text-emerald-300 opacity-80" />
+           </span>
+          <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Local-First Webtool</span>
         </div>
+       </div>
 
         {/* Center Copy Banner */}
         <div className="my-auto space-y-6 z-10 py-8">
