@@ -3,7 +3,15 @@
     "title": "LSG Track",
     "subtitle": "Grama Panchayat GIS Trade License Webtool",
     "tagline": "Built for Kerala Grama Panchayat Secretaries",
-    "privacy_banner": "Your panchayat's data stays on this device — nothing is sent to any server."
+    "privacy_banner": "Your panchayat's data stays on this device — nothing is sent to any server.",
+    "privacy_banner_synced": "Your Panchayat's data is securely synced to your authorized Grama Panchayat workspace.",
+    "feature_gis": "Offline-Capable GIS Map & Ward Compliance Choropleth",
+    "feature_sync_offline": "Zero Backend & Free wa.me WhatsApp Links",
+    "feature_sync_synced": "Cloud-Synced Across Devices & Free wa.me WhatsApp Links",
+    "feature_backup": "Full Panchayat Local Backup & Restore",
+    "tagline_offline": "Local-First Webtool",
+    "tagline_synced": "Cloud-Synced Platform"
+  },
   },
   "entry": {
     "welcome": "Open Local Workspace",
