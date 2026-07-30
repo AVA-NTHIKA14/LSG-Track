@@ -13,10 +13,9 @@ import {
   KeyRound,
   Mail,
   UserPlus,
-  LogIn
-
-
-
+  LogIn,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 
@@ -50,6 +49,7 @@ export const Login: React.FC = () => {
   // Authentication Form State
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [fullName, setFullName] = useState<string>('');
   const [role, setRole] = useState<UserRole>('Panchayat Section Clerk');
   const [loginRole, setLoginRole] = useState<UserRole>('Administrator');
@@ -113,7 +113,7 @@ export const Login: React.FC = () => {
     if (manualMode) {
       targetCode = manualCodeInput.trim().toUpperCase();
       if (!targetCode) {
-        setError('Please enter a valid Panchayath LSGD Code (e.g. G070702).');
+        setError('Please enter a valid LSGD Code (Example: G070702)');
         return;
       }
     }
@@ -149,7 +149,7 @@ export const Login: React.FC = () => {
         const profile = await authService.loginWithCredentials(email, password, resolvedPanchayath.code);
         if (profile && profile.role !== loginRole) {
           await authService.logout();
-          throw new Error('The selected role does not match this account. Please select your assigned role.');
+          throw new Error(`This account is registered as ${profile.role}. Please select ${profile.role} to continue.`);
         }
         navigate('/');
 
@@ -170,7 +170,7 @@ export const Login: React.FC = () => {
           panchayatCode: resolvedPanchayath.code,
           wardNumber: role === 'Ward Member' || role === 'ward_member' ? wardNumber : undefined
         });
-        setResetMessage(`✓ Account created successfully for ${email}! Status is PENDING secretarial approval.`);
+        setResetMessage('Your registration has been submitted successfully. Your account is awaiting approval by the Panchayat Secretary. This usually takes 1–2 working days. If approval is urgent, please contact your Panchayat office.');
         setAuthMode('signin');
         setPassword('');
       }
@@ -178,7 +178,7 @@ export const Login: React.FC = () => {
       const code = err?.code || '';
       setError(
         code === 'auth/invalid-credential'
-          ? 'Email or password is incorrect. Use “Forgot password? Send reset link” to set a new password, then sign in as Administrator.'
+          ? 'Please verify your credentials and selected role. If the problem continues, contact your Panchayat administrator.'
           : err?.message || 'Operation failed. Check your details and network connectivity.'
       );
     } finally {
@@ -206,6 +206,11 @@ export const Login: React.FC = () => {
     }
   };
 
+  const handleLanguageChange = (language: 'en' | 'ml') => {
+    i18n.changeLanguage(language);
+    localStorage.setItem('cp_language', language);
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row font-sans">
 
@@ -218,7 +223,7 @@ export const Login: React.FC = () => {
           <MapPin className="w-7 h-8 text-white" aria-hidden="true" />
           <div>
             <span className="font-extrabold text-xl tracking-wider block leading-tight">LSG Track</span>
-            <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Local-First Webtool</span>
+            <span className="text-[10px] text-emerald-200 uppercase font-mono tracking-widest block">Panchayat Monitoring Portal</span>
           </div>
 
         </div>
@@ -241,25 +246,25 @@ export const Login: React.FC = () => {
           <div className="bg-emerald-950/40 border border-emerald-400/30 rounded-2xl p-4 space-y-2.5 shadow-inner">
             <div className="flex items-center space-x-2 text-emerald-300 font-bold text-xs">
               <HardDrive size={16} />
-              <span>{i18n.language === 'ml' ? 'സെക്യൂർ ഫയർബേസ് ആധികാരികത' : 'Firebase Authenticated Access'}</span>
+              <span>{i18n.language === 'ml' ? 'സുരക്ഷിത ഫയർബേസ് ആധികാരികത' : 'Secure Firebase Authentication'}</span>
             </div>
             <p className="text-[11px] text-emerald-100/80 leading-relaxed">
-              Authorized local body credentials required for full data security and role-based access control.
+              Secure sign-in and role-based access for authorized local body staff.
             </p>
           </div>
 
           <div className="space-y-3 pt-2 text-xs">
             <div className="flex items-center space-x-3">
               <CheckCircle2 size={16} className="text-emerald-300 shrink-0" />
-              <span>Offline GIS Map & Ward Compliance Choropleth</span>
+              <span>Offline-capable field workflows</span>
             </div>
             <div className="flex items-center space-x-3">
               <CheckCircle2 size={16} className="text-emerald-300 shrink-0" />
-              <span>Zero Backend & Free wa.me WhatsApp Links</span>
+              <span>GIS-enabled Panchayat Monitoring</span>
             </div>
             <div className="flex items-center space-x-3">
               <CheckCircle2 size={16} className="text-emerald-300 shrink-0" />
-              <span>Full Panchayath Local Backup & Restore</span>
+              <span>Encrypted cloud synchronization</span>
             </div>
           </div>
         </div>
@@ -273,7 +278,12 @@ export const Login: React.FC = () => {
       {/* RIGHT COLUMN — SECURE LOGIN & REGISTRATION TERMINAL */}
       <div className="w-full md:w-[58%] bg-white p-8 md:p-12 flex flex-col justify-center">
         <div className="max-w-md w-full mx-auto space-y-6">
-
+          <div className="flex justify-end" aria-label="Language selection">
+            <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-[10px] font-bold">
+              <button type="button" onClick={() => handleLanguageChange('en')} aria-pressed={i18n.language === 'en'} className={`rounded-md px-2 py-1 transition ${i18n.language === 'en' ? 'bg-[#0F6E4F] text-white' : 'text-slate-600 hover:text-slate-900'}`}>EN</button>
+              <button type="button" onClick={() => handleLanguageChange('ml')} aria-pressed={i18n.language === 'ml'} className={`rounded-md px-2 py-1 transition ${i18n.language === 'ml' ? 'bg-[#0F6E4F] text-white' : 'text-slate-600 hover:text-slate-900'}`}>മലയാളം</button>
+            </div>
+          </div>
           {/* STEP 1: ONBOARDING PANCHAYATH PICKER */}
           {step === 'picker' ? (
             <div className="space-y-5">
@@ -282,7 +292,7 @@ export const Login: React.FC = () => {
                   {i18n.language === 'ml' ? 'പഞ്ചായത്ത് തിരഞ്ഞെടുക്കുക' : 'Select Your Grama Panchayat'}
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  {i18n.language === 'ml' ? 'ജില്ലയും ഗ്രാമപഞ്ചായത്തും തിരഞ്ഞെടുത്ത് വർക്ക്‌സ്‌പെയിസ് ആരംഭിക്കുക.' : 'Choose your district and panchayath to resolve your local database bucket.'}
+                  {i18n.language === 'ml' ? 'ജില്ലയും ഗ്രാമപഞ്ചായത്തും തിരഞ്ഞെടുത്ത് തുടരുക.' : 'Select your District and Panchayat to continue.'}
                 </p>
               </div>
 
@@ -324,7 +334,8 @@ export const Login: React.FC = () => {
                         value={selectedPanchayathCode}
                         onChange={(e) => setSelectedPanchayathCode(e.target.value)}
                         aria-label="Select Grama Panchayat"
-                        className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                        disabled={panchayathList.length === 0}
+                        className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                       >
                         {panchayathList.map((p) => (
                           <option key={p.code} value={p.code}>
@@ -332,6 +343,7 @@ export const Login: React.FC = () => {
                           </option>
                         ))}
                       </select>
+                      {panchayathList.length === 0 && <p className="mt-1.5 text-[11px] text-slate-500">No Panchayats are currently available for this district.</p>}
                     </div>
                   </>
                 ) : (
@@ -344,12 +356,13 @@ export const Login: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Panangad Grama Panchayat"
+                      placeholder="e.g. G070702"
                       value={manualCodeInput}
                       onChange={(e) => setManualCodeInput(e.target.value.toUpperCase())}
                       aria-label="LSGD Panchayat Code"
                       className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-[#0F6E4F] uppercase"
                     />
+                    <p className="mt-1.5 text-[11px] text-slate-500">Enter the official LSGD code of your Panchayat.</p>
                   </div>
                 )}
 
@@ -361,7 +374,7 @@ export const Login: React.FC = () => {
                   >
                     {manualMode 
                       ? (i18n.language === 'ml' ? '← ജില്ല തിരിച്ചു തിരഞ്ഞെടുക്കുക' : '← Back to District Picker') 
-                      : (i18n.language === 'ml' ? 'പഞ്ചായത്ത് പേര് നേരിട്ട് നൽകുക' : 'Enter Panchayath Name Manually')}
+                      : (i18n.language === 'ml' ? 'LSGD കോഡ് നേരിട്ട് നൽകുക' : 'Enter LSGD Code Manually')}
                   </button>
                 </div>
 
@@ -485,6 +498,9 @@ export const Login: React.FC = () => {
                     aria-label="Official Email or Username"
                     className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                   />
+                  {authMode === 'signin' && email.trim() && !email.includes('@') && (
+                    <p className="mt-1.5 text-[11px] text-slate-500">Using a username creates an internal account. Password recovery works only with a real email address.</p>
+                  )}
                 </div>
 
                 {/* Password */}
@@ -493,15 +509,20 @@ export const Login: React.FC = () => {
                     <KeyRound size={15} className="text-[#0F6E4F]" />
                     <span>Password *</span>
                   </label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="••••••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    aria-label="Password"
-                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="••••••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      aria-label="Password"
+                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 pr-10 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
+                    />
+                    <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 hover:text-[#0F6E4F] focus:outline-none focus:ring-1 focus:ring-inset focus:ring-[#0F6E4F] rounded-r-xl">
+                      {showPassword ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Role Designation Selector (Sign Up Only) */}
@@ -517,10 +538,11 @@ export const Login: React.FC = () => {
                       aria-label="Designated Official Role"
                       className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F] focus:ring-1 focus:ring-[#0F6E4F]"
                     >
-                      <option value="Field Officer">ഫീൽഡ് ഓഫീസർ</option>
+                      <option value="Field Officer">{t('roles.field_officer')}</option>
                       <option value="Ward Member">{t('roles.ward_member')}</option>
                       <option value="Secretary">{t('roles.secretary')}</option>
                     </select>
+                    <p className="mt-1.5 text-[11px] text-slate-500">Field Officer (formerly Panchayat Section Clerk)</p>
                   </div>
                 )}
 
@@ -533,7 +555,7 @@ export const Login: React.FC = () => {
                     <select value={loginRole} onChange={(e) => setLoginRole(e.target.value as UserRole)} aria-label="Select your assigned role" className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-[#0F6E4F]">
                       <option value="Administrator">{t('roles.admin')}</option>
                       <option value="Secretary">{t('roles.secretary')}</option>
-                      <option value="Field Officer">{i18n.language === 'ml' ? 'ഫീൽഡ് ഓഫീസർ' : 'Field Officer'}</option>
+                      <option value="Field Officer">{t('roles.field_officer')}</option>
                       <option value="Ward Member">{t('roles.ward_member')}</option>
                     </select>
                   </div>
