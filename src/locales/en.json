@@ -12,7 +12,6 @@
     "tagline_offline": "Local-First Webtool",
     "tagline_synced": "Cloud-Synced Platform"
   },
-  },
   "entry": {
     "welcome": "Open Local Workspace",
     "sub": "Enter your Panchayath Code to open your panchayath's data on this device.",
