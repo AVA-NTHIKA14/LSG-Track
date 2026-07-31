@@ -67,13 +67,17 @@ export const Dashboard: React.FC = () => {
   }, [activePanchayatCode]);
 
   const licensed = buildings.filter(b => b.status === 'licensed').length;
-  const unlicensed = buildings.filter(b => b.status === 'unlicensed').length;
-  const expired = licenses.filter(l => l.status === 'expired').length;
-  const soon = licenses.filter(l => l.status === 'active' && new Date(l.expiryDate).getTime() >= Date.now() && new Date(l.expiryDate).getTime() <= Date.now() + 7 * 86400000).length;
-  const pending = wardReports.filter(r => r.status === 'pending_verification').length;
-  const total = buildings.length;
-  const compliance = total ? Math.round((licensed / total) * 100) : 0;
-  const rankedWards = [...wards].sort((a, b) => a.compliancePercentage - b.compliancePercentage).slice(0, 6);
+const unlicensed = buildings.filter(b => b.status === 'unlicensed').length;
+const expired = licenses.filter(l => l.status === 'expired').length;
+const soon = licenses.filter(
+  l =>
+    l.status === 'active' &&
+    new Date(l.expiryDate).getTime() >= Date.now() &&
+    new Date(l.expiryDate).getTime() <= Date.now() + 7 * 86400000
+).length;
+const pending = wardReports.filter(r => r.status === 'pending_verification').length;
+const total = buildings.length;
+const compliance = total ? Math.round((licensed / total) * 100) : 0;const rankedWards = [...wards].sort((a, b) => a.compliancePercentage - b.compliancePercentage).slice(0, 6);
   const lastSync = syncHistory[0];
   const isMl = i18n.language === 'ml';
 
