@@ -2,56 +2,74 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { 
-      return request.auth != null; 
-    }
-    
-    function hasUserDoc() {
-      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+
+    function signedIn() {
+      return request.auth != null;
     }
 
-    function getUserData() { 
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; 
+    function hasUserDoc() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
-    
+
+    function getUserData() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
     function isApproved() {
-      return hasUserDoc() && getUserData().status == 'APPROVED';
+      return hasUserDoc() &&
+        getUserData().status in ['APPROVED', 'Approved', 'approved'];
     }
-    
-    function isSecretaryOrAdmin() { 
+
+    function isAdmin() {
+      return isApproved() &&
+        getUserData().role in [
+          'Administrator',
+          'administrator',
+          'admin'
+        ];
+    }
+
+    function isSecretaryOrAdmin() {
       return isApproved() && (
-        getUserData().role == 'Secretary' || 
-        getUserData().role == 'secretary' || 
-        getUserData().role == 'Administrator' || 
-        getUserData().role == 'admin'
-      ); 
+        isAdmin() ||
+        getUserData().role in ['Secretary', 'secretary']
+      );
     }
-    
+
     function belongsToPanchayat(panchayathId) {
       return isApproved() && (
-        getUserData().role == 'Administrator' || 
-        getUserData().role == 'admin' || 
-        getUserData().panchayathId == 'all' || 
-        getUserData().panchayatCode == 'all' || 
-        getUserData().panchayathId == panchayathId || 
+        isAdmin() ||
+        getUserData().panchayathId == 'all' ||
+        getUserData().panchayatCode == 'all' ||
+        getUserData().panchayathId == panchayathId ||
         getUserData().panchayatCode == panchayathId
       );
     }
 
-    // User profile documents — allow any signed-in user to read user profiles without circular rule evaluation
+    // User profiles
     match /users/{userId} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == userId;
-      allow update: if signedIn() && (request.auth.uid == userId || isSecretaryOrAdmin());
-      allow delete: if signedIn() && (request.auth.uid == userId || isSecretaryOrAdmin());
+
+      allow create: if signedIn() &&
+        request.auth.uid == userId;
+
+      allow update: if signedIn() &&
+        (request.auth.uid == userId || isSecretaryOrAdmin());
+
+      allow delete: if signedIn() &&
+        (request.auth.uid == userId || isSecretaryOrAdmin());
     }
 
+    // Application configuration
     match /config/{configId} {
       allow read: if signedIn();
       allow write: if isSecretaryOrAdmin();
     }
 
-    // Multi-tenant Panchayat document collections & subcollections
+    // Panchayat documents and subcollections
     match /panchayaths/{panchayathId} {
       allow read, write: if belongsToPanchayat(panchayathId);
 
