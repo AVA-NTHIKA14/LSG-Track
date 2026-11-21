@@ -3,6 +3,7 @@ import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmail
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { UserProfile, UserRole } from '../types';
 import { isAuthorizedPortalRole } from './portalRoles';
+import { normalizeRole } from './roleAccess';
 
 const AUTH_KEY = 'cp_license_active_user';
 const ACTIVE_PANCHAYAT_KEY = 'cp_active_panchayat_code';
@@ -140,7 +141,7 @@ export const authService = {
     }
 
     const userTenantCode = profile.panchayathId || profile.panchayatCode;
-    if (profile.role !== 'Administrator' && profile.role !== 'admin' && userTenantCode !== panchayathId) {
+    if (normalizeRole(profile.role) !== 'admin' &&userTenantCode !== panchayathId) {
       await firebaseSignOut(auth);
       clearSession();
       throw new Error(`Jurisdiction Mismatch: Account belongs to Panchayat ${userTenantCode}, not selected ${panchayathId}.`);
