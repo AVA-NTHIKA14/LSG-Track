@@ -147,7 +147,7 @@ export const Login: React.FC = () => {
     try {
       if (authMode === 'signin') {
         const profile = await authService.loginWithCredentials(email, password, resolvedPanchayath.code);
-        if (profile && profile.role !== loginRole) {
+        if (profile &&normalizeRole(profile.role) !== normalizeRole(loginRole)) {
           await authService.logout();
           throw new Error(`This account is registered as ${profile.role}. Please select ${profile.role} to continue.`);
         }
