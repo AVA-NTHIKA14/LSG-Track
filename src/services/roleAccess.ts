@@ -2,16 +2,33 @@ import type { UserRole } from '../types';
 
 export type PortalRole = 'admin' | 'secretary' | 'field_officer' | 'ward_member';
 
-export const normalizeRole = (role: UserRole | string | undefined): PortalRole | null => {
-  switch (role) {
-    case 'Administrator': case 'admin': return 'admin';
-    case 'Secretary': case 'secretary': return 'secretary';
-    case 'Field Officer': case 'field_officer': case 'Panchayat Section Clerk': case 'clerk': return 'field_officer';
-    case 'Ward Member': case 'ward_member': return 'ward_member';
-    default: return null;
+export const normalizeRole = (
+  role: UserRole | string | undefined
+): PortalRole | null => {
+  const normalized = role?.trim().toLowerCase();
+
+  switch (normalized) {
+    case 'administrator':
+    case 'admin':
+      return 'admin';
+
+    case 'secretary':
+      return 'secretary';
+
+    case 'field officer':
+    case 'field_officer':
+    case 'panchayat section clerk':
+    case 'clerk':
+      return 'field_officer';
+
+    case 'ward member':
+    case 'ward_member':
+      return 'ward_member';
+
+    default:
+      return null;
   }
 };
-
 const permissions: Record<PortalRole, string[]> = {
   admin: ['*'],
   secretary: ['/', '/map', '/registry', '/report', '/renewals', '/notifications', '/settings', '/profile'],
